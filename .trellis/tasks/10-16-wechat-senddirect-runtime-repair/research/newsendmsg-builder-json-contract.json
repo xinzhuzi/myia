@@ -1,0 +1,53 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_type": "offline frozen ARM64 and reconstructed literal bytes",
+  "scope": "one JSON parser output to numeric-one text builder; not a universal send schema",
+  "json_route": {
+    "outer": "0x286fbac parses its incoming x1 string with0x74916c, then conditionally calls0x291d53c",
+    "coordinator": "0x291d53c passes incoming x1 JSON value in x1 and owned completion address in x2 to0x291dab8; parsed output through hidden x8",
+    "gate": "parser output byte+0x48==1 required before0x291fb70; original coordinator x2 is forwarded as builder x2, not the parsed chat_id",
+    "parser": "0x291dab8: x1=JSON value,x2=completion address,hidden x8=output; no claim for unused incoming x0",
+    "builder": "0x291fb70: x1=parsed object,x2=forwarded string,x3=owned completion address"
+  },
+  "fields": {
+    "chat_id": {
+      "literal": [{"address": "0x8585938", "size": 8}],
+      "parsed_offset": "0x0",
+      "observed_validation": "field found, tag3 string and nonempty length before continuing",
+      "input_destination": "numeric-one path copies parsed string to input+0x90; context constructor copies input+0x90 to context+0x38",
+      "database_recipient_direction_proven": false
+    },
+    "message_type": {
+      "literal": [{"address": "0x866d0f8", "size": 8}, {"address": "0x8489788", "size": 4}],
+      "parsed_offset": "0x18",
+      "observed_conversion": "tag5/6 uses0xbbfa44; tag3 string has separate0x4b567f0 conversion; complete numeric conversion semantics not proved",
+      "numeric_one": "builder compares parsed+0x18 to1 and writes input+0xe4=1; high component remains constructor zero"
+    },
+    "content_xml_base64": {
+      "literal": [{"address": "0x8824cb0", "size": 16}, {"immediate_hex": "363400"}],
+      "parsed_offset": "0x20",
+      "observed_selection": "nonempty tag3 string is selected before content_xml; direct-content flag+0x40 remains0",
+      "builder_effect": "calls0x206bc(data,length,output string); false result stops the decoded path, success copies result into local body",
+      "decoder_boundary": "0x206bc uses0xabf6c and rejects return UINT64_MAX; underlying codec semantics not fully traced"
+    },
+    "content_xml": {
+      "literal": [{"address": "0x84f26e0", "size": 8}, {"address": "0x8572320", "size": 4}],
+      "parsed_offset": "0x20",
+      "observed_selection": "fallback nonempty tag3 string; sets direct-content flag+0x40=1",
+      "builder_effect": "flag==1 copies parsed+0x20 directly to local body sp+0xf8; numeric-one path copies body to input+0x5c8"
+    }
+  },
+  "parsed_layout": {"chat_id_string": "0x0", "message_type_low32": "0x18", "content_string": "0x20", "direct_content_flag": "0x40", "parse_success_flag": "0x48"},
+  "additional_gates": "builder requires nonnull0x2ab6388 result; special content routing precedes numeric-one branch; service pair must be nonnull; optional subtype and all error paths not fully covered",
+  "json_field_to_text_input_mapping_proven": true,
+  "all_builder_preconditions_proven": false,
+  "recipient_direction_verified": false,
+  "whole_path_content_preservation_proven": false,
+  "runtime_observed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "remaining": ["upstream route identity and optional/subtype/error semantics", "chat_id through record and network recipient direction", "whole-path record changes", "real scheduler/config/thread, cancellation and final drain", "complete adapter and independent delivery receipt"],
+  "safety": "account-safety-stop-20261016.md remains authoritative; no live operations or new observation requests"
+}

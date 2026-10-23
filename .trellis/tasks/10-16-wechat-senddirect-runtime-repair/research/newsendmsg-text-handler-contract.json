@@ -1,0 +1,63 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_type": "offline frozen ARM64 instructions and dyld chained fixups",
+  "text_registration": {
+    "initializer": "0x30e3fb0",
+    "name_helper": "0x30e74f4",
+    "name": "TextMessageHandler",
+    "factory": "0x30e7aa0",
+    "map_insert": "0x30e7be8",
+    "numeric_name_mapping": "initializer converts integer 1 to string and maps that key to the same name",
+    "allocation_bytes": "0x398",
+    "payload_offset": "0x18",
+    "base_constructor": "0x3065454",
+    "handler_vtable": "0x9de9a68",
+    "slots": {"0x78": "0x3105a98", "0x80": "0x30d82d8", "0x88": "0x303fdf0", "0x90": "0x30d8538", "0xd0": "0x3107afc", "0xd8": "0x3107b0c", "0xe0": "0x31099b8"}
+  },
+  "previous_known_handler_identity": {
+    "vtable": "0x9de7f68",
+    "name": "LocationMessageHandler",
+    "factory": "0x30eccc4",
+    "producer": "0x30bda14",
+    "limitation": "Its wire construction is useful shared evidence, but its business input must not be substituted for the text handler"
+  },
+  "text_preparation": {
+    "entry": "0x3105a98",
+    "registers": {"x0": "handler", "x1": "context shared pair address", "x8": "result storage"},
+    "validation": "handler+0xe0 target 0x31099b8 checks record and input dynamic casts; other branches return errors or use generic preparation",
+    "specialized_input_typeinfo": "0x9eb2598",
+    "content_copy": "specialized input+0x5c8 string -> context record+0x130",
+    "record_flag_clear": "record+0x258 byte = 0",
+    "next_preparation": "0x30db798, which may replace context record after copying/loading; full producer dispatch remains unproved"
+  },
+  "text_producer": {
+    "entry": "0x3107b0c",
+    "registers": {"x0": "handler", "x1": "context shared pair address", "x8": "result storage"},
+    "record_source": "context+0x18/+0x20 shared pair",
+    "field_one_getter": "0x30f1d74(context), ordinary fallback copies record+0x30; a predicate-controlled branch reads another nested object string",
+    "alternate_route": "if 0x4bb6cd4(getter result) is nonzero, calls 0x2849004 instead of the normal request branch",
+    "normal_request": {
+      "entry_constructor": "0x465bd88",
+      "field_1": "0x30f1d74 result -> nested string wrapper",
+      "field_2": "record+0x130 string",
+      "field_3": "record+0xc low 32 bits",
+      "field_4": "record+0x114 uint32",
+      "field_5": "0x33fcc(0x30f2168(context))",
+      "field_6": "nonempty record+0x160 string",
+      "request_helper": "0x30bee20, shared request path retained in pass62",
+      "response_copy": "on zero outer error, nonempty response list and zero first-entry error: record+0x118 = 2 and record+0xf8 = response entry+0x28",
+      "limitation": "Response mutation is static control flow, not an observed independent delivery receipt"
+    }
+  },
+  "notification_containers": {
+    "plain": {"entry": "0x30d00d0", "wrapper_vtable": "0x9de88a0", "invoke": "0x30dcaf4", "allocation_bytes": "0x2d8", "copied_record_offset": "0x60"},
+    "flagged": {"entry": "0x30d0a14", "wrapper_vtable": "0x9de8920", "invoke": "0x30dcee4", "allocation_bytes": "0x2e0", "flags_offset": "0x60", "copied_record_offset": "0x68"},
+    "dispatch": "receiver executor absent: invoke node function directly; executor present: copy record and submit an owned wrapper to executor+0x10",
+    "limitation": "Actual subscribers and executor type remain unproved; neither branch proves all callbacks drained"
+  },
+  "complete_context_to_text_producer_dispatch_proven": false,
+  "runtime_observed": false,
+  "target_attached": false,
+  "callable_for_send": false,
+  "send_verified": false
+}

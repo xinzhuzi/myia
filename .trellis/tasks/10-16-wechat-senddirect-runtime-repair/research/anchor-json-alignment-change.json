@@ -1,0 +1,25 @@
+{
+  "modified_at_utc": "2026-10-15T19:58:37.479365+00:00",
+  "path": "/Users/zhengbingjin/Library/Application Support/MYIA/wechat-bridge/send-direct-anchors.json",
+  "backup": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/anchor-json-backup-20261016/send-direct-anchors.json",
+  "wechat_version": "4.1.15",
+  "wechat_build": "270135",
+  "slice_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "before_sha256": "d2f9a19159a0e5b6c1b708cacabc2499004ea439c588230f1cd65199550d4b3f",
+  "after_sha256": "fc58dc6f6bc2f0e0bc7890b5ce7857be265b445c9658702205eacd788ab24c6b",
+  "changed_fields": [
+    "note",
+    "offsets.send_entry",
+    "offsets.enqueue_a",
+    "offsets.enqueue_b",
+    "offsets.service_ptr_mode",
+    "offsets.svc_vtable_off",
+    "offsets.svc_invariants_hex",
+    "offsets.arg_abi"
+  ],
+  "binary_identity": "matched",
+  "callable_for_send": false,
+  "runtime_verified": false,
+  "actual_message_sent": false,
+  "limitation": "Retires the invalid native ABI recipe; does not implement native sending."
+}

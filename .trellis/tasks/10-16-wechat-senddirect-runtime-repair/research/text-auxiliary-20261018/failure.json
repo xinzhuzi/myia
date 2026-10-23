@@ -1,0 +1,1 @@
+{"returncode":1,"stage":"dependency contract digest key lookup","error":"KeyError: binary_sha256","actual_record_input_digest_key":"arm64_sha256","verification_json_written":false,"target_executed":false,"initial_source":"initial-verifier.py"}

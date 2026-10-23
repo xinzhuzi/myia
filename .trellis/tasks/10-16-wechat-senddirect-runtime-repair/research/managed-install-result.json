@@ -1,0 +1,12 @@
+{
+  "module": "/Users/zhengbingjin/Library/Application Support/MYIA/python/lib/python3.14/site-packages/wechat_bridge",
+  "package_version": "0.9.1",
+  "distribution_version": "0.9.1",
+  "source_differences": [],
+  "changed_distributions": {
+    "wechat-bridge": [
+      "0.8.4",
+      "0.9.1"
+    ]
+  }
+}

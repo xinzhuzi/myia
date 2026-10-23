@@ -1,0 +1,21 @@
+0x667dad0	f44fbea9	stp x20,x19,[sp, #-0x20]!
+0x667dad4	fd7b01a9	stp x29,x30,[sp, #0x10]
+0x667dad8	fd430091	add x29,sp,#0x10
+0x667dadc	130840f9	ldr x19,[x0, #0x10]
+0x667dae0	b30100b4	cbz x19,0x0667db14
+0x667dae4	68220091	add x8,x19,#0x8
+0x667dae8	09008092	mov x9,#-0x1
+0x667daec	0801e9f8	ldaddal x9,x8,[x8]
+0x667daf0	280100b5	cbnz x8,0x0667db14
+0x667daf4	680240f9	ldr x8,[x19]
+0x667daf8	080940f9	ldr x8,[x8, #0x10]
+0x667dafc	f40300aa	mov x20,x0
+0x667db00	e00313aa	mov x0,x19
+0x667db04	00013fd6	blr x8
+0x667db08	e00313aa	mov x0,x19
+0x667db0c	44082b94	bl 0x0713fc1c
+0x667db10	e00314aa	mov x0,x20
+0x667db14	01048052	mov w1,#0x20
+0x667db18	fd7b41a9	ldp x29,x30,[sp, #0x10]
+0x667db1c	f44fc2a8	ldp x20,x19,[sp], #0x20
+0x667db20	3b092b14	b 0x0714000c

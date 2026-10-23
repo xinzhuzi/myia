@@ -1,0 +1,9 @@
+{
+  "args": [
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/operation-thread-20261018-verified/job_operation",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/operation-thread-20261018-verified/owned-input.bin"
+  ],
+  "returncode": 0,
+  "stdout": "{\"cases\":10,\"job_completion_is_not_request_drain\":true,\"job_cancel_is_not_request_cancel\":true,\"late_callback_preserves_terminal_state\":true,\"owned_wire_matches_factory_copy\":true,\"balanced_lifetime\":true,\"wechat_loaded\":false,\"sent\":false}\n",
+  "stderr": ""
+}

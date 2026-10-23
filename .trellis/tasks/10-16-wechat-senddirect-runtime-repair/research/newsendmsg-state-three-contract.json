@@ -1,0 +1,37 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_type": "offline frozen ARM64 instructions and decoded dyld chained fixups",
+  "caller": {
+    "entry": "0x31ce06c",
+    "conditions": ["prior result words both zero", "context flag from 0x30f321c has bit zero set", "0x318d680 returns a nonnull handler"],
+    "state_setter": "0x30f3214",
+    "state_value": 3,
+    "next_entry": "0x30d4354"
+  },
+  "state_three_dispatch": {
+    "entry": "0x30d4354",
+    "registers": {"x0": "handler", "x1": "context shared pair address", "x8": "result storage"},
+    "kind_source": "context input virtual slot +0x20",
+    "kind_one": {"condition": "input byte +0xd8 equals 1", "true_slot": "0x88", "false_slot": "0x80"},
+    "kind_two_and_three_slot": "0xa0",
+    "result": "48-byte aggregate copied from local result, retaining its shared pair; not a delivery receipt"
+  },
+  "known_handler": {
+    "vtable": "0x9de7f68",
+    "decoded_slots": {"0x78": "0x30bcd9c", "0x80": "0x30d82d8", "0x88": "0x303fdf0", "0xa0": "0x30d8cac", "0xd8": "0x30bda14"},
+    "preflight": "0x30d28a4 kind-one branch invokes +0x78; its exact target is 0x30bcd9c, not 0x30d7958",
+    "kind_one_dispatch": "0x303fdf0 retains a context shared pair, then redirects to the same handler +0x80 while preserving hidden x8",
+    "slot_80": "0x30d82d8 logs conditionally and constructs a zero/zero result via 0x304f1cc",
+    "limitation": "No complete association from the selected runtime handler through +0xd8 to newsendmsg has been proved"
+  },
+  "following_notifications": {
+    "kind_four": "0x30d05d0(handler, 0x800000000, record) forwards to 0x30d0a14(handler+0x90, flags, record)",
+    "other_kinds": "0x30cfe58(handler, record) forwards to 0x30d00d0(handler+0x18, record)",
+    "limitation": "Downstream observer targets remain untraced; these calls do not prove or disprove a later producer invocation"
+  },
+  "complete_context_to_newsendmsg_producer_association_proven": false,
+  "runtime_observed": false,
+  "target_attached": false,
+  "callable_for_send": false,
+  "send_verified": false
+}

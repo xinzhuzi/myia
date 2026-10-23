@@ -1,0 +1,5 @@
+0x465e934	083440b9	ldr w8,[x0, #0x34]
+0x465e938	e90f8052	mov w9,#0x7f
+0x465e93c	3f01286a	bics wzr,w9,w8
+0x465e940	e0179f1a	cset w0,eq
+0x465e944	c0035fd6	ret

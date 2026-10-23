@@ -1,0 +1,77 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass157/native-fn-30efce4.asm",
+      "instructions": 1809,
+      "sha256": "323f286ba360bbef946bc2e77e3c0022ba1a4eda70261d4d3c047a4aca5bc240",
+      "pseudocode_sha256": "777506cd5118d34dffc16fdc27bd713aa221cf9df53db98941e496b30fe0629d"
+    },
+    {
+      "file": "text-contract-pass203/native-fn-3107b0c.asm",
+      "instructions": 1805,
+      "sha256": "9f1ff4c6e84862d3ecb73ea0c0122db16c6f88130274dd40b63230645761140d",
+      "pseudocode_sha256": "b4f1218b42e193c33d50664b0fbf895e25ab88091e622c5d0a377c71d077b431"
+    },
+    {
+      "file": "text-contract-pass204/native-fn-30f1d74.asm",
+      "instructions": 94,
+      "sha256": "d8ebec839644ab22f7d1d4f16711fa2b52382057583c7fdc17b94f9853416975",
+      "pseudocode_sha256": "7cbae64757161ebad17f5cd6325b6a679ffe64fe6edfd397397868fac1a97780"
+    },
+    {
+      "file": "text-contract-pass224/native-fn-4cbd624.asm",
+      "instructions": 60,
+      "sha256": "e98182667b280109e4f783c93ea5997c97ef6882f627302082ab350bd39098fd",
+      "pseudocode_sha256": "0e0ded0201403622be79c7fa67e659086aaebdd4686a147b6497ac0da7169c97"
+    },
+    {
+      "file": "text-contract-pass245/native-fn-4bb4a4c.asm",
+      "instructions": 131,
+      "sha256": "852a1ff0ea488c8d1aeeb7639c91949ac378dc0dbc354a46e69ee42c1ceeb249",
+      "pseudocode_sha256": "00cb8c122817c208a18dd4b80af4ece69e7d8400c8e84dc01a9c183027ac2269"
+    },
+    {
+      "file": "text-contract-pass245/native-fn-4bb6cd4.asm",
+      "instructions": 66,
+      "sha256": "7b81eb110160e4bc9a16810cebba21768ab24ec7cbbf807aefbbc47baf108f47",
+      "pseudocode_sha256": "54045c5660adf4da10ac95847d381801144574dd0eadafb7a5bd09980eda9b2a"
+    },
+    {
+      "file": "text-contract-pass246/native-fn-4cbd748.asm",
+      "instructions": 59,
+      "sha256": "939412fd8c2b00fff34c552e21205130f1b61b69d994803fbea7e795309f559e",
+      "pseudocode_sha256": "14f3a891c7b5f9e6d8b08b0bec15d6ad64b91aae064cf823805b287dd250d2e8"
+    },
+    {
+      "file": "text-contract-pass246/native-fn-66881c4.asm",
+      "instructions": 44,
+      "sha256": "96cf955380aa59018f0fd592d1755af8bc689949ad4608d307c02c47bb212c9b",
+      "pseudocode_sha256": "c5f53cb47711cf1f2bcbcd829f18edae55548d0c99e9066ea0257e511a491a54"
+    }
+  ],
+  "instructions_matched": 4068,
+  "instruction_positions_checked": 48,
+  "verifier_sha256": "da4486673c28d2389d2166939de39f5ca081c8c0cb0c76a0d5761ee6434375b0",
+  "prior_contract_sha256": {
+    "account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    "newsendmsg-builder-json-contract.json": "c80a88b0bc623f80ee09984c9a39e1399bd89ebef60610507c0dffe720b32c5d",
+    "newsendmsg-text-handler-contract.json": "75995ef81a55770aac6463f2f51c810e75f4b840fea77997b6c45297f84e2c65"
+  },
+  "conditional_mapping": {
+    "initial_record": "record = allocation + 0x18; input+0x90 string -> allocation+0x48 = record+0x30",
+    "other_initial_string": "service 0x4669774 virtual+0x28 string -> record+0x18; business identity not established here",
+    "special_predicate": "0x4bb4a4c checks suffix @qy_u or @qy_g on 0x4cbd624(record)",
+    "selector": "for low type != 10000, record+0x30 if record+0x18 is nonempty and equals the service string, otherwise record+0x18; type 10000 has a separate equality branch",
+    "field_one_getter": "0x30f1d74 copies record+0x30 unless special predicate and record+0x230 object select nested+0x98 object string+0x78; null record produces empty string",
+    "producer_gate": "getter string containing @weclaw uses 0x2849004, otherwise normal newsendmsg branch",
+    "normal_field_one": "getter output sp+0x158 -> request entry+8 wrapper string+8"
+  },
+  "whole_recipient_route_proven": false,
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "limitations": "Static conditional data flow only. Record replacement/mutation, all builder gates, service-string identity, real scheduling/drain, complete adapter and independent delivery remain unproved."
+}

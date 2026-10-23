@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "scope": "fresh source/artifact hashes, independent LEB/ARM64 decoding, current acceptance gates",
+  "verification_sha256": "1522ded1d17ee7b7ebe77ba0f83465776b39a11315946035be683fb188f0149a",
+  "leb_vectors": 6,
+  "malformed_rejections": 2,
+  "resume_branches_checked": [
+    "0x667fa14",
+    "0x667fd00",
+    "0x6679084",
+    "0x6674c5c"
+  ],
+  "group_cancel_slot": {
+    "slot": "0x9fb2c38",
+    "decoded": "0x667e8cc",
+    "chain_steps": 1297
+  },
+  "task_artifact_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/prd.md": "d42502f8857a8d5263206a61f9abf44d338630031c65867081793c14e5ff397a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/design.md": "63b147ad05c21e1bcaf04ff6d5e1a9453d8042cdd0ff6cc48f4277be97406913",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "f5a33844c843b80af6998e7eb58a03b56ff50bc35671b46bdc54bbc5e801d9e9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task-tiers.json": "7a0e53c3d14c5ebf7fdd2002bec0ebd009707c22e1ecd9e102b6a7361a714a9b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-exception-boundary-result.md": "1ff6e0de6cc4f90981f17e3aa850337da95a43defcb90c68967bbbcbdbee4214",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/completion-gap-audit-20261017.md": "a60a36797988b4c5c7970c08b682a546bf5dc435d223d31471b2628b54536e85"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "callable_for_send": false,
+  "A7_complete": false
+}

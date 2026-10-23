@@ -1,0 +1,69 @@
+{
+  "scope": "frozen 4.1.15 selected login callers, state construction, map conversion and cached numbered-string provenance",
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "selector_0_callsite": {
+    "caller": "0x11bad90",
+    "callsite": "0x11bb7f8",
+    "target": "0x41009a0",
+    "first_string": "empty std::string at sp+0x68, constructed from NUL at 0x983dbd0 by 0x255b9c",
+    "second_string": "empty std::string at sp+0x30, constructed from same NUL",
+    "scope_limit": "this callsite only; does not prove selector0 final account value"
+  },
+  "selector_1_callsite": {
+    "caller": "0x2b38c0",
+    "callsite": "0x2b3984",
+    "target": "0x4101688",
+    "first_string": "state+0x18",
+    "raw_value": "state+0x60",
+    "third_string": "state+0x30",
+    "fourth_string": "state+0x48",
+    "state_vtable": "0x9bf7f90",
+    "state_invoke_slot": "0x9bf7ff0",
+    "state_type_name_pointer_slot": "0x9bf8030",
+    "state_type_name": "_6074bdc6",
+    "business_identity_verified": false
+  },
+  "selected_state_constructor": {
+    "function": "0x2b355c",
+    "thunk": "0x2b35f8",
+    "abi": "x0 state, x1 base-constructor argument, x2 input structure",
+    "copy": "0x2b3f8c copies three strings at 0x0/0x18/0x30 and raw64 at 0x48 to state+0x18",
+    "factory": "0x2a16a8",
+    "factory_selector": 6,
+    "factory_callsite": "0x2a22c8",
+    "input_first_string_route": "map key object 0xa51cd78 -> value/node+0x20 or default variant -> 0x6fe2590 hidden x8 string-like output -> 0x20ba10 hidden x8 byte-string output -> copies to constructor input",
+    "conversion_is_identity_for_all_values_verified": false,
+    "all_external_state_mutations_verified": false
+  },
+  "selected_map_producer": {
+    "function": "0x2b1650",
+    "source_getter": "0x3c7579c",
+    "getter_first_output": "cached string object 0xa4266c0 -> getter x0 output -> caller sp+0xd8",
+    "getter_success_gate": "all three cached strings are nonempty after optional callback invocation; return 0 leaves caller's map additions skipped",
+    "conversion": "selected C-string data/length -> 0x6ef81e0 -> variant type 10 via 0x6fe12fc",
+    "insertion": "0x2b1cf4 calls 0x2b2110 with map at sp+0xd0 and key object 0xa51cd78; swaps converted value into returned node+0x20",
+    "unconditional_delivery_to_state_factory_verified": false
+  },
+  "selected_cache_producer": {
+    "function": "0x3c7534c",
+    "numbered_key": "3",
+    "key_construction": "0x3c75570 mov w10,#0x33; stores halfword including NUL into 0xa4266eb",
+    "value_production": "0x3c75594 calls 0x487929c with key object 0xa4266eb; moves hidden x8 returned std::string into 0xa4266c0",
+    "getter_semantics_verified": false,
+    "final_business_name_verified": false,
+    "all_cache_producers_and_concurrency_verified": false
+  },
+  "previous_contract": "newsendmsg-login-input-contract.json",
+  "remaining": [
+    "exact business identity of cached numbered field3 and map key object's initialized text; conversion semantics and dispatcher linkage",
+    "selector0 full result preservation, all state/cache mutations and concurrent ownership",
+    "complete sender/recipient/record mutation and nested schema mapping",
+    "actual executor/thread identity, cancellation final cleanup, complete native adapter integration",
+    "real sending, independent receipt and deployment"
+  ],
+  "runtime_observed": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "deployed": false,
+  "account_safety_stop": true
+}

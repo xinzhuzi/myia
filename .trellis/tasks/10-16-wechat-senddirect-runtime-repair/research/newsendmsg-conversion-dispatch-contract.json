@@ -1,0 +1,61 @@
+{
+  "scope": "offline WeChat 4.1.15 (270135) ARM64 object conversion; not sending",
+  "selector_entry": "0x4c876bc",
+  "selector_input_low_offset": "0x8",
+  "selector_input_high_offset_when_low_49": "0xc",
+  "selector_rule": "use uint32(source+8); only when it is49 combine uint32(source+c)<<32 |49",
+  "earlier_converter_owner": {
+    "selector_value": "0x7300000031",
+    "low": 49,
+    "high": 115,
+    "construction_chain": [
+      "0x4c91334",
+      "0x4c91460"
+    ],
+    "vtable": "0x9eacf38",
+    "slot_0x10": "0x4c6ed80",
+    "slot_0x18": "0x4c6eff4"
+  },
+  "numeric_one_owner": {
+    "selector_value": 1,
+    "construction_chain": [
+      "0x4c8cbe0",
+      "0x4c8cd0c"
+    ],
+    "vtable": "0x9ead718",
+    "slot_0x10": "0x4c7fbc0",
+    "slot_0x18": "0x4c7ffa4",
+    "exclusive_to_type_one": false
+  },
+  "selector_invokes_slot": "0x10",
+  "selector_does_not_invoke_previous_type_one_writer_in_this_dispatch": true,
+  "numeric_one_common_factory": "0x4c6b5b8",
+  "numeric_one_conversion_output_vtable": "0x9eba160",
+  "numeric_one_conversion_allocation": "0x678",
+  "numeric_one_conversion_payload_size": "0x660",
+  "separately_verified_database_record_vtable": "0x9eb04f0",
+  "numeric_one_copy_branch": {
+    "predicate": "0x48a60b4",
+    "literal_compared": "announcement@all",
+    "when_predicate_false": "copy source+0xb8 string to conversion_output+0x148",
+    "when_predicate_true": "uses0x39ee5e4 and0x4cc0ca0; business output not established"
+  },
+  "other_slot_conversion": {
+    "entry": "0x4c7ffa4",
+    "shared_factory": "0x77bdd0",
+    "low_type_value": 1,
+    "low_type_offset": "0xe4",
+    "copy": "source+0x148 string to payload+0x5c8",
+    "not_invoked_by_selector_above": true
+  },
+  "ordinary_text_send_route_proven": false,
+  "callable_for_send": false,
+  "target_executed": false,
+  "send_verified": false,
+  "remaining": [
+    "prove forward association from this conversion family to the separately established send context, or exclude this family from send repair",
+    "do not reuse database field names solely from equal offsets on this different output type",
+    "full business input direction, runtime thread/config/drain and independent delivery remain open"
+  ],
+  "safety": "Account-safety stop remains: no WeChat execution, attach, UI, native calls, send, login or install."
+}

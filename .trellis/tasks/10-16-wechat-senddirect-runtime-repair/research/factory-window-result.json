@@ -1,0 +1,17 @@
+{
+  "authorization_consumed": true,
+  "evidence": "research/live-observe-ccgpziio",
+  "attached_once": true,
+  "elapsed_seconds": 21.173,
+  "factory_hit": false,
+  "cleanup_ok": true,
+  "helpers_remaining": 0,
+  "runtime_service_identity_matched": true,
+  "native_called_by_observer": false,
+  "sent_by_observer": false,
+  "packets_log_disabled": true,
+  "manual_send_timing": "after window ended; no overlap; no route conclusion",
+  "live_direct_send_verified": false,
+  "manual_send_timing_source": "用户对call_72ObGIUvW72rjqdTzUODzHns的回答：窗口结束后才发送",
+  "factory_route_inference_valid": false
+}

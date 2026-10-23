@@ -1,0 +1,8 @@
+0x56c90b0	095c4039	ldrb w9,[x0, #0x17]
+0x56c90b4	2a1d0013	sxtb w10,w9
+0x56c90b8	0b3040a9	ldp x11,x12,[x0]
+0x56c90bc	5f010071	cmp w10,#0x0
+0x56c90c0	61b1809a	csel x1,x11,x0,lt
+0x56c90c4	82b1899a	csel x2,x12,x9,lt
+0x56c90c8	e00308aa	mov x0,x8
+0x56c90cc	159bfd17	b 0x0562fd20

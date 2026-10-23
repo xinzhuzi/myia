@@ -1,0 +1,80 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_type": "offline frozen ARM64 instructions and independently decoded dyld fixups",
+  "scope": "text preparation record replacement, selected-string rule and typed-result transport",
+  "preparation_helper": {
+    "entry": "0x30db798",
+    "abi": "x0=handler, x1=context shared pair address, hidden x8=result",
+    "default_result": "0x304f1cc with arguments0/0",
+    "weak_service_gate": "handler+0x368 control must lock and handler+0x360 object must be nonnull; otherwise default result, no replacement",
+    "original_record_pair": "context+0x18/+0x20",
+    "null_record_error": {"helper": "0x30f6650", "raw_x0_x1_w2_w3": [1, 2, 4, 400]},
+    "lookup_call": "0x30db848 ->0x32cf5ac; x1=original record, hidden x8=future pair output",
+    "extract_call": "0x30db858 ->0x30dc1e0; x1=future pair address, hidden x8=record output",
+    "new_shared_record": "allocation0x290, payload+0x18, move constructor0x2a0cf30",
+    "replacement_gate": "new record uint32+0xf4 must be nonzero",
+    "replacement_store": "0x30db91c stores new shared pair at context+0x18/+0x20, releases previous pair",
+    "zero_f4_error": {"helper": "0x30f6650", "raw_x0_x1_w2_w3": [1, 2, 2, 200]},
+    "error_business_names_verified": false
+  },
+  "lookup_wrapper": {
+    "entry": "0x32cf5ac",
+    "selected_string": "0x4cbd624(original record)",
+    "tail": "0x32cf5e8 with x1=original record,x2=selected string,w3=1,w4=1,hidden x8=future pair",
+    "abi_caution": "Do not reuse Ghidra phantom return parameters or infer service this from incoming x0; wrapper overwrites x0 with selected string",
+    "selected_string_rule": "for type!=10000, 0x4cbd748 tests nonempty record+0x18 equality with account service virtual+0x28 string; true selects record+0x30, false selects+0x18. Type10000 performs its own equality check with the same selection",
+    "selected_string_business_name_verified": false
+  },
+  "copied_result_branch": {
+    "entry": "0x335bddc",
+    "transport": "copies input record via0xf57630 then moves via0x2a0cf30 into allocated erased container+0x8; passes owned container pointer to0x66696dc",
+    "coverage": "Only call sites within0x32cf5e8 reviewed; not a claim all branches take this path"
+  },
+  "callback_result_branch": {
+    "parent": "0x32cf5e8 conditional branch at0x32d082c..0x32d0a60",
+    "allocation_bytes": "0x2e0",
+    "invoke": "0x335c1b4",
+    "destroy": "0x335c4ec",
+    "captures": {"record_copy": "0x28", "selected_string_copy": "0x2a0", "flag_byte": "0x2b8", "service_shared_pair": ["0x2c0", "0x2c8"], "result_state_shared_pair": ["0x2d0", "0x2d8"]},
+    "dispatch": "0x3c17954 after service+0x58 subobject virtual+0x10",
+    "invoke_effect": "moves captured record to local;0x326a144 receives service,local record,selected string,flag;0x335c414 then moves local into result container",
+    "intermediate_effects": "0x326a144 calls0x3269bec on record and passes a function capturing record address to0x3aeddb4; external operation and all branch semantics unresolved",
+    "destroy_effect": "releases result-state and service shared controls, selected string and record, then frees0x2e0",
+    "whole_path_content_preservation_proven": false
+  },
+  "typed_result": {
+    "container_vtable": "0x9df3920",
+    "record_payload_offset": "0x8",
+    "type_method_slot": "0x9df3938",
+    "type_method": "0x335bf80",
+    "type_object": "0x9df3970",
+    "name_slot": "0x9df3978",
+    "encoded_name_pointer": "0x80000000088aee40",
+    "name": "_f6e3c5f5",
+    "getter": "0x30dc6fc calls0x666a844, container virtual+0x18, masks name highbit, compares expected name, returns container+0x8 or throws",
+    "type_name_matches": true,
+    "embedded_secondary_pointer": "container+0x280=0x9eb0530 is not the type object returned by virtual+0x18; its name bytes _e0c51525 do not establish a getter mismatch",
+    "extractor": "0x30dc1e0 retains future pair,calls0x66856fc,then typed getter and0xf57630 copy into hidden x8 output",
+    "wait_or_final_drain_semantics_proven": false
+  },
+  "record_copy_and_move": {
+    "copy": "0xf57630 installs vtable0x9eb04f0; +0x130 uses inline 24byte representation copy or0x18d20 heap string copy",
+    "move": "0x2a0cf30 installs same vtable; transfers +0x130/+0x140 representation then clears source string representation",
+    "limit": "Verified copies preserve this field at those boundaries only; intermediate operations and other branches may alter it"
+  },
+  "wire_field_1_getter": {
+    "entry": "0x30f1d74",
+    "normal": "copies record+0x30",
+    "conditional": "0x4bb4a4c(selected string) and nonnull record+0x230 object select nested object+0x98 object's string+0x78",
+    "recipient_direction_verified": false
+  },
+  "record_replacement_and_typed_transport_proven": true,
+  "whole_path_content_preservation_proven": false,
+  "runtime_observed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "remaining": ["all lookup branches and external record mutation", "builder argument sources and recipient direction", "actual scheduler group/config/thread and final drain", "complete adapter and independent delivery receipt"],
+  "safety": "account-safety-stop-20261016.md remains authoritative; no live operation or new observation request"
+}

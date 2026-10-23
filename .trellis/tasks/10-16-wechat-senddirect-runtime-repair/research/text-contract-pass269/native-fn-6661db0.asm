@@ -1,0 +1,38 @@
+0x6661db0	f85fbca9	stp x24,x23,[sp, #-0x40]!
+0x6661db4	f65701a9	stp x22,x21,[sp, #0x10]
+0x6661db8	f44f02a9	stp x20,x19,[sp, #0x20]
+0x6661dbc	fd7b03a9	stp x29,x30,[sp, #0x30]
+0x6661dc0	fdc30091	add x29,sp,#0x30
+0x6661dc4	f30304aa	mov x19,x4
+0x6661dc8	f40303aa	mov x20,x3
+0x6661dcc	f50302aa	mov x21,x2
+0x6661dd0	f60301aa	mov x22,x1
+0x6661dd4	f70300aa	mov x23,x0
+0x6661dd8	000440f9	ldr x0,[x0, #0x8]
+0x6661ddc	080040f9	ldr x8,[x0]
+0x6661de0	081140f9	ldr x8,[x8, #0x20]
+0x6661de4	00013fd6	blr x8
+0x6661de8	f80300aa	mov x24,x0
+0x6661dec	e00640f9	ldr x0,[x23, #0x8]
+0x6661df0	080040f9	ldr x8,[x0]
+0x6661df4	081940f9	ldr x8,[x8, #0x30]
+0x6661df8	e10318aa	mov x1,x24
+0x6661dfc	e20316aa	mov x2,x22
+0x6661e00	e30315aa	mov x3,x21
+0x6661e04	e40314aa	mov x4,x20
+0x6661e08	e50313aa	mov x5,x19
+0x6661e0c	00013fd6	blr x8
+0x6661e10	e80240f9	ldr x8,[x23]
+0x6661e14	081540f9	ldr x8,[x8, #0x28]
+0x6661e18	e00317aa	mov x0,x23
+0x6661e1c	e10318aa	mov x1,x24
+0x6661e20	e20316aa	mov x2,x22
+0x6661e24	e30314aa	mov x3,x20
+0x6661e28	e40313aa	mov x4,x19
+0x6661e2c	00013fd6	blr x8
+0x6661e30	e00318aa	mov x0,x24
+0x6661e34	fd7b43a9	ldp x29,x30,[sp, #0x30]
+0x6661e38	f44f42a9	ldp x20,x19,[sp, #0x20]
+0x6661e3c	f65741a9	ldp x22,x21,[sp, #0x10]
+0x6661e40	f85fc4a8	ldp x24,x23,[sp], #0x40
+0x6661e44	c0035fd6	ret

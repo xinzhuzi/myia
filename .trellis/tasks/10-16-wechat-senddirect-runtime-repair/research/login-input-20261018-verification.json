@@ -1,0 +1,186 @@
+{
+  "passed": true,
+  "scope": "frozen 4.1.15 selected login input structure, callback copies and selector-specific account result origin",
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "ghidra_exports": [
+    {
+      "file": "text-contract-pass324/native-fn-2fd02c8.asm",
+      "instructions": 235,
+      "sha256": "e7e94fb1ddce4225600f24709e00d21e9e018dc4aa30b0195f86227430f8caa9"
+    },
+    {
+      "file": "text-contract-pass326/native-fn-2fd0768.asm",
+      "instructions": 3204,
+      "sha256": "304bdcf46a05bfa995f4e197cd4ae42504898a106afac23b377fdea0f21dba24"
+    },
+    {
+      "file": "text-contract-pass334/native-fn-2fec014.asm",
+      "instructions": 52,
+      "sha256": "d6a534a1d4484185e528b5dbfbaafe44b01f23bcc44f67f9406e3b28d7c3f799"
+    },
+    {
+      "file": "text-contract-pass338/native-fn-410dbcc.asm",
+      "instructions": 2,
+      "sha256": "733657443959d15e0beb99be52eef7280f2a5b3951b727df908a2d78588a0288"
+    },
+    {
+      "file": "text-contract-pass341/native-fn-410d33c.asm",
+      "instructions": 249,
+      "sha256": "602afbaa3d4b20cdc165e9bdfdc724119a52afaf072eaba87cc0e18432dcefbf"
+    },
+    {
+      "file": "text-contract-pass344/native-fn-4100c94.asm",
+      "instructions": 86,
+      "sha256": "e0bff3302f0ab2df9c5ea83ca53c2688ba2e95abdc88e7cf16f4a53c94578873"
+    },
+    {
+      "file": "text-contract-pass346/native-fn-41009a0.asm",
+      "instructions": 165,
+      "sha256": "f527cb4fbfa83c39c201c1205907aa26c5e9cf993f6ea2f4bc580337e3d435c0"
+    },
+    {
+      "file": "text-contract-pass346/native-fn-4101688.asm",
+      "instructions": 179,
+      "sha256": "3e8b084bf6afddb9b845744e1159d28aae9941dcdcf11cefa43dd4636b2e00d7"
+    }
+  ],
+  "llvm_functions": [
+    {
+      "start": "0x2fc361c",
+      "end_exclusive": "0x2fc4f04",
+      "instructions": 1594,
+      "assembly": "function-2fc361c.asm",
+      "sha256": "244e3b7dee4cd40339ed47638e95a1ee0fd9b0b5d6c9ebab3cb6ccb1168b4282"
+    },
+    {
+      "start": "0x410dc54",
+      "end_exclusive": "0x41105c4",
+      "instructions": 2652,
+      "assembly": "function-410dc54.asm",
+      "sha256": "a9b3a49923236c51344e6129ee6b31d4fa6eeb24a0420f4258d62aa9f86cb0ce"
+    }
+  ],
+  "ghidra_instruction_rows": 4172,
+  "llvm_instruction_rows": 4246,
+  "unique_instruction_positions": 8418,
+  "instruction_checks": 138,
+  "slots": [
+    {
+      "slot": "0x9e5b248",
+      "decoded": "0x410d33c",
+      "chain_steps": 1495
+    },
+    {
+      "slot": "0x9e5b2c8",
+      "decoded": "0x410dbcc",
+      "chain_steps": 1510
+    },
+    {
+      "slot": "0x9de0b30",
+      "decoded": "0x2fea968",
+      "chain_steps": 331
+    }
+  ],
+  "decoded_branches": [
+    {
+      "address": "0x4101898",
+      "target": "0x4100c94",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x4100b7c",
+      "target": "0x4100c94",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x4100cd0",
+      "target": "0x2fec014",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x4100cf8",
+      "target": "0x2fec014",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x410d43c",
+      "target": "0x2fec014",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x410d474",
+      "target": "0x2fec014",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x410dbd0",
+      "target": "0x410dc54",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x410de38",
+      "target": "0x2fc361c",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fc43bc",
+      "target": "0x2fec014",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fd042c",
+      "target": "0x473def4",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fd0430",
+      "target": "0x2fd0488",
+      "immediate_bits": 14
+    },
+    {
+      "address": "0x2fd0470",
+      "target": "0x2fd0768",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fd3608",
+      "target": "0x2fd7104",
+      "immediate_bits": 26
+    }
+  ],
+  "normal_flow_report": "login-input-20261018-verification-flow.json",
+  "normal_flow_definitions": [
+    {
+      "function": "0x2fc361c",
+      "target": "0x2fc43b8",
+      "register": "x21",
+      "reaching_definition": "0x2fc363c",
+      "normal_reachable_instructions": 1342
+    },
+    {
+      "function": "0x410dc54",
+      "target": "0x410de34",
+      "register": "x19",
+      "reaching_definition": "0x410dc74",
+      "normal_reachable_instructions": 2368
+    }
+  ],
+  "unwind_boundaries_recomputed": true,
+  "contract_sha256": "d0beb5757c99d3cfc32982f0c09b5f82c8e6bf3d67d0f8be84e7e2939a6ff7f3",
+  "source_sha256": "27bd2f1313caf433d21913b10f02ca852bf693fcbc3c676852792f1f2ffa2655",
+  "previous_contract_sha256": "f18004f8eef8aa220755605b7faf0cf603aa3d739aa9abb2d4a4ae586a6fe19f",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "deployed": false,
+  "account_stop_unchanged": true,
+  "A7_complete": false,
+  "limitations": [
+    "business identity of first login string and its callers; other capture construction/clone routes and aliases",
+    "selector0 full result preservation, complete sender/recipient/record mutation and nested schema mapping",
+    "actual executor/thread identity, cancellation final cleanup, complete native adapter integration",
+    "real sending, independent receipt and deployment"
+  ]
+}

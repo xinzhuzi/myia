@@ -1,0 +1,104 @@
+{
+  "scope": "offline frozen WeChat4.1.15 build270135 ARM64; context and queue dispatch only",
+  "entry": "0x317df64",
+  "entry_abi": {
+    "x0": "service object",
+    "x1": "input shared handle pointer",
+    "x2": "third constructor argument; low byte used",
+    "hidden_x8": "nontrivial result storage"
+  },
+  "context": {
+    "constructor_thunk": "0x30f1c5c",
+    "constructor": "0x30ef9e0",
+    "vtable": "0x9de9528",
+    "allocation_with_control": "0xf8",
+    "offset_in_allocation": "0x18",
+    "input_shared_offsets": [
+      "0x8",
+      "0x10"
+    ],
+    "record_shared_offsets": [
+      "0x18",
+      "0x20"
+    ],
+    "key_string_offset": "0x38",
+    "key_string_source": "input+0x90",
+    "key_business_direction_proven": false
+  },
+  "entry_actions": [
+    "construct context",
+    "0x3181628 queues shared context under service+b20 storage+60",
+    "0x3182084 selects ready context for the key",
+    "0x3189980 consumes context+0x70 shared result"
+  ],
+  "numeric_state_accessors": {
+    "read": "0x30f320c reads context+0xb4",
+    "write": "0x30f3214 writes context+0xb4",
+    "flag": "0x30f321c reads context+0xb0"
+  },
+  "dispatcher": "0x3182084",
+  "dispatch_stages": [
+    "0x31ce06c prepares selected context; deeper0x31cf3a4 not fully traced",
+    "0x31cae30 removes context from first queue",
+    "conditional zero-result and flag branch sets state4 and inserts into storage+88 queue",
+    "build body/cancel functors and launch through0x453d344"
+  ],
+  "body_functor": {
+    "vtable": "0x9def270",
+    "context_shared_offsets": [
+      "0x8",
+      "0x10"
+    ],
+    "service_offset": "0x18",
+    "key_string_offset": "0x20",
+    "invoke_slot": "0x9def2a0",
+    "invoke": "0x322274c",
+    "actions": [
+      "call0x3182084 again for key",
+      "call0x31d15fc with captured context",
+      "process result and call0x31cba64; business meaning not inferred"
+    ]
+  },
+  "cancel_functor": {
+    "vtable": "0x9def2f0",
+    "invoke_slot": "0x9def320",
+    "invoke": "0x3222ea4",
+    "effect": "construct another captured callback and submit0x453cce8; callback drain unproved"
+  },
+  "job_wrapper": {
+    "entry": "0x453d344",
+    "abi": "x0 group wrapper,x1 config,x2 body,x3 finished,x4 option,hidden x8 result",
+    "inner_entry": "0x453c7ac",
+    "group_core_source": "wrapper+0x10",
+    "default_safe_thread_proven": false
+  },
+  "handler_selection": {
+    "entry": "0x318d680",
+    "values": "input vslots+0x10/+0x18/+0x20",
+    "lookup": "0x319a6a8 maps numeric pair through service storage+0x28, then0x3217130 resolves handler name",
+    "actual_selected_handler_identity_proven": false
+  },
+  "later_handler_method": {
+    "caller": "0x30d58e0",
+    "first_kind_vslot": "0x90",
+    "known_table": "0x9de7f68",
+    "slot_address": "0x9de7ff8",
+    "decoded_target": "0x30d8538",
+    "shown_target_body": "logging plus result constructor0x304f1cc(hidden result,0,0); no identified producer call",
+    "separately_identified_producer_slot": "0x9de8040",
+    "producer": "0x30bda14",
+    "producer_offset_in_table": "0xd8",
+    "not_same_slot": true
+  },
+  "complete_context_to_newsendmsg_producer_association_proven": false,
+  "send_verified": false,
+  "callable_for_send": false,
+  "runtime_observed": false,
+  "remaining": [
+    "actual handler registration/identity, earlier processing stages and producer dispatch",
+    "business direction and ordinary text input construction",
+    "runtime group/config/thread and last callback drain",
+    "complete adapter and independently verified true send receipt"
+  ],
+  "safety": "Account-safety stop remains: no live application, debugger, UI, native calls, sending, login, restart or product install."
+}

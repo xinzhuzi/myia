@@ -1,0 +1,2 @@
+0x4cc2d80	20008052	mov w0,#0x1
+0x4cc2d84	c0035fd6	ret

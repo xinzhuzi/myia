@@ -1,0 +1,32 @@
+0x56fa274	f44fbea9	stp x20,x19,[sp, #-0x20]!
+0x56fa278	fd7b01a9	stp x29,x30,[sp, #0x10]
+0x56fa27c	fd430091	add x29,sp,#0x10
+0x56fa280	f30302aa	mov x19,x2
+0x56fa284	e20301aa	mov x2,x1
+0x56fa288	483502f0	adrp x8,0x9da5000
+0x56fa28c	08211f91	add x8,x8,#0x7c8
+0x56fa290	08410091	add x8,x8,#0x10
+0x56fa294	f40300aa	mov x20,x0
+0x56fa298	880e0bf8	str x8,[x20, #0xb0]!
+0x56fa29c	414102d0	adrp x1,0x9f24000
+0x56fa2a0	21800891	add x1,x1,#0x220
+0x56fa2a4	be46ff97	bl 0x056cbd9c
+0x56fa2a8	484102b0	adrp x8,0x9f23000
+0x56fa2ac	08a13f91	add x8,x8,#0xfe8
+0x56fa2b0	080000f9	str x8,[x0]
+0x56fa2b4	09610191	add x9,x8,#0x58
+0x56fa2b8	0a610291	add x10,x8,#0x98
+0x56fa2bc	09280ba9	stp x9,x10,[x0, #0xb0]
+0x56fa2c0	09610391	add x9,x8,#0xd8
+0x56fa2c4	0a610491	add x10,x8,#0x118
+0x56fa2c8	09280ca9	stp x9,x10,[x0, #0xc0]
+0x56fa2cc	09610591	add x9,x8,#0x158
+0x56fa2d0	0a610691	add x10,x8,#0x198
+0x56fa2d4	09280da9	stp x9,x10,[x0, #0xd0]
+0x56fa2d8	09610791	add x9,x8,#0x1d8
+0x56fa2dc	08610891	add x8,x8,#0x218
+0x56fa2e0	09200ea9	stp x9,x8,[x0, #0xe0]
+0x56fa2e4	137800f9	str x19,[x0, #0xf0]
+0x56fa2e8	fd7b41a9	ldp x29,x30,[sp, #0x10]
+0x56fa2ec	f44fc2a8	ldp x20,x19,[sp], #0x20
+0x56fa2f0	c0035fd6	ret

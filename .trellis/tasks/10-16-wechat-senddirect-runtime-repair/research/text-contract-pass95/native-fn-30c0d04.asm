@@ -1,0 +1,58 @@
+0x30c0d04	ff8301d1	sub sp,sp,#0x60
+0x30c0d08	fa6701a9	stp x26,x25,[sp, #0x10]
+0x30c0d0c	f85f02a9	stp x24,x23,[sp, #0x20]
+0x30c0d10	f65703a9	stp x22,x21,[sp, #0x30]
+0x30c0d14	f44f04a9	stp x20,x19,[sp, #0x40]
+0x30c0d18	fd7b05a9	stp x29,x30,[sp, #0x50]
+0x30c0d1c	fd430191	add x29,sp,#0x50
+0x30c0d20	fa0305aa	mov x26,x5
+0x30c0d24	f30304aa	mov x19,x4
+0x30c0d28	f40303aa	mov x20,x3
+0x30c0d2c	f50302aa	mov x21,x2
+0x30c0d30	f60301aa	mov x22,x1
+0x30c0d34	f70300aa	mov x23,x0
+0x30c0d38	f80308aa	mov x24,x8
+0x30c0d3c	00078052	mov w0,#0x38
+0x30c0d40	bcfc0195	bl 0x07140030
+0x30c0d44	f90300aa	mov x25,x0
+0x30c0d48	48690390	adrp x8,0x9de8000
+0x30c0d4c	08410391	add x8,x8,#0xd0
+0x30c0d50	490340f9	ldr x9,[x26]
+0x30c0d54	082400a9	stp x8,x9,[x0]
+0x30c0d58	487fc039	ldrsb w8,[x26, #0x1f]
+0x30c0d5c	c800f837	tbnz w8,#0x1f,0x030c0d74
+0x30c0d60	4083c03c	ldur q0,[x26, #0x8]
+0x30c0d64	2003813c	stur q0,[x25, #0x10]
+0x30c0d68	488341f8	ldur x8,[x26, #0x18]
+0x30c0d6c	280302f8	stur x8,[x25, #0x20]
+0x30c0d70	04000014	b 0x030c0d80
+0x30c0d74	418b40a9	ldp x1,x2,[x26, #0x8]
+0x30c0d78	20430091	add x0,x25,#0x10
+0x30c0d7c	e95f3d97	bl 0x00018d20
+0x30c0d80	492342a9	ldp x9,x8,[x26, #0x20]
+0x30c0d84	29a302a9	stp x9,x8,[x25, #0x28]
+0x30c0d88	880000b4	cbz x8,0x030c0d98
+0x30c0d8c	08210091	add x8,x8,#0x8
+0x30c0d90	29008052	mov w9,#0x1
+0x30c0d94	080129f8	ldadd x9,x8,[x8]
+0x30c0d98	f90700f9	str x25,[sp, #0x8]
+0x30c0d9c	e6230091	add x6,sp,#0x8
+0x30c0da0	e00318aa	mov x0,x24
+0x30c0da4	e10317aa	mov x1,x23
+0x30c0da8	e20316aa	mov x2,x22
+0x30c0dac	e30315aa	mov x3,x21
+0x30c0db0	e40314aa	mov x4,x20
+0x30c0db4	e50313aa	mov x5,x19
+0x30c0db8	7b11d794	bl 0x066853a4
+0x30c0dbc	e00740f9	ldr x0,[sp, #0x8]
+0x30c0dc0	800000b4	cbz x0,0x030c0dd0
+0x30c0dc4	080040f9	ldr x8,[x0]
+0x30c0dc8	080540f9	ldr x8,[x8, #0x8]
+0x30c0dcc	00013fd6	blr x8
+0x30c0dd0	fd7b45a9	ldp x29,x30,[sp, #0x50]
+0x30c0dd4	f44f44a9	ldp x20,x19,[sp, #0x40]
+0x30c0dd8	f65743a9	ldp x22,x21,[sp, #0x30]
+0x30c0ddc	f85f42a9	ldp x24,x23,[sp, #0x20]
+0x30c0de0	fa6741a9	ldp x26,x25,[sp, #0x10]
+0x30c0de4	ff830191	add sp,sp,#0x60
+0x30c0de8	c0035fd6	ret

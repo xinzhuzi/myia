@@ -1,0 +1,78 @@
+{
+  "passed": true,
+  "scope": "eight historical LLDB command sources; not a global debugger sandbox",
+  "results": [
+    {
+      "file": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/dis.cmd",
+      "exit_code": 78,
+      "original_tail_sha256": "c57b525bbeadcd84c8e10fe2d6da66405e26dec036b9c2fedc3e331ee244b34b",
+      "guarded_sha256": "2aed5826b18e60a20125a4b58aeea270ed7043b824f8b5ee345ac4ef214e361b",
+      "stdout": "(lldb) command source -s 0 '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/dis.cmd'\nExecuting commands in '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/dis.cmd'.\n(lldb) # Disabled 2026-10-18: historical live-WeChat experiment; never resume this source.\n(lldb) # Quit before attach/import. Original commands below are retained as evidence.\n(lldb) quit 78\n",
+      "stderr": ""
+    },
+    {
+      "file": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/post.cmd",
+      "exit_code": 78,
+      "original_tail_sha256": "ebbe891070285c9a501b9e46b6f7256b82f66de47df4232f1eea7460fbecdaa3",
+      "guarded_sha256": "bbd31d47df3442c697f03227170933bbbcdd511b1319a3a4aa5dbc1d9220e110",
+      "stdout": "(lldb) command source -s 0 '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/post.cmd'\nExecuting commands in '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/post.cmd'.\n(lldb) # Disabled 2026-10-18: historical live-WeChat experiment; never resume this source.\n(lldb) # Quit before attach/import. Original commands below are retained as evidence.\n(lldb) quit 78\n",
+      "stderr": ""
+    },
+    {
+      "file": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/pre.cmd",
+      "exit_code": 78,
+      "original_tail_sha256": "c2560a391bd0dd5f3416a4d374a7098c605a6465685de1a2cb7decb434b4060f",
+      "guarded_sha256": "4d1e0c6d13d9c259a36d6e66a87f0ece4254d3e3c2b8c4325406f9fcf3baba77",
+      "stdout": "(lldb) command source -s 0 '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/pre.cmd'\nExecuting commands in '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/pre.cmd'.\n(lldb) # Disabled 2026-10-18: historical live-WeChat experiment; never resume this source.\n(lldb) # Quit before attach/import. Original commands below are retained as evidence.\n(lldb) quit 78\n",
+      "stderr": ""
+    },
+    {
+      "file": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap.cmd",
+      "exit_code": 78,
+      "original_tail_sha256": "11e7d60e4813bb333749152fd7e48f6b768d7a7b3c7526f825f069b877c1a042",
+      "guarded_sha256": "e24f3bc1224c3a4827c4325dcd1f327697e68287426b4baf397beaf66b6f7887",
+      "stdout": "(lldb) command source -s 0 '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap.cmd'\nExecuting commands in '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap.cmd'.\n(lldb) # Disabled 2026-10-18: historical live-WeChat experiment; never resume this source.\n(lldb) # Quit before attach/import. Original commands below are retained as evidence.\n(lldb) quit 78\n",
+      "stderr": ""
+    },
+    {
+      "file": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap2.cmd",
+      "exit_code": 78,
+      "original_tail_sha256": "330da0bc70d2c5e9b306878238c60fa44b57f36dd0e2fc566f53e4b75ec2d7e3",
+      "guarded_sha256": "e3879a4c2bdac1c6d6f112ce6bfc39b34f4ee5977dd4ad8ea026f80833cd0701",
+      "stdout": "(lldb) command source -s 0 '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap2.cmd'\nExecuting commands in '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap2.cmd'.\n(lldb) # Disabled 2026-10-18: historical live-WeChat experiment; never resume this source.\n(lldb) # Quit before attach/import. Original commands below are retained as evidence.\n(lldb) quit 78\n",
+      "stderr": ""
+    },
+    {
+      "file": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap3.cmd",
+      "exit_code": 78,
+      "original_tail_sha256": "6b19827585206dd45ee2016bb482303e8c2bc80a9678c6d1e1cfc53634f3875c",
+      "guarded_sha256": "13007008e3467e05686cad2b7f23495154f9976006eec1b3006ec35a5242f270",
+      "stdout": "(lldb) command source -s 0 '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap3.cmd'\nExecuting commands in '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap3.cmd'.\n(lldb) # Disabled 2026-10-18: historical live-WeChat experiment; never resume this source.\n(lldb) # Quit before attach/import. Original commands below are retained as evidence.\n(lldb) quit 78\n",
+      "stderr": ""
+    },
+    {
+      "file": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap4.cmd",
+      "exit_code": 78,
+      "original_tail_sha256": "503e559e46e6208a9c236e4e11b72fbdfd929c2f9558891cef0868142809803f",
+      "guarded_sha256": "b2da0ff00ba706fdc07d1b12dd40ccf864e74f0790e42b6f7abec36c76ced9ef",
+      "stdout": "(lldb) command source -s 0 '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap4.cmd'\nExecuting commands in '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap4.cmd'.\n(lldb) # Disabled 2026-10-18: historical live-WeChat experiment; never resume this source.\n(lldb) # Quit before attach/import. Original commands below are retained as evidence.\n(lldb) quit 78\n",
+      "stderr": ""
+    },
+    {
+      "file": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap5.cmd",
+      "exit_code": 78,
+      "original_tail_sha256": "bbf34d3b0baaf8ca9dab218bbc08c27f3e8d20a9a6c420a767c2405ed91aa587",
+      "guarded_sha256": "1bd7b3068b5255816b9cbdd2ac8025fbfa2a561471f5cde55c281ed24ec410da",
+      "stdout": "(lldb) command source -s 0 '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap5.cmd'\nExecuting commands in '/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap5.cmd'.\n(lldb) # Disabled 2026-10-18: historical live-WeChat experiment; never resume this source.\n(lldb) # Quit before attach/import. Original commands below are retained as evidence.\n(lldb) quit 78\n",
+      "stderr": ""
+    }
+  ],
+  "owned_fixture_exit": 78,
+  "later_explicit_cli_command_still_executes": true,
+  "original_tails_preserved": true,
+  "target_attached": false,
+  "native_function_called": false,
+  "wechat_ui_operated": false,
+  "send_verified": false,
+  "full_goal_complete": false
+}

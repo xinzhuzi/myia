@@ -1,0 +1,5 @@
+0x5698f30	080c40f9	ldr x8,[x0, #0x18]
+0x5698f34	090106d1	sub x9,x8,#0x180
+0x5698f38	1f0100f1	cmp x8,#0x0
+0x5698f3c	e003899a	csel x0,xzr,x9,eq
+0x5698f40	c0035fd6	ret

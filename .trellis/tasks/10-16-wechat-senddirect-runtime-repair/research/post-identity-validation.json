@@ -1,0 +1,98 @@
+{
+  "verified_at": "2026-10-16T06:27:38.011562+00:00",
+  "passed": true,
+  "checks": [
+    {
+      "command": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_wire_4115.py"
+      ],
+      "returncode": 0,
+      "log": "post-identity-validation-0.log"
+    },
+    {
+      "command": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_identity_4115.py"
+      ],
+      "returncode": 0,
+      "log": "post-identity-validation-1.log"
+    },
+    {
+      "command": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_mmreq_base_4115.py"
+      ],
+      "returncode": 0,
+      "log": "post-identity-validation-2.log"
+    },
+    {
+      "command": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/wechat-bridge/test_send_direct_passive.py"
+      ],
+      "returncode": 0,
+      "log": "post-identity-validation-3.log"
+    },
+    {
+      "command": [
+        "/Users/zhengbingjin/.local/bin/ruff",
+        "check",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/record_wechat_identity_result_20261016.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/record_wechat_native_components_20261016.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/verify_wechat_newsendmsg_cpp_20261016.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/validate_wechat_post_identity_20261016.py"
+      ],
+      "returncode": 0,
+      "log": "post-identity-validation-4.log"
+    }
+  ],
+  "cpp_completion_checks": 16,
+  "cpp_body_cases": 9,
+  "sanitizers_passed": false,
+  "consumed_authorization_rejected": "single observation authorization unavailable",
+  "preflight_subprocess_names": [
+    "pgrep",
+    "pgrep",
+    "pgrep",
+    "process_status"
+  ],
+  "new_debugger_launches": 0,
+  "new_live_folders": 0,
+  "consumption_marker_unchanged": true,
+  "qualification_cases": 10,
+  "wechat_health": {
+    "pid": 33589,
+    "flags": 16452,
+    "state": 2,
+    "start_sec": 1792085027,
+    "start_usec": 181673,
+    "executable": "/Applications/WeChat.app/Contents/MacOS/WeChat"
+  },
+  "debugger_processes": 0,
+  "prior_readonly_window": {
+    "evidence": "live-observe-xk07n8e9/supervisor.json",
+    "seconds": 3.822,
+    "consumed": true
+  },
+  "functions_exported_including_duplicates": 159,
+  "instructions_verified": 27721,
+  "bytes_verified": 110884,
+  "source_sha256": {
+    "newsendmsg-4115-static-contract.json": "6529e755fb0eb73c5feca37f43c32dfc062720687fc1a7f3383bde7e4107f31b",
+    "newsendmsg-next-runtime-window.md": "4b717fa4e9fe37d72f4df9bdc7400758a2654a70169ce6629fbcbcbab28fa8b4",
+    "newsendmsg_completion_4115.hpp": "657caf0781d8a2562fa6c35b69b64ea9569e373f5b0ebcea318e6b49e0a0c2ad",
+    "newsendmsg_native_body_4115.hpp": "90d0943eca268abdebadbfe0c00e3105d7e37d23774997c35f885af8064d4eec",
+    "newsendmsg-cpp-verification.json": "d5a68f2ed8df761eb2d86025d48fb9be2377c758a4cc8ec933866e47f49e37be",
+    "text-contract-byte-verification-v4.json": "e78d0a9f1a446b18bffda5cd74fc584caf43076e9688ca59967f83f8a827d6b3"
+  },
+  "new_wechat_attachment": false,
+  "native_called": false,
+  "sent": false,
+  "live_ready": false,
+  "send_verified": false,
+  "product_json_modified": false
+}

@@ -1,0 +1,2148 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass229/native-fn-32961a4.asm",
+      "instructions": 503
+    },
+    {
+      "file": "text-contract-pass228/native-fn-3269bec.asm",
+      "instructions": 322
+    },
+    {
+      "file": "text-contract-pass230/native-fn-4cbf820.asm",
+      "instructions": 21
+    },
+    {
+      "file": "text-contract-pass230/native-fn-4cbfb58.asm",
+      "instructions": 25
+    },
+    {
+      "file": "text-contract-pass287/native-fn-4eafe18.asm",
+      "instructions": 339
+    },
+    {
+      "file": "text-contract-pass429/native-fn-196dc.asm",
+      "instructions": 95
+    },
+    {
+      "file": "text-contract-pass429/native-fn-4cbd748.asm",
+      "instructions": 59
+    },
+    {
+      "file": "text-contract-pass429/native-fn-4d310bc.asm",
+      "instructions": 38
+    },
+    {
+      "file": "text-contract-pass430/native-fn-4eae868.asm",
+      "instructions": 20
+    },
+    {
+      "file": "text-contract-pass304/native-fn-4eae1b8.asm",
+      "instructions": 422
+    },
+    {
+      "file": "text-contract-pass222/native-fn-f57630.asm",
+      "instructions": 206
+    },
+    {
+      "file": "text-contract-pass224/native-fn-4cbd624.asm",
+      "instructions": 60
+    }
+  ],
+  "distinct_instruction_positions_matched": 2110,
+  "selected_checks": 53,
+  "independently_decoded_transfers": [
+    {
+      "site": "0x32961f8",
+      "target": "0x19a94a4"
+    },
+    {
+      "site": "0x3296228",
+      "target": "0x19a94a4"
+    },
+    {
+      "site": "0x3296258",
+      "target": "0x19a94a4"
+    },
+    {
+      "site": "0x3296274",
+      "target": "0x4cbf820"
+    },
+    {
+      "site": "0x329627c",
+      "target": "0x4cbfb58"
+    },
+    {
+      "site": "0x3296294",
+      "target": "0x30251cc"
+    },
+    {
+      "site": "0x32962ac",
+      "target": "0x2e86b60"
+    },
+    {
+      "site": "0x32962d0",
+      "target": "0x56c90b0"
+    },
+    {
+      "site": "0x32962dc",
+      "target": "0x562fe5c"
+    },
+    {
+      "site": "0x32962e8",
+      "target": "0x562fd84"
+    },
+    {
+      "site": "0x329631c",
+      "target": "0x3296b1c"
+    },
+    {
+      "site": "0x3296328",
+      "target": "0x56fa768"
+    },
+    {
+      "site": "0x3296330",
+      "target": "0x562fd84"
+    },
+    {
+      "site": "0x3296338",
+      "target": "0x3296384"
+    },
+    {
+      "site": "0x3296348",
+      "target": "0x3296374"
+    },
+    {
+      "site": "0x329636c",
+      "target": "0x3296350"
+    },
+    {
+      "site": "0x3296380",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x3296384",
+      "target": "0x32963ac"
+    },
+    {
+      "site": "0x3296398",
+      "target": "0x32963b0"
+    },
+    {
+      "site": "0x32963a8",
+      "target": "0x32963b0"
+    },
+    {
+      "site": "0x32963b8",
+      "target": "0xf57630"
+    },
+    {
+      "site": "0x32963dc",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x32963f4",
+      "target": "0xf57630"
+    },
+    {
+      "site": "0x3296408",
+      "target": "0x3263cd4"
+    },
+    {
+      "site": "0x3296410",
+      "target": "0x329645c"
+    },
+    {
+      "site": "0x3296420",
+      "target": "0x329644c"
+    },
+    {
+      "site": "0x3296444",
+      "target": "0x3296428"
+    },
+    {
+      "site": "0x3296458",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x3296460",
+      "target": "0xac6290"
+    },
+    {
+      "site": "0x3296468",
+      "target": "0x5e1d978"
+    },
+    {
+      "site": "0x329646c",
+      "target": "0x3296910"
+    },
+    {
+      "site": "0x3296478",
+      "target": "0x488143c"
+    },
+    {
+      "site": "0x3296494",
+      "target": "0x32964e0"
+    },
+    {
+      "site": "0x32964d4",
+      "target": "0x32964ac"
+    },
+    {
+      "site": "0x32964e8",
+      "target": "0x3296514"
+    },
+    {
+      "site": "0x3296538",
+      "target": "0x5e1d050"
+    },
+    {
+      "site": "0x3296548",
+      "target": "0x4cbe4cc"
+    },
+    {
+      "site": "0x3296578",
+      "target": "0x32965b0"
+    },
+    {
+      "site": "0x3296588",
+      "target": "0x32965f0"
+    },
+    {
+      "site": "0x32965ac",
+      "target": "0x32965dc"
+    },
+    {
+      "site": "0x32965bc",
+      "target": "0x32965f0"
+    },
+    {
+      "site": "0x329661c",
+      "target": "0x3296668"
+    },
+    {
+      "site": "0x329665c",
+      "target": "0x3296634"
+    },
+    {
+      "site": "0x32966a4",
+      "target": "0x329667c"
+    },
+    {
+      "site": "0x32966bc",
+      "target": "0x32966e8"
+    },
+    {
+      "site": "0x32966e4",
+      "target": "0x32966c8"
+    },
+    {
+      "site": "0x3296750",
+      "target": "0x3296728"
+    },
+    {
+      "site": "0x329676c",
+      "target": "0x3296798"
+    },
+    {
+      "site": "0x3296794",
+      "target": "0x3296778"
+    },
+    {
+      "site": "0x32967b4",
+      "target": "0x32967ec"
+    },
+    {
+      "site": "0x32967c4",
+      "target": "0x329682c"
+    },
+    {
+      "site": "0x32967e8",
+      "target": "0x3296818"
+    },
+    {
+      "site": "0x32967f8",
+      "target": "0x329682c"
+    },
+    {
+      "site": "0x329683c",
+      "target": "0x3296890"
+    },
+    {
+      "site": "0x3296884",
+      "target": "0x329685c"
+    },
+    {
+      "site": "0x32968e4",
+      "target": "0x5e1d31c"
+    },
+    {
+      "site": "0x32968ec",
+      "target": "0x3296900"
+    },
+    {
+      "site": "0x32968fc",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x3296904",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x329690c",
+      "target": "0x3296960"
+    },
+    {
+      "site": "0x3296914",
+      "target": "0x3296928"
+    },
+    {
+      "site": "0x3296924",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x329693c",
+      "target": "0x329697c"
+    },
+    {
+      "site": "0x329696c",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x3296974",
+      "target": "0x3296928"
+    },
+    {
+      "site": "0x3296978",
+      "target": "0x3296918"
+    },
+    {
+      "site": "0x329697c",
+      "target": "0x71401a4"
+    },
+    {
+      "site": "0x3269c1c",
+      "target": "0x4669774"
+    },
+    {
+      "site": "0x3269c30",
+      "target": "0x4a2bbbc"
+    },
+    {
+      "site": "0x3269c44",
+      "target": "0x326a0bc"
+    },
+    {
+      "site": "0x3269c4c",
+      "target": "0x5e1d978"
+    },
+    {
+      "site": "0x3269c58",
+      "target": "0x326a004"
+    },
+    {
+      "site": "0x3269c64",
+      "target": "0x488143c"
+    },
+    {
+      "site": "0x3269c80",
+      "target": "0x3269cc4"
+    },
+    {
+      "site": "0x3269cb8",
+      "target": "0x3269c90"
+    },
+    {
+      "site": "0x3269ccc",
+      "target": "0x3269d18"
+    },
+    {
+      "site": "0x3269d0c",
+      "target": "0x3269ce4"
+    },
+    {
+      "site": "0x3269d3c",
+      "target": "0x5e1d050"
+    },
+    {
+      "site": "0x3269d60",
+      "target": "0x3269da4"
+    },
+    {
+      "site": "0x3269d98",
+      "target": "0x3269d70"
+    },
+    {
+      "site": "0x3269de0",
+      "target": "0x3269db8"
+    },
+    {
+      "site": "0x3269df8",
+      "target": "0x3269e24"
+    },
+    {
+      "site": "0x3269e20",
+      "target": "0x3269e04"
+    },
+    {
+      "site": "0x3269e70",
+      "target": "0x3269e48"
+    },
+    {
+      "site": "0x3269e88",
+      "target": "0x3269eb4"
+    },
+    {
+      "site": "0x3269eb0",
+      "target": "0x3269e94"
+    },
+    {
+      "site": "0x3269f00",
+      "target": "0x3269ed8"
+    },
+    {
+      "site": "0x3269f18",
+      "target": "0x3269f44"
+    },
+    {
+      "site": "0x3269f40",
+      "target": "0x3269f24"
+    },
+    {
+      "site": "0x3269f50",
+      "target": "0x3269f9c"
+    },
+    {
+      "site": "0x3269f90",
+      "target": "0x3269f68"
+    },
+    {
+      "site": "0x3269fe0",
+      "target": "0x5e1d31c"
+    },
+    {
+      "site": "0x3269fe8",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x3269ff0",
+      "target": "0x326a004"
+    },
+    {
+      "site": "0x326a000",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x326a00c",
+      "target": "0x4cbd5f0"
+    },
+    {
+      "site": "0x326a020",
+      "target": "0x326a06c"
+    },
+    {
+      "site": "0x326a060",
+      "target": "0x326a038"
+    },
+    {
+      "site": "0x326a084",
+      "target": "0x67f80"
+    },
+    {
+      "site": "0x326a094",
+      "target": "0x4af3aa8"
+    },
+    {
+      "site": "0x326a09c",
+      "target": "0x326a0b0"
+    },
+    {
+      "site": "0x326a0ac",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x326a0d0",
+      "target": "0x326a0f0"
+    },
+    {
+      "site": "0x326a0f0",
+      "target": "0x71401a4"
+    },
+    {
+      "site": "0x4cbf830",
+      "target": "0x4cbf870"
+    },
+    {
+      "site": "0x4cbf844",
+      "target": "0x4cbebac"
+    },
+    {
+      "site": "0x4cbf84c",
+      "target": "0x4cbf860"
+    },
+    {
+      "site": "0x4cbf86c",
+      "target": "0x4cbf994"
+    },
+    {
+      "site": "0x4cbfb6c",
+      "target": "0x4eafe18"
+    },
+    {
+      "site": "0x4cbfb80",
+      "target": "0x4cbfb98"
+    },
+    {
+      "site": "0x4cbfb8c",
+      "target": "0x196dc"
+    },
+    {
+      "site": "0x4cbfb94",
+      "target": "0x4cbfba4"
+    },
+    {
+      "site": "0x4cbfb98",
+      "target": "0x4cbfba4"
+    },
+    {
+      "site": "0x4cbfbb8",
+      "target": "0x5ab3f98"
+    },
+    {
+      "site": "0x4eafe38",
+      "target": "0x4eafe6c"
+    },
+    {
+      "site": "0x4eafe3c",
+      "target": "0x4eafe7c"
+    },
+    {
+      "site": "0x4eafe44",
+      "target": "0x4eafea8"
+    },
+    {
+      "site": "0x4eafe48",
+      "target": "0x4eafed0"
+    },
+    {
+      "site": "0x4eafe4c",
+      "target": "0x4eaff18"
+    },
+    {
+      "site": "0x4eafe50",
+      "target": "0x4eaff60"
+    },
+    {
+      "site": "0x4eafe54",
+      "target": "0x4eb004c"
+    },
+    {
+      "site": "0x4eafe58",
+      "target": "0x4eb0094"
+    },
+    {
+      "site": "0x4eafe5c",
+      "target": "0x4eb00dc"
+    },
+    {
+      "site": "0x4eafe64",
+      "target": "0x4eb0128"
+    },
+    {
+      "site": "0x4eafe68",
+      "target": "0x4eb0328"
+    },
+    {
+      "site": "0x4eafe74",
+      "target": "0x4eb0128"
+    },
+    {
+      "site": "0x4eafe78",
+      "target": "0x4eb0328"
+    },
+    {
+      "site": "0x4eafe84",
+      "target": "0x4eafe98"
+    },
+    {
+      "site": "0x4eafe90",
+      "target": "0x4eafe48"
+    },
+    {
+      "site": "0x4eafe94",
+      "target": "0x4eafea8"
+    },
+    {
+      "site": "0x4eafe98",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eafea4",
+      "target": "0x4eafe48"
+    },
+    {
+      "site": "0x4eafeb0",
+      "target": "0x4eafebc"
+    },
+    {
+      "site": "0x4eafeb8",
+      "target": "0x4eafec4"
+    },
+    {
+      "site": "0x4eafebc",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eafecc",
+      "target": "0x4eafe4c"
+    },
+    {
+      "site": "0x4eafed4",
+      "target": "0x4eafee4"
+    },
+    {
+      "site": "0x4eafee4",
+      "target": "0x4ea740c"
+    },
+    {
+      "site": "0x4eafef0",
+      "target": "0x4eafefc"
+    },
+    {
+      "site": "0x4eafef8",
+      "target": "0x4eaff04"
+    },
+    {
+      "site": "0x4eaff00",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eaff14",
+      "target": "0x4eafe50"
+    },
+    {
+      "site": "0x4eaff1c",
+      "target": "0x4eaff2c"
+    },
+    {
+      "site": "0x4eaff2c",
+      "target": "0x4ea80b8"
+    },
+    {
+      "site": "0x4eaff38",
+      "target": "0x4eaff44"
+    },
+    {
+      "site": "0x4eaff40",
+      "target": "0x4eaff4c"
+    },
+    {
+      "site": "0x4eaff48",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eaff5c",
+      "target": "0x4eafe54"
+    },
+    {
+      "site": "0x4eaff64",
+      "target": "0x4eaff80"
+    },
+    {
+      "site": "0x4eaff6c",
+      "target": "0x4eaff94"
+    },
+    {
+      "site": "0x4eaff70",
+      "target": "0x4eaffa4"
+    },
+    {
+      "site": "0x4eaff78",
+      "target": "0x4eaffcc"
+    },
+    {
+      "site": "0x4eaff7c",
+      "target": "0x4eb001c"
+    },
+    {
+      "site": "0x4eaff90",
+      "target": "0x4eaff70"
+    },
+    {
+      "site": "0x4eaffa0",
+      "target": "0x4eb0038"
+    },
+    {
+      "site": "0x4eaffac",
+      "target": "0x4eaffbc"
+    },
+    {
+      "site": "0x4eaffb4",
+      "target": "0x4eaffcc"
+    },
+    {
+      "site": "0x4eaffb8",
+      "target": "0x4eb001c"
+    },
+    {
+      "site": "0x4eaffbc",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eaffc8",
+      "target": "0x4eb001c"
+    },
+    {
+      "site": "0x4eaffe8",
+      "target": "0x4eafff4"
+    },
+    {
+      "site": "0x4eafff0",
+      "target": "0x4eb0004"
+    },
+    {
+      "site": "0x4eafff4",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb0024",
+      "target": "0x4eb0030"
+    },
+    {
+      "site": "0x4eb002c",
+      "target": "0x4eb0038"
+    },
+    {
+      "site": "0x4eb0034",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb0048",
+      "target": "0x4eafe58"
+    },
+    {
+      "site": "0x4eb0050",
+      "target": "0x4eb0060"
+    },
+    {
+      "site": "0x4eb0060",
+      "target": "0x4eaa60c"
+    },
+    {
+      "site": "0x4eb006c",
+      "target": "0x4eb0078"
+    },
+    {
+      "site": "0x4eb0074",
+      "target": "0x4eb0080"
+    },
+    {
+      "site": "0x4eb007c",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb0090",
+      "target": "0x4eafe5c"
+    },
+    {
+      "site": "0x4eb0098",
+      "target": "0x4eb00a8"
+    },
+    {
+      "site": "0x4eb00a8",
+      "target": "0x4ea931c"
+    },
+    {
+      "site": "0x4eb00b4",
+      "target": "0x4eb00c0"
+    },
+    {
+      "site": "0x4eb00bc",
+      "target": "0x4eb00c8"
+    },
+    {
+      "site": "0x4eb00c4",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb00d8",
+      "target": "0x4eafe60"
+    },
+    {
+      "site": "0x4eb00e0",
+      "target": "0x4eb00f0"
+    },
+    {
+      "site": "0x4eb00f0",
+      "target": "0x4eab3bc"
+    },
+    {
+      "site": "0x4eb00fc",
+      "target": "0x4eb0108"
+    },
+    {
+      "site": "0x4eb0104",
+      "target": "0x4eb0110"
+    },
+    {
+      "site": "0x4eb010c",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb0124",
+      "target": "0x4eb0328"
+    },
+    {
+      "site": "0x4eb0128",
+      "target": "0x4eb0144"
+    },
+    {
+      "site": "0x4eb012c",
+      "target": "0x4eb01f4"
+    },
+    {
+      "site": "0x4eb0130",
+      "target": "0x4eb0258"
+    },
+    {
+      "site": "0x4eb0134",
+      "target": "0x4eb0270"
+    },
+    {
+      "site": "0x4eb0138",
+      "target": "0x4eb02b8"
+    },
+    {
+      "site": "0x4eb013c",
+      "target": "0x4eb02f8"
+    },
+    {
+      "site": "0x4eb0140",
+      "target": "0x4eb0328"
+    },
+    {
+      "site": "0x4eb0148",
+      "target": "0x4eb0164"
+    },
+    {
+      "site": "0x4eb0150",
+      "target": "0x4eb0178"
+    },
+    {
+      "site": "0x4eb0160",
+      "target": "0x4eb01e0"
+    },
+    {
+      "site": "0x4eb0174",
+      "target": "0x4eb0154"
+    },
+    {
+      "site": "0x4eb0194",
+      "target": "0x4eb01a0"
+    },
+    {
+      "site": "0x4eb019c",
+      "target": "0x4eb01b4"
+    },
+    {
+      "site": "0x4eb01a0",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb01cc",
+      "target": "0x4eb01d8"
+    },
+    {
+      "site": "0x4eb01d4",
+      "target": "0x4eb01e0"
+    },
+    {
+      "site": "0x4eb01dc",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb01f0",
+      "target": "0x4eb0130"
+    },
+    {
+      "site": "0x4eb01f8",
+      "target": "0x4eb020c"
+    },
+    {
+      "site": "0x4eb0200",
+      "target": "0x4eb0220"
+    },
+    {
+      "site": "0x4eb0208",
+      "target": "0x4eb023c"
+    },
+    {
+      "site": "0x4eb021c",
+      "target": "0x4eb0204"
+    },
+    {
+      "site": "0x4eb0224",
+      "target": "0x4eb0238"
+    },
+    {
+      "site": "0x4eb022c",
+      "target": "0x4eb0344"
+    },
+    {
+      "site": "0x4eb0234",
+      "target": "0x4eb023c"
+    },
+    {
+      "site": "0x4eb0254",
+      "target": "0x4eb0134"
+    },
+    {
+      "site": "0x4eb025c",
+      "target": "0x5ab36b8"
+    },
+    {
+      "site": "0x4eb026c",
+      "target": "0x4eb0138"
+    },
+    {
+      "site": "0x4eb0274",
+      "target": "0x4eb0284"
+    },
+    {
+      "site": "0x4eb0284",
+      "target": "0x4ead4d8"
+    },
+    {
+      "site": "0x4eb0290",
+      "target": "0x4eb029c"
+    },
+    {
+      "site": "0x4eb0298",
+      "target": "0x4eb02a4"
+    },
+    {
+      "site": "0x4eb02a0",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb02b4",
+      "target": "0x4eb013c"
+    },
+    {
+      "site": "0x4eb02bc",
+      "target": "0x4eb02cc"
+    },
+    {
+      "site": "0x4eb02f4",
+      "target": "0x4eb0328"
+    },
+    {
+      "site": "0x4eb02fc",
+      "target": "0x4eb030c"
+    },
+    {
+      "site": "0x4eb0344",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb0354",
+      "target": "0x4eb0240"
+    },
+    {
+      "site": "0x4eb035c",
+      "target": "0x571a3d8"
+    },
+    {
+      "site": "0x4eb0360",
+      "target": "0x4eb0244"
+    },
+    {
+      "site": "0x19704",
+      "target": "0x19754"
+    },
+    {
+      "site": "0x19714",
+      "target": "0x19850"
+    },
+    {
+      "site": "0x19738",
+      "target": "0x19770"
+    },
+    {
+      "site": "0x19744",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x19750",
+      "target": "0x19774"
+    },
+    {
+      "site": "0x19754",
+      "target": "0x19768"
+    },
+    {
+      "site": "0x19760",
+      "target": "0x7140390"
+    },
+    {
+      "site": "0x1976c",
+      "target": "0x19838"
+    },
+    {
+      "site": "0x19784",
+      "target": "0x7140390"
+    },
+    {
+      "site": "0x19790",
+      "target": "0x1980c"
+    },
+    {
+      "site": "0x19798",
+      "target": "0x197f8"
+    },
+    {
+      "site": "0x197ac",
+      "target": "0x197f8"
+    },
+    {
+      "site": "0x197e8",
+      "target": "0x197cc"
+    },
+    {
+      "site": "0x197f4",
+      "target": "0x19808"
+    },
+    {
+      "site": "0x19804",
+      "target": "0x197f8"
+    },
+    {
+      "site": "0x19818",
+      "target": "0x19838"
+    },
+    {
+      "site": "0x19834",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x19854",
+      "target": "0x18e5c"
+    },
+    {
+      "site": "0x4cbd754",
+      "target": "0x4cbd800"
+    },
+    {
+      "site": "0x4cbd76c",
+      "target": "0x4cbd800"
+    },
+    {
+      "site": "0x4cbd780",
+      "target": "0x4669774"
+    },
+    {
+      "site": "0x4cbd7bc",
+      "target": "0x4cbd808"
+    },
+    {
+      "site": "0x4cbd7d0",
+      "target": "0x4cbd810"
+    },
+    {
+      "site": "0x4cbd7d4",
+      "target": "0x4cbd824"
+    },
+    {
+      "site": "0x4cbd7f4",
+      "target": "0x4cbd828"
+    },
+    {
+      "site": "0x4cbd7f8",
+      "target": "0x4cbd7dc"
+    },
+    {
+      "site": "0x4cbd7fc",
+      "target": "0x4cbd828"
+    },
+    {
+      "site": "0x4cbd80c",
+      "target": "0x4cbd828"
+    },
+    {
+      "site": "0x4cbd814",
+      "target": "0x7140e7c"
+    },
+    {
+      "site": "0x4cbd820",
+      "target": "0x4cbd828"
+    },
+    {
+      "site": "0x4d310d4",
+      "target": "0x4cbd624"
+    },
+    {
+      "site": "0x4d310dc",
+      "target": "0x4d310f4"
+    },
+    {
+      "site": "0x4d310f0",
+      "target": "0x4d31100"
+    },
+    {
+      "site": "0x4d310fc",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0x4d31118",
+      "target": "0x4d31134"
+    },
+    {
+      "site": "0x4d31130",
+      "target": "0x4d31144"
+    },
+    {
+      "site": "0x4d31140",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0x4eae8a4",
+      "target": "0x4eae1b8"
+    },
+    {
+      "site": "0x4eae1d4",
+      "target": "0x4eae318"
+    },
+    {
+      "site": "0x4eae1e0",
+      "target": "0x4eae25c"
+    },
+    {
+      "site": "0x4eae23c",
+      "target": "0x4eae208"
+    },
+    {
+      "site": "0x4eae270",
+      "target": "0x5ab442c"
+    },
+    {
+      "site": "0x4eae27c",
+      "target": "0x4eae2f4"
+    },
+    {
+      "site": "0x4eae300",
+      "target": "0x5ab4444"
+    },
+    {
+      "site": "0x4eae30c",
+      "target": "0x5ab4574"
+    },
+    {
+      "site": "0x4eae314",
+      "target": "0x5ab457c"
+    },
+    {
+      "site": "0x4eae320",
+      "target": "0x4eae344"
+    },
+    {
+      "site": "0x4eae324",
+      "target": "0x4eae350"
+    },
+    {
+      "site": "0x4eae328",
+      "target": "0x4eae36c"
+    },
+    {
+      "site": "0x4eae32c",
+      "target": "0x4eae388"
+    },
+    {
+      "site": "0x4eae330",
+      "target": "0x4eae3b0"
+    },
+    {
+      "site": "0x4eae334",
+      "target": "0x4eae3d8"
+    },
+    {
+      "site": "0x4eae338",
+      "target": "0x4eae400"
+    },
+    {
+      "site": "0x4eae33c",
+      "target": "0x4eae428"
+    },
+    {
+      "site": "0x4eae340",
+      "target": "0x4eae450"
+    },
+    {
+      "site": "0x4eae348",
+      "target": "0x4eae47c"
+    },
+    {
+      "site": "0x4eae34c",
+      "target": "0x4eae574"
+    },
+    {
+      "site": "0x4eae368",
+      "target": "0x4eae32c"
+    },
+    {
+      "site": "0x4eae384",
+      "target": "0x4eae330"
+    },
+    {
+      "site": "0x4eae398",
+      "target": "0x4eae584"
+    },
+    {
+      "site": "0x4eae3a0",
+      "target": "0x4eae5bc"
+    },
+    {
+      "site": "0x4eae3a4",
+      "target": "0x4ea6d78"
+    },
+    {
+      "site": "0x4eae3ac",
+      "target": "0x4eae334"
+    },
+    {
+      "site": "0x4eae3c0",
+      "target": "0x4eae5cc"
+    },
+    {
+      "site": "0x4eae3c8",
+      "target": "0x4eae608"
+    },
+    {
+      "site": "0x4eae3cc",
+      "target": "0x4ea766c"
+    },
+    {
+      "site": "0x4eae3d4",
+      "target": "0x4eae338"
+    },
+    {
+      "site": "0x4eae3e8",
+      "target": "0x4eae618"
+    },
+    {
+      "site": "0x4eae3f0",
+      "target": "0x4eae648"
+    },
+    {
+      "site": "0x4eae3f4",
+      "target": "0x4ea95e4"
+    },
+    {
+      "site": "0x4eae3fc",
+      "target": "0x4eae33c"
+    },
+    {
+      "site": "0x4eae410",
+      "target": "0x4eae658"
+    },
+    {
+      "site": "0x4eae418",
+      "target": "0x4eae690"
+    },
+    {
+      "site": "0x4eae41c",
+      "target": "0x4ea9d08"
+    },
+    {
+      "site": "0x4eae424",
+      "target": "0x4eae340"
+    },
+    {
+      "site": "0x4eae438",
+      "target": "0x4eae6a0"
+    },
+    {
+      "site": "0x4eae440",
+      "target": "0x4eae6d8"
+    },
+    {
+      "site": "0x4eae444",
+      "target": "0x4ea8b08"
+    },
+    {
+      "site": "0x4eae44c",
+      "target": "0x4eae344"
+    },
+    {
+      "site": "0x4eae460",
+      "target": "0x4eae6e8"
+    },
+    {
+      "site": "0x4eae468",
+      "target": "0x4eae720"
+    },
+    {
+      "site": "0x4eae46c",
+      "target": "0x4eaa904"
+    },
+    {
+      "site": "0x4eae478",
+      "target": "0x4eae574"
+    },
+    {
+      "site": "0x4eae47c",
+      "target": "0x4eae498"
+    },
+    {
+      "site": "0x4eae480",
+      "target": "0x4eae4c0"
+    },
+    {
+      "site": "0x4eae484",
+      "target": "0x4eae4e8"
+    },
+    {
+      "site": "0x4eae488",
+      "target": "0x4eae504"
+    },
+    {
+      "site": "0x4eae48c",
+      "target": "0x4eae52c"
+    },
+    {
+      "site": "0x4eae490",
+      "target": "0x4eae554"
+    },
+    {
+      "site": "0x4eae494",
+      "target": "0x4eae574"
+    },
+    {
+      "site": "0x4eae4a8",
+      "target": "0x4eae730"
+    },
+    {
+      "site": "0x4eae4b0",
+      "target": "0x4eae75c"
+    },
+    {
+      "site": "0x4eae4b4",
+      "target": "0x4eab788"
+    },
+    {
+      "site": "0x4eae4bc",
+      "target": "0x4eae484"
+    },
+    {
+      "site": "0x4eae4d0",
+      "target": "0x4eae76c"
+    },
+    {
+      "site": "0x4eae4d8",
+      "target": "0x4eae790"
+    },
+    {
+      "site": "0x4eae4dc",
+      "target": "0x4eabd84"
+    },
+    {
+      "site": "0x4eae4e4",
+      "target": "0x4eae488"
+    },
+    {
+      "site": "0x4eae500",
+      "target": "0x4eae48c"
+    },
+    {
+      "site": "0x4eae514",
+      "target": "0x4eae7a0"
+    },
+    {
+      "site": "0x4eae51c",
+      "target": "0x4eae7d0"
+    },
+    {
+      "site": "0x4eae520",
+      "target": "0x4eacbdc"
+    },
+    {
+      "site": "0x4eae528",
+      "target": "0x4eae490"
+    },
+    {
+      "site": "0x4eae53c",
+      "target": "0x4eae7e0"
+    },
+    {
+      "site": "0x4eae544",
+      "target": "0x4eae808"
+    },
+    {
+      "site": "0x4eae548",
+      "target": "0x4ead798"
+    },
+    {
+      "site": "0x4eae550",
+      "target": "0x4eae574"
+    },
+    {
+      "site": "0x4eae564",
+      "target": "0x4eae818"
+    },
+    {
+      "site": "0x4eae56c",
+      "target": "0x4eae840"
+    },
+    {
+      "site": "0x4eae570",
+      "target": "0x4eadd14"
+    },
+    {
+      "site": "0x4eae588",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae5b8",
+      "target": "0x4eae3a4"
+    },
+    {
+      "site": "0x4eae5c8",
+      "target": "0x4eae3a4"
+    },
+    {
+      "site": "0x4eae5d0",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae604",
+      "target": "0x4eae3cc"
+    },
+    {
+      "site": "0x4eae614",
+      "target": "0x4eae3cc"
+    },
+    {
+      "site": "0x4eae61c",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae644",
+      "target": "0x4eae3f4"
+    },
+    {
+      "site": "0x4eae654",
+      "target": "0x4eae3f4"
+    },
+    {
+      "site": "0x4eae65c",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae68c",
+      "target": "0x4eae41c"
+    },
+    {
+      "site": "0x4eae69c",
+      "target": "0x4eae41c"
+    },
+    {
+      "site": "0x4eae6a4",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae6d4",
+      "target": "0x4eae444"
+    },
+    {
+      "site": "0x4eae6e4",
+      "target": "0x4eae444"
+    },
+    {
+      "site": "0x4eae6ec",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae71c",
+      "target": "0x4eae46c"
+    },
+    {
+      "site": "0x4eae72c",
+      "target": "0x4eae46c"
+    },
+    {
+      "site": "0x4eae734",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae758",
+      "target": "0x4eae4b4"
+    },
+    {
+      "site": "0x4eae768",
+      "target": "0x4eae4b4"
+    },
+    {
+      "site": "0x4eae770",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae78c",
+      "target": "0x4eae4dc"
+    },
+    {
+      "site": "0x4eae79c",
+      "target": "0x4eae4dc"
+    },
+    {
+      "site": "0x4eae7a4",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae7cc",
+      "target": "0x4eae520"
+    },
+    {
+      "site": "0x4eae7dc",
+      "target": "0x4eae520"
+    },
+    {
+      "site": "0x4eae7e4",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae804",
+      "target": "0x4eae548"
+    },
+    {
+      "site": "0x4eae814",
+      "target": "0x4eae548"
+    },
+    {
+      "site": "0x4eae81c",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4eae83c",
+      "target": "0x4eae570"
+    },
+    {
+      "site": "0x4eae84c",
+      "target": "0x4eae570"
+    },
+    {
+      "site": "0xf57670",
+      "target": "0xf576a0"
+    },
+    {
+      "site": "0xf57688",
+      "target": "0xf576b4"
+    },
+    {
+      "site": "0xf5769c",
+      "target": "0xf576c0"
+    },
+    {
+      "site": "0xf576a8",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf576b0",
+      "target": "0xf5768c"
+    },
+    {
+      "site": "0xf576bc",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf576c4",
+      "target": "0xf576dc"
+    },
+    {
+      "site": "0xf576d8",
+      "target": "0xf576e8"
+    },
+    {
+      "site": "0xf576e4",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf576ec",
+      "target": "0xf57704"
+    },
+    {
+      "site": "0xf57700",
+      "target": "0xf57710"
+    },
+    {
+      "site": "0xf5770c",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf57714",
+      "target": "0xf5772c"
+    },
+    {
+      "site": "0xf57728",
+      "target": "0xf57738"
+    },
+    {
+      "site": "0xf57734",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf57748",
+      "target": "0x396384"
+    },
+    {
+      "site": "0xf57750",
+      "target": "0xf57768"
+    },
+    {
+      "site": "0xf57764",
+      "target": "0xf57774"
+    },
+    {
+      "site": "0xf57770",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf57778",
+      "target": "0xf57790"
+    },
+    {
+      "site": "0xf5778c",
+      "target": "0xf5779c"
+    },
+    {
+      "site": "0xf57798",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf577c0",
+      "target": "0xf577d8"
+    },
+    {
+      "site": "0xf577d4",
+      "target": "0xf577e4"
+    },
+    {
+      "site": "0xf577e0",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf577ec",
+      "target": "0xf57808"
+    },
+    {
+      "site": "0xf57804",
+      "target": "0xf57810"
+    },
+    {
+      "site": "0xf5780c",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf57814",
+      "target": "0xf5782c"
+    },
+    {
+      "site": "0xf57828",
+      "target": "0xf57838"
+    },
+    {
+      "site": "0xf57834",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf57848",
+      "target": "0xf57874"
+    },
+    {
+      "site": "0xf5784c",
+      "target": "0xf57960"
+    },
+    {
+      "site": "0xf57854",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0xf5786c",
+      "target": "0x7140e88"
+    },
+    {
+      "site": "0xf5787c",
+      "target": "0x4eae868"
+    },
+    {
+      "site": "0xf57890",
+      "target": "0xf578a0"
+    },
+    {
+      "site": "0xf578b8",
+      "target": "0xf578c8"
+    },
+    {
+      "site": "0xf578d8",
+      "target": "0xf578e8"
+    },
+    {
+      "site": "0xf57900",
+      "target": "0xf57910"
+    },
+    {
+      "site": "0xf57920",
+      "target": "0xf5793c"
+    },
+    {
+      "site": "0xf57938",
+      "target": "0xf57948"
+    },
+    {
+      "site": "0xf57944",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0xf57964",
+      "target": "0x18e5c"
+    },
+    {
+      "site": "0x4cbd640",
+      "target": "0x4cbd6cc"
+    },
+    {
+      "site": "0x4cbd644",
+      "target": "0x4669774"
+    },
+    {
+      "site": "0x4cbd688",
+      "target": "0x4cbd6e8"
+    },
+    {
+      "site": "0x4cbd698",
+      "target": "0x4cbd6f4"
+    },
+    {
+      "site": "0x4cbd69c",
+      "target": "0x4cbd6c4"
+    },
+    {
+      "site": "0x4cbd6b0",
+      "target": "0x4cbd6e8"
+    },
+    {
+      "site": "0x4cbd6c0",
+      "target": "0x4cbd6a4"
+    },
+    {
+      "site": "0x4cbd6c8",
+      "target": "0x4cbd6e8"
+    },
+    {
+      "site": "0x4cbd6d0",
+      "target": "0x4cbd748"
+    },
+    {
+      "site": "0x4cbd700",
+      "target": "0x7140e7c"
+    },
+    {
+      "site": "0x4cbd710",
+      "target": "0x4cbd6e8"
+    }
+  ],
+  "independently_decoded_stores": [
+    {
+      "site": "0x3296208",
+      "base_register": "x22",
+      "offset": "0x204",
+      "width": 4,
+      "domain": "record presence"
+    },
+    {
+      "site": "0x329620c",
+      "base_register": "x22",
+      "offset": "0x198",
+      "width": 4,
+      "domain": "record name number 1"
+    },
+    {
+      "site": "0x3296238",
+      "base_register": "x22",
+      "offset": "0x204",
+      "width": 4,
+      "domain": "record presence"
+    },
+    {
+      "site": "0x329623c",
+      "base_register": "x22",
+      "offset": "0x19c",
+      "width": 4,
+      "domain": "record name number 2"
+    },
+    {
+      "site": "0x3296260",
+      "base_register": "x22",
+      "offset": "0x110",
+      "width": 4,
+      "domain": "record name number 3"
+    },
+    {
+      "site": "0x3296270",
+      "base_register": "x0",
+      "offset": "0x218",
+      "width": 1,
+      "domain": "record insertion flag"
+    },
+    {
+      "site": "0x32963a4",
+      "base_register": "x1",
+      "offset": "0xf4",
+      "width": 4,
+      "domain": "record local id conditional"
+    },
+    {
+      "site": "0x326a0b8",
+      "base_register": "x19",
+      "offset": "0x100",
+      "width": 8,
+      "domain": "record time correction conditional"
+    },
+    {
+      "site": "0x4cbf824",
+      "base_register": "x0",
+      "offset": "0x108",
+      "width": 8,
+      "domain": "record type mirror"
+    },
+    {
+      "site": "0x4cbfba0",
+      "base_register": "x19",
+      "offset": "0x180",
+      "width": 8,
+      "domain": "record byte vector end"
+    },
+    {
+      "site": "0x4eb0328",
+      "base_register": "x19",
+      "offset": "0x70",
+      "width": 4,
+      "domain": "metadata top cache equals record+0x200"
+    },
+    {
+      "site": "0x4eaff98",
+      "base_register": "x22",
+      "offset": "0x14",
+      "width": 4,
+      "domain": "metadata+0x20 child cache"
+    },
+    {
+      "site": "0x4eb001c",
+      "base_register": "x22",
+      "offset": "0x14",
+      "width": 4,
+      "domain": "metadata+0x20 child cache"
+    },
+    {
+      "site": "0x4eb0158",
+      "base_register": "x22",
+      "offset": "0x10",
+      "width": 4,
+      "domain": "metadata+0x40 child cache"
+    },
+    {
+      "site": "0x4eb01c4",
+      "base_register": "x22",
+      "offset": "0x10",
+      "width": 4,
+      "domain": "metadata+0x40 child cache"
+    },
+    {
+      "site": "0x4eb023c",
+      "base_register": "x22",
+      "offset": "0xc",
+      "width": 4,
+      "domain": "metadata+0x48 child cache"
+    },
+    {
+      "site": "0x4eb034c",
+      "base_register": "x22",
+      "offset": "0xc",
+      "width": 4,
+      "domain": "metadata+0x48 child cache"
+    },
+    {
+      "site": "0x4eb02e4",
+      "base_register": "x8",
+      "offset": "0xc",
+      "width": 4,
+      "domain": "metadata+0x60 child cache"
+    },
+    {
+      "site": "0x4eb031c",
+      "base_register": "x8",
+      "offset": "0xc",
+      "width": 4,
+      "domain": "metadata+0x68 child cache"
+    },
+    {
+      "site": "0x19768",
+      "base_register": "x19",
+      "offset": "0x8",
+      "width": 8,
+      "domain": "vector end within capacity"
+    },
+    {
+      "site": "0x19814",
+      "base_register": "x19",
+      "offset": "0x10",
+      "width": 8,
+      "domain": "vector capacity after allocation"
+    },
+    {
+      "site": "0xf57884",
+      "base_register": "x19",
+      "offset": "0x208",
+      "width": 8,
+      "domain": "copied shared integer pointer"
+    },
+    {
+      "site": "0xf5788c",
+      "base_register": "x19",
+      "offset": "0x210",
+      "width": 8,
+      "domain": "copied shared integer controller"
+    },
+    {
+      "site": "0xf578ac",
+      "base_register": "x19",
+      "offset": "0x220",
+      "width": 8,
+      "domain": "copied aux pointer"
+    },
+    {
+      "site": "0xf578b4",
+      "base_register": "x19",
+      "offset": "0x228",
+      "width": 8,
+      "domain": "copied aux controller"
+    },
+    {
+      "site": "0xf578cc",
+      "base_register": "x19",
+      "offset": "0x230",
+      "width": 8,
+      "domain": "copied source aux pointer"
+    },
+    {
+      "site": "0xf578d4",
+      "base_register": "x19",
+      "offset": "0x238",
+      "width": 8,
+      "domain": "copied source aux controller"
+    }
+  ],
+  "comparison_thunk": {
+    "site": "0x4cbd5f0",
+    "raw": "56000014",
+    "target": "0x4cbd748",
+    "non_stack_direct_stores": 0
+  },
+  "metadata_top_level_allocation_sites": [
+    {
+      "offset": "0x10",
+      "allocate": "0x4eae588",
+      "install": "0x4eae5b0",
+      "merge_call": "0x4eae3a4",
+      "merge_target": "0x4ea6d78"
+    },
+    {
+      "offset": "0x18",
+      "allocate": "0x4eae5d0",
+      "install": "0x4eae5fc",
+      "merge_call": "0x4eae3cc",
+      "merge_target": "0x4ea766c"
+    },
+    {
+      "offset": "0x20",
+      "allocate": "0x4eae61c",
+      "install": "0x4eae63c",
+      "merge_call": "0x4eae3f4",
+      "merge_target": "0x4ea95e4"
+    },
+    {
+      "offset": "0x28",
+      "allocate": "0x4eae65c",
+      "install": "0x4eae684",
+      "merge_call": "0x4eae41c",
+      "merge_target": "0x4ea9d08"
+    },
+    {
+      "offset": "0x30",
+      "allocate": "0x4eae6a4",
+      "install": "0x4eae6cc",
+      "merge_call": "0x4eae444",
+      "merge_target": "0x4ea8b08"
+    },
+    {
+      "offset": "0x38",
+      "allocate": "0x4eae6ec",
+      "install": "0x4eae714",
+      "merge_call": "0x4eae46c",
+      "merge_target": "0x4eaa904"
+    },
+    {
+      "offset": "0x40",
+      "allocate": "0x4eae734",
+      "install": "0x4eae750",
+      "merge_call": "0x4eae4b4",
+      "merge_target": "0x4eab788"
+    },
+    {
+      "offset": "0x48",
+      "allocate": "0x4eae770",
+      "install": "0x4eae784",
+      "merge_call": "0x4eae4dc",
+      "merge_target": "0x4eabd84"
+    },
+    {
+      "offset": "0x58",
+      "allocate": "0x4eae7a4",
+      "install": "0x4eae7c4",
+      "merge_call": "0x4eae520",
+      "merge_target": "0x4eacbdc"
+    },
+    {
+      "offset": "0x60",
+      "allocate": "0x4eae7e4",
+      "install": "0x4eae7fc",
+      "merge_call": "0x4eae548",
+      "merge_target": "0x4ead798"
+    },
+    {
+      "offset": "0x68",
+      "allocate": "0x4eae81c",
+      "install": "0x4eae834",
+      "merge_call": "0x4eae570",
+      "merge_target": "0x4eadd14"
+    }
+  ],
+  "metadata_size_is_read_only": false,
+  "record_copy_is_fully_independent": false,
+  "selected_original_record_direct_writes_overlap_type_names_or_body": false,
+  "copy_domains": {
+    "body_and_names": "owned string copy branches; body proof retained in implementation82",
+    "byte_vector": "new allocation and memcpy for nonempty input",
+    "metadata": "new in-record object, zeroed, then merge; 11 nested top-level allocation branches",
+    "shared_integer": "pointer/controller copied and reference count incremented",
+    "aux_and_source_aux": "pointer/controller copied and reference count incremented"
+  },
+  "remaining_boundaries": [
+    "Database vector consumers 0x3296b1c/0x3263cd4 may affect shared subobjects; full effects unproved.",
+    "Nested metadata merge and size callees not exhaustively proved; valid object/allocator assumptions remain.",
+    "Account getters/global aliases and arbitrary aux virtual effects not proved by absence of direct stores.",
+    "Parent callees and subsequent queues, exceptions, races, scheduling and final release remain open."
+  ],
+  "excluded_failed_export": "text-contract-pass428: missing 0x prefixes; Java script error despite engine exit0",
+  "limitations": "Selected write/alias contracts, not full symbolic execution, reachability, nonalias or preservation proof.",
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/database-record-outlets-20261018/verification.json": "ae39a85a20bf133b5f6f6b3997699e0a3138c869bf56861576ff8f00ad59931f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/ghidra.log": "c3427d3cc9d8880def45739d63bae39158df8c5eca1a6977c58590e83c9ff88e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/headless-output.log": "89e4d8f259b25d70ca68eecd00107c8604be9d1c8e366d2e9291c840108f9c73",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/native-fn-3105a98.asm": "d5f6911822079ee22866e87bc7ab3b5365973fa5098b31985dd3dfe14e77ca97",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/native-fn-3105a98.c": "37d57ca0b7b08158f1905bb00e0f489c4a1bd90ed2424701cc0e1e2734b69327",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/run.json": "fd5057e250fc665a70a5dfcb5fea6b3dcca624f0833b5d8a8dd51f25f352db97",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/script.log": "35354ebb51c4c7e8728b62892dc37e2ad379275cf81b5ef5f6319a5c69efe48b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/ghidra.log": "357da4db2f45c1c457f0040d0027f046617fb99962d977ffb97435911eaf8e2a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/headless-output.log": "6bf27e24157ba5acc1175fc6e746bcb58a6c7c7eb9e6bb4406d2d59e7e51cca0",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/native-fn-2a0cf30.asm": "996c279082cdaba1cac7851a0902f8496d0a492ee5c08768e786d5f5e4bc5292",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/native-fn-2a0cf30.c": "5110a90efe92a5e7ab200826dcd102ba04922479f3173f9447d965edf133d8f6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/native-fn-f57630.asm": "b1ff42127c5daebad49470f029ae9bba346cbb9e9a4153c3801a756fde3ec536",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/native-fn-f57630.c": "efb81ad513d55eca5708baaf79deef6b29fccbf943867da298c6cc746eb4bc33",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/run.json": "0350181c0cf82f4fcc0bf56600f3dd2e53bda3c178e8aed23be94b0965c22c00",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/script.log": "5e342936efff1668a6302c077746a4f6d317e2c64fe2012296fa68bfc14aa720",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/ghidra.log": "dbad58abe7e37b000a7fa431f96a1e030d6d73b7051ed43f44abda4348fd5050",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/headless-output.log": "be83737773be7559cb50b07ed6f691d732c24be663ff4598348566ccf4e53e57",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/native-fn-32cf5e8.asm": "a23cc21f55908c66f8a16529918db602938894a2a6626f6dad9d7ab2c946c3ae",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/native-fn-32cf5e8.c": "8c2d73ec653b7f071cf98b26a18a16ef29ba9869998df6072c340ed1a8d28061",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/native-fn-4cbd624.asm": "e98182667b280109e4f783c93ea5997c97ef6882f627302082ab350bd39098fd",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/native-fn-4cbd624.c": "0e0ded0201403622be79c7fa67e659086aaebdd4686a147b6497ac0da7169c97",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/run.json": "4a33c4b769673eb090a609b36ebb19cf1a864fa3e942d71ec6b9e5c1a8081974",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/script.log": "5cb1c66247220d18ff6c951ec76b42f8bce3160575ba934e1ba2f779fa584794",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/ghidra.log": "d041c310bd6d07a0d252a6cbfa8b648bb0664b79e2a3119604b5431f4725791c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/headless-output.log": "fbe76dfca19026ac09e24f7243575c96a73f6294ce653af29ea59bacfe2b73ae",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/native-fn-335bddc.asm": "09b0a42adcddd88bbfb1ec775a7eaf149716e461b7b678133855ae144e5ca976",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/native-fn-335bddc.c": "b36a156c60a8b4088e4036d0cafcded34d741bfe3255de13508b452595bb559c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/native-fn-335c1b4.asm": "aef53e1988c2c442229ff0805e7f1184c714ceb7aa0af2cd4d2357df1469f913",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/native-fn-335c1b4.c": "1759f4ac24ae1a678f867930b6c4a061841bd7db973090221f1bd45a08ca5853",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/run.json": "084c27eb427386393bd28619b16eb0415a51cc3eda85120c386f9c8de6f25b0a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/script.log": "76bc7c22b13083a7460e2a6824191a5c6d4f060a19ebd6916ba422230dbb8543",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/ghidra.log": "a9295fe31631519ec66b3f53029c7cea2916922b970390ed95b6626e6018909f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/headless-output.log": "541d420b18eb34f5d694deb5b5c5fd2959a73bddbbd544e280c8ccce0d6f9ffb",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/native-fn-335c414.asm": "7b001901f546614d8991e53e85f8daa6bae988c0001a9416f1518e41c397d3c0",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/native-fn-335c414.c": "92ecf533024f94d0b8c1aaa082e0ff660081e1286a053cc5aa1fa352511e5475",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/run.json": "016fac4b812b255221dc03ca0a9a23d71943a3ae440e0e8b440c2416ae443752",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/script.log": "f03ef62c419d67eae8e74b0bcae6fe71619e8d30824c9a2918c868db1608be80",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass228/ghidra.log": "b3c8d5e89dd12bbd238587d6bec79d007a4021109309790872286e67afae341c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass228/headless-output.log": "bf10462c1e1401c7bacd1b2278294ed8c332cf614964dbe2ed46fd284d44c14b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass228/native-fn-3269bec.asm": "023628a6e12378db9e60f2cd1c1595960c208ce5cdbdedf1a54279fa2db2d8c7",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass228/native-fn-3269bec.c": "51685011482be08be2c24638bc6a6fe5a5b7d81d38492b21b59ee901ca529b13",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass228/run.json": "5c924faad206b07608a769626899a00b7fc4a4bd0f297a28b16a08f99408b166",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass228/script.log": "34eab4acfa516b10f0f76f413fc550b75ca7e893597fa56f556d3cbf096ea837",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass229/ghidra.log": "e9a04fc0f418e2eb07b9192f25abdb4512a7abf3eeb97565141432c479f05409",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass229/headless-output.log": "2b5c188177ae3ad65f69652dbe8ce1ba7122451a9b4b76c2cbc6ef6c00b413b8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass229/native-fn-32961a4.asm": "c21db6d5e3a08789df4276c2e58376bbcb0bbee1ba5dc141489ff9666de25e84",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass229/native-fn-32961a4.c": "2b4ecb18c1b18d192abc995bc54c119bf5e2508b7bcca1186bf3fc6a5ebb2add",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass229/run.json": "a2bdd62b7d6dd2331b926844a523558c50c080dcc82d1b92209cc6e79e3629f7",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass229/script.log": "e9595e741ca2900d43ef0cecd812e55e67344a53c2a8da9d014207b812896dea",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass230/ghidra.log": "738902dac2d156dba09d70ab948426804a9f30b6c901078b254a531b764a1743",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass230/headless-output.log": "d5ed2fe13c47d18b7283653d68a8002477903a80df7965eba195a1096550eb1a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass230/native-fn-4cbf820.asm": "84431086bdc7b9087e31aeb40cc3a4df08141c46a3917dcce0cb6916aca4a47d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass230/native-fn-4cbf820.c": "fa11aa0ab74695b8d2caa750386385ef257cd7c520fcd7d57daf75245732540d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass230/native-fn-4cbfb58.asm": "45f0249854f3ced8b813f0a0c04c3a573ded58176bba6b35fc82507f430d46e8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass230/native-fn-4cbfb58.c": "c2b27b55ca6075a3882154dcbe0699a8bbc6c3b7ccc5b188923a4bdfa49ac833",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass230/run.json": "83d5b6bc992e531b86a05b43fcc0979971453e4684638df54100ba3bf49f58a4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass230/script.log": "efc93f1af6b99a330d11722deae1873a1fa7b83d40c563df2a27faddac6e9cda",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass287/ghidra.log": "cc16d56f4c6df32f093576a3f7c82fd17ba64bea5211880e60e7401fad2398f3",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass287/headless-output.log": "269a4258ba961413c635cad4a8e535ce8407af6de33028a13684c1d66bd778bc",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass287/native-fn-4eafe18.asm": "ef0b6085ecc895fb2641ddfe8bcf362358a6a90b6a2d5791b88ab2744ad53d02",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass287/native-fn-4eafe18.c": "7dc9f790bf6e6be924a44b890c884f8b50b3e222d86e822d9117578e2afe33d7",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass287/run.json": "f320337d811a95047b8e5514dd7dde44bb478c833f5998464078a127af37fc1a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass287/script.log": "83835bb08425bf0876616d196fcab9d0ac7f4121aa40d23182d2b0c81abb327b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass304/ghidra.log": "9eceaa833cbcfe00141baf6bece15a0a52cf76e60653578a61a1213583a6f604",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass304/headless-output.log": "970d5d56946870f1e0080f0114933111c26a754b8cdfdac427d835a65c0cf70d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass304/native-fn-4eae1b8.asm": "c76e22643b4b493adfd4f709929c473bf3e05c000861692618d3635acfcfb901",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass304/native-fn-4eae1b8.c": "fdaabd7ccf9ffb60b69c74cb8f4d7e225e37f33c43a743f575c6f6bec390bb33",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass304/run.json": "3ce8b0c1164c273222df61b4d4e7ec116fb303146448fa513f02cdb2fcb5eac7",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass304/script.log": "b3c936f9c23553253de8407c5f8843bed10d967f227e5dab966cd0dc5c8124a3",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/ghidra.log": "e9214c38d5761beb3a24d10b186e850c22a99be3943eb7e4dcf1087083b743c8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/headless-output.log": "b4cd423a4f1d1d167211397c056818dc760c347a552cb8524ba1c710e5d2ae4f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/native-fn-196dc.asm": "8126028699eb8d72ae1a58d6e47a04869a06188e4d66a0285059ad11fd63719e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/native-fn-196dc.c": "758e4218bcfb1bd8e62a15f4dcfea5a55bee46fbee1c6f78e176956794ca89ba",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/native-fn-4cbd748.asm": "939412fd8c2b00fff34c552e21205130f1b61b69d994803fbea7e795309f559e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/native-fn-4cbd748.c": "14f3a891c7b5f9e6d8b08b0bec15d6ad64b91aae064cf823805b287dd250d2e8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/native-fn-4d310bc.asm": "7cb5dbef1a73a31b6489103ad57a02c9a2b0942f4b20e1e4f1fda48a448366ae",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/native-fn-4d310bc.c": "a8a180ddce595e6eadb10fbfc56a28418969aa5b39c8fff42f47d4896f7e20d3",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/run.json": "c8335d175b023ae539df3a229aded1179470437bdc7f2ae06868b5da6980d389",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass429/script.log": "f804f40629f33614f6de4946b60aa8570d5ce55f33de13ee10ffc7a55b3be2dd",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass430/ghidra.log": "7fbefaf226c2283b1e63a18efc199aa6dd144b640554911df8dabfaece93a74a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass430/headless-output.log": "589fd4bf96ac6b2d3bf55b0556c753d617a29506651a4940a85157948a87a3f2",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass430/native-fn-4eae868.asm": "60cbfbc0cd20ac81812a56476204f297a8d8c32740df6b6503ef10832cfb22a2",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass430/native-fn-4eae868.c": "db595a05f5b495d98dbabd40e6e5a52fc2011bf939bbed4867b185af3014e707",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass430/run.json": "fe73dcf683c026d487e9cd632a88b5d34dee80c04cbb6bcb916452672edceaf8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass430/script.log": "dc0723e651e26120e1276ee5e52a2a80e1be7b03deab276e7d0068d4d2b24479",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-prepare-order-20261018/verification.json": "62cca35cbc5c22eb07ffa0148dff9b76ee539f7d334f99114564b5c991b5d561",
+    "Library/ai/analyze_wechat_database_record_outlets_20261018.py": "a6d0c9e1269f94b7a6b3869d0ddc0233b0017a904484bf4af89b4c992ddb3170",
+    "Library/ai/analyze_wechat_text_prepare_cfg_20261018.py": "b23cb9d3f67a928e4f3aac16130e6767862be41ba163a9edb1df4a73bffec9b2",
+    "Library/ai/verify_wechat_input_type_20261016.py": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+    "Library/ai/verify_wechat_insertion_mutations_20261018.py": "7990f435bd4335955adad3fc6f0097cffbf4b5b48a0cbe93763383f1a20cfcbe"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "whole_path_content_preservation_proven": false,
+  "complete_adapter": false,
+  "send_verified": false,
+  "deployed": false,
+  "full_objective_complete": false
+}

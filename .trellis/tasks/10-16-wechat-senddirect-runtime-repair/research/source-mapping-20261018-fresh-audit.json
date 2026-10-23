@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "contract_and_verifier_unchanged": true,
+  "exports_unchanged": 15,
+  "prior_contracts_and_safety_stop_unchanged": true,
+  "A7_open": true,
+  "implementation_59_complete": true,
+  "whole_task_complete": false,
+  "files": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "920e1bcaedc4aa18ee9fe4eb65f672187009efd5d35b03d7bd73bf97cfe5377a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task-tiers.json": "b40aba0b9f1c46bde8aa5cd14afeff2bf66c53577c6a293ba76db448a30186a2",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/completion-gap-audit-20261017.md": "90f00cee25cebc25e3e3f9d3d214906f22b9b5aabcdf9ea04f635d4d8ad13193",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-source-result.md": "ccdaf9677b437cf827e4c79935e20b27be739b1f0d7a8b2edccfb57ca5ea52ee"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "send_verified": false,
+  "deployed": false
+}

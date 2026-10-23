@@ -1,0 +1,8 @@
+{
+  "args": [
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/operation-thread-20261018-verified/start_gate_operation"
+  ],
+  "returncode": 0,
+  "stdout": "{\"scenarios\":4,\"real_operation_component\":true,\"host_erased_abi\":true,\"balanced_lifetime\":true,\"native_scheduler_executed\":false,\"target_executed\":false,\"sent\":false}\n",
+  "stderr": ""
+}

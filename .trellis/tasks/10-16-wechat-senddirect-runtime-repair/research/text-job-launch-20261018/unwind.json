@@ -1,0 +1,89 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "sdk_format": "mach-o/compact_unwind_encoding.h",
+  "personalities": [
+    "0x9b36c48",
+    "0x9b36138",
+    "0x9b36c78"
+  ],
+  "records": [
+    {
+      "pc": "0x218c0a0",
+      "start": "0x218c0a0",
+      "end_exclusive": "0x218c0f0",
+      "encoding": "0x4000001",
+      "page_kind": 3,
+      "personality_index": 0,
+      "lsda_address": null
+    },
+    {
+      "pc": "0x453dbd4",
+      "start": "0x453dbd4",
+      "end_exclusive": "0x453dd8c",
+      "encoding": "0x54000001",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x752071c",
+      "lsda_first_64_hex": "ff9b2d01228c0108800301980108840300e80110fc0201f8014c0000c40208f80201cc026c0000010000000000000000ffff011a0048000048108c0200581484"
+    },
+    {
+      "pc": "0x453f630",
+      "start": "0x453f630",
+      "end_exclusive": "0x453f660",
+      "encoding": "0x2000000",
+      "page_kind": 3,
+      "personality_index": 0,
+      "lsda_address": null
+    },
+    {
+      "pc": "0x453f660",
+      "start": "0x453f660",
+      "end_exclusive": "0x453f764",
+      "encoding": "0x4000001",
+      "page_kind": 3,
+      "personality_index": 0,
+      "lsda_address": null
+    },
+    {
+      "pc": "0x66859ec",
+      "start": "0x66859ec",
+      "end_exclusive": "0x6685a60",
+      "encoding": "0x54000001",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x75dd1e4",
+      "lsda_first_64_hex": "ffff010c001800001808600020540000ffff012900300000300898020050109c02006408980200840108f801008c01600000ec0108f80100f4013c0000000000"
+    },
+    {
+      "pc": "0x6674c94",
+      "start": "0x6674c94",
+      "end_exclusive": "0x6674d5c",
+      "encoding": "0x54000001",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x75dc5dc",
+      "lsda_first_64_hex": "ffff010a380894010040880100000000ffff015b00b4030000b403f401e81300a805500000f80504a01300fc0580010000fc0608941300c808088c1300d00808"
+    },
+    {
+      "pc": "0x666ab58",
+      "start": "0x666ab58",
+      "end_exclusive": "0x666ac6c",
+      "encoding": "0x54000001",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x75dbe84",
+      "lsda_first_64_hex": "ffff0119005400005408f801005c94010000f00104f80100f401200000000000ffff011700bc010000bc0108ac0300e0010c900300ec01dc01000000ffff0117"
+    },
+    {
+      "pc": "0x667b420",
+      "start": "0x667b420",
+      "end_exclusive": "0x667b928",
+      "encoding": "0x54000007",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x75dca64",
+      "lsda_first_64_hex": "ffff012f00a8040000a8048402e40900e8060cb40900f406700000e407088c0900ec0794010000800904f4090084098401000000ffff010c0030000030085c00"
+    }
+  ],
+  "target_executed": false
+}

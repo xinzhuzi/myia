@@ -1,0 +1,8 @@
+{
+  "phase": "green-v2",
+  "fixtures": 4,
+  "header_sha256": "cf25be93eca5a6d55b18e29b360bf4f12a5e9746b5a055a081daf45b02019ee4",
+  "target_attached": false,
+  "target_executed": false,
+  "callable_for_send": false
+}

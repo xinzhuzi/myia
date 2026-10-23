@@ -1,0 +1,55 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass249/native-fn-667e718.asm",
+      "instructions": 1,
+      "sha256": "86d7608e4ce49cf2f939b85ac416ec3b27db5b4f5682467bfaa1f6ed6ca2f6cc"
+    },
+    {
+      "file": "text-contract-pass249/native-fn-667e71c.asm",
+      "instructions": 6,
+      "sha256": "aea91feb0e013b60f87733ca31de70295488e517fbafa266dcde3a86dea51c52"
+    },
+    {
+      "file": "text-contract-pass250/native-fn-667f128.asm",
+      "instructions": 231,
+      "sha256": "751ccc6ab9b90e4cb7f179003aa4bc862735ead629d39371fa2a9b81fb6a6d23"
+    }
+  ],
+  "instructions_matched": 238,
+  "instruction_positions_checked": 31,
+  "destructor_slots": [
+    {
+      "slot": "0x9fb2c20",
+      "decoded": "0x667e718",
+      "chain_steps": 1294
+    },
+    {
+      "slot": "0x9fb2c28",
+      "decoded": "0x667e71c",
+      "chain_steps": 1295
+    }
+  ],
+  "join_verification_sha256": "18b4fed0cabe5f73b6d34be2acd33037e4b9ca0af6eb6d2e8c89ec7ad94bf963",
+  "verifier_sha256": "665f03a575cb743543298c2a606ceb70c5cc79f3a017ac9a042d02a785198c13",
+  "destruction_sequence": [
+    "Optional object at job+0x148 receives deleting virtual slot+8",
+    "Body function at job+0x118: inline +0x20 or heap +0x28, then free storage",
+    "Final function at job+0x120/+0x138: inline +0x20 or heap +0x28",
+    "String at job+0xe0, then strong pairs with controls +0xd0,+0xc0,+0xb0",
+    "Weak control at job+0xa0, string at +0x80 and two base cleanup helpers"
+  ],
+  "proven_boundary": "Completion invokes final function without disposing it; job destructor separately disposes its stored capture.",
+  "unresolved": [
+    "When the final native owner actually releases the job",
+    "Base cleanup internals and all queued receiver lifetimes",
+    "Executor drain and module unload; full native adapter and delivery"
+  ],
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false
+}

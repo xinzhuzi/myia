@@ -1,0 +1,329 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass392/native-fn-292d940.asm",
+      "instructions": 62,
+      "sha256": "b02bdc279900cd30b4dc514385ab5600b1fc08f256c824a68e0b8ce6772e1e85"
+    },
+    {
+      "file": "text-contract-pass392/native-fn-292ee8c.asm",
+      "instructions": 12,
+      "sha256": "3cba4f0c737e4224482140ecbc737d64669140743dbeefbab4f7a58e4ff7f788"
+    },
+    {
+      "file": "text-contract-pass392/native-fn-292eef0.asm",
+      "instructions": 16,
+      "sha256": "29e8f813f23ec3aeaca31fc6448a77111f6b80bb8ba2f95dd4b63dfa65f2c07a"
+    },
+    {
+      "file": "text-contract-pass392/native-fn-292ef4c.asm",
+      "instructions": 7,
+      "sha256": "1ac51d3aeea91ea0a46f1f0079f5eeb1082d54b5c0070f635b95be7192e4ec90"
+    },
+    {
+      "file": "text-contract-pass392/native-fn-292ef68.asm",
+      "instructions": 2,
+      "sha256": "0b50b1838e8bd4441319aefac195b437eae3bec410b1139cdeb88f5296e3ccb0"
+    },
+    {
+      "file": "text-contract-pass392/native-fn-2922400.asm",
+      "instructions": 245,
+      "sha256": "b5a911d7b85016effd1702ac1418021d4d302f8e71272e7b6895872fdb3fa10d"
+    },
+    {
+      "file": "text-contract-pass392/native-fn-2921fc8.asm",
+      "instructions": 247,
+      "sha256": "bcb69a6c24361d2d30688f93ff36961cd8d4797ab4259f9b62e3ee1d5f52ea52"
+    },
+    {
+      "file": "text-contract-pass393/native-fn-292fb44.asm",
+      "instructions": 52,
+      "sha256": "630cb55750845de4dfe9afdea1a9e9252ec0c1a8ac2944fd457a6d4bc0be6d86"
+    },
+    {
+      "file": "text-contract-pass393/native-fn-292eebc.asm",
+      "instructions": 13,
+      "sha256": "00710f17c93229be78e36fd0f73708f12b005657820be8e6de3bc1e7346e12cf"
+    },
+    {
+      "file": "text-contract-pass393/native-fn-292ef70.asm",
+      "instructions": 11,
+      "sha256": "8ac1b91d9cd57b600b56ff1b6424dd984ce168e224c38c81b3ac03fd43699805"
+    },
+    {
+      "file": "text-job-field2-20261018/function-291fb70.asm",
+      "instructions": 2219,
+      "sha256": "97af4d42e1a81beee72aba0650da7efe60e1239ee681611ebb3e179edc011636",
+      "complete_unwind_range": true
+    },
+    {
+      "file": "text-job-field2-20261018/function-292d868.asm",
+      "instructions": 54,
+      "sha256": "85fd8533a1c31c8920454f1fdfd683b088a805770481e6a61fcf4df5f41904ac",
+      "complete_unwind_range": true
+    },
+    {
+      "file": "text-job-field2-20261018/function-292ef9c.asm",
+      "instructions": 714,
+      "sha256": "6803c5729e6bf89686f0e3fbbe1ddef0fc109846e25579af55a2d411bbc9b267",
+      "complete_unwind_range": true
+    }
+  ],
+  "instruction_rows": 3654,
+  "instruction_checks": 142,
+  "branches": [
+    {
+      "pc": "0x291fbe0",
+      "target": "0x2ab6388"
+    },
+    {
+      "pc": "0x291fc48",
+      "target": "0x291fd20"
+    },
+    {
+      "pc": "0x291fc60",
+      "target": "0x291fc74"
+    },
+    {
+      "pc": "0x291fc6c",
+      "target": "0x713f8e0"
+    },
+    {
+      "pc": "0x291fca8",
+      "target": "0x206bc"
+    },
+    {
+      "pc": "0x291fcac",
+      "target": "0x2920040"
+    },
+    {
+      "pc": "0x29208f8",
+      "target": "0x2922400"
+    },
+    {
+      "pc": "0x2920904",
+      "target": "0x2921fc8"
+    },
+    {
+      "pc": "0x29209c8",
+      "target": "0x7140e7c"
+    },
+    {
+      "pc": "0x29209cc",
+      "target": "0x2920a90"
+    },
+    {
+      "pc": "0x2920a40",
+      "target": "0x7140e7c"
+    },
+    {
+      "pc": "0x2920a44",
+      "target": "0x2920c9c"
+    },
+    {
+      "pc": "0x2920aac",
+      "target": "0x292285c"
+    },
+    {
+      "pc": "0x2920b54",
+      "target": "0x2920cc8"
+    },
+    {
+      "pc": "0x2920b68",
+      "target": "0x77bdd0"
+    },
+    {
+      "pc": "0x2920b80",
+      "target": "0x713f8e0"
+    },
+    {
+      "pc": "0x2920bc4",
+      "target": "0x268f370"
+    },
+    {
+      "pc": "0x2920bdc",
+      "target": "0x29211d4"
+    },
+    {
+      "pc": "0x2921684",
+      "target": "0x18d20"
+    },
+    {
+      "pc": "0x29216ec",
+      "target": "0x292d868"
+    },
+    {
+      "pc": "0x2921708",
+      "target": "0x453cce8"
+    },
+    {
+      "pc": "0x292d8cc",
+      "target": "0x18d20"
+    },
+    {
+      "pc": "0x292ef1c",
+      "target": "0x292fb44"
+    },
+    {
+      "pc": "0x292ef64",
+      "target": "0x292fb44"
+    },
+    {
+      "pc": "0x292ef6c",
+      "target": "0x292d940"
+    },
+    {
+      "pc": "0x292f008",
+      "target": "0x317ded4"
+    },
+    {
+      "pc": "0x292f048",
+      "target": "0x292f344"
+    },
+    {
+      "pc": "0x292f238",
+      "target": "0x5e1d31c"
+    },
+    {
+      "pc": "0x292f3b8",
+      "target": "0x3190538"
+    },
+    {
+      "pc": "0x292f418",
+      "target": "0x292f450"
+    },
+    {
+      "pc": "0x292f794",
+      "target": "0x5e1d31c"
+    },
+    {
+      "pc": "0x292f808",
+      "target": "0x292f85c"
+    },
+    {
+      "pc": "0x292fac0",
+      "target": "0x713f1d8"
+    },
+    {
+      "pc": "0x292fb98",
+      "target": "0x18d20"
+    },
+    {
+      "pc": "0x292d9ac",
+      "target": "0x714000c"
+    }
+  ],
+  "normal_flow": [
+    {
+      "function": "0x291fb70",
+      "target": "0x2921660",
+      "register": "x20",
+      "writer": "0x291fb94",
+      "normal_reachable": 1926,
+      "visited_predecessors": 894
+    },
+    {
+      "function": "0x292ef9c",
+      "target": "0x292f15c",
+      "register": "x19",
+      "writer": "0x292efbc",
+      "normal_reachable": 647,
+      "visited_predecessors": 104
+    },
+    {
+      "function": "0x292ef9c",
+      "target": "0x292f3a4",
+      "register": "x19",
+      "writer": "0x292efbc",
+      "normal_reachable": 647,
+      "visited_predecessors": 60
+    },
+    {
+      "function": "0x292ef9c",
+      "target": "0x292f5bc",
+      "register": "x19",
+      "writer": "0x292efbc",
+      "normal_reachable": 647,
+      "visited_predecessors": 154
+    },
+    {
+      "function": "0x292ef9c",
+      "target": "0x292f7b8",
+      "register": "x19",
+      "writer": "0x292efbc",
+      "normal_reachable": 647,
+      "visited_predecessors": 281
+    },
+    {
+      "function": "0x292ef9c",
+      "target": "0x292f414",
+      "register": "x19",
+      "writer": "0x292f274",
+      "normal_reachable": 647,
+      "visited_predecessors": 58
+    }
+  ],
+  "strings": [
+    {
+      "source": "0x8827274",
+      "salt": "0x8827264",
+      "decoded": "call_id=%_ Send message failed, error=%_"
+    },
+    {
+      "source": "0x88272d6",
+      "salt": "0x88272c6",
+      "decoded": "call_id=%_ Send message success, chat_id=%_, message_type=%_"
+    },
+    {
+      "source": "0x88272ad",
+      "salt": "0x882729d",
+      "decoded": "Failed to send message: "
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9db3978",
+      "decoded": "0x292ee8c",
+      "chain_steps": 1688
+    },
+    {
+      "slot": "0x9db3980",
+      "decoded": "0x292eebc",
+      "chain_steps": 1689
+    },
+    {
+      "slot": "0x9db3988",
+      "decoded": "0x292eef0",
+      "chain_steps": 1690
+    },
+    {
+      "slot": "0x9db3990",
+      "decoded": "0x292ef4c",
+      "chain_steps": 1691
+    },
+    {
+      "slot": "0x9db3998",
+      "decoded": "0x292ef68",
+      "chain_steps": 1692
+    },
+    {
+      "slot": "0x9db39a8",
+      "decoded": "0x292ef9c",
+      "chain_steps": 1694
+    }
+  ],
+  "contract_sha256": "e070f832c585e4b33cad0db9183aa522cc82ea8e7dd00bd6f2237f6ccb60a28c",
+  "verifier_sha256": "93198d6addabc54a93aece2a26cfd5cfb9dab70b750ce69a6abcaaee40e0df55",
+  "account_stop_sha256": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+  "limitations": [
+    "Log wording identifies the observed use as call_id, not an official protobuf field name or delivered-message identity",
+    "Callee-saved register provenance assumes AAPCS64 and does not analyze memory aliases or exceptional edges",
+    "Special category routing prevents claiming arbitrary-plaintext preservation from numeric message_type alone",
+    "Gate helpers, final record mutations, actual thread identity, cancellation/final release, complete adapter, sending and independent receipt remain incomplete"
+  ],
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false
+}

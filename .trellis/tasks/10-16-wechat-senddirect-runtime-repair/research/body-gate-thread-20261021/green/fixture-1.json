@@ -1,0 +1,23 @@
+{
+  "source": "test_newsendmsg_body_start_gate_4115.cpp",
+  "args": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "-pthread",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_body_start_gate_4115.cpp",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_erasure_fixture_4115.S",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/body-gate-thread-20261021/green/fixture-1"
+  ],
+  "build_rc": 0,
+  "build_stdout": "",
+  "build_stderr": "",
+  "source_sha256": "bc4ac88440aa48c5c96aaa4f7ffca9af4b468f7b0d08725707157896d6d31f12",
+  "run_rc": 0,
+  "stdout": "{\"scenarios\":11,\"foreign_threads\":32,\"thread_id_reused\":true,\"host_erased_abi\":true,\"target_executed\":false,\"native_send_called\":false,\"sent\":false}\n",
+  "stderr": ""
+}

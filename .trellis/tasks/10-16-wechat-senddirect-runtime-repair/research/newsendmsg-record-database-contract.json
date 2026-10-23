@@ -1,0 +1,75 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_type": "offline frozen ARM64 and independently decoded dyld fixups",
+  "scope": "conditional insertion callback, shared local_id propagation and numeric-one auxiliary dispatch",
+  "entry_conditions": {
+    "parent": "0x32cf5e8",
+    "reviewed_normal_callback": "0x335c1b4 ->0x326a144",
+    "direct_branch": "after service gate, record+0xf8==0 or w4==0 branches at0x32cfe3c/0x32cfe40 to0x32d082c",
+    "other_branch": "record+0xf8 nonzero and w4 nonzero can enter lookup callback0x335bfac; a returned nonzero byte publishes a copy without insertion",
+    "register_reuse": "0x32d03cc overwrites w24 with the returned lookup byte; tests at0x32d0468/0x32d0828 use that byte, not original w4. Returned zero can fall through to insertion",
+    "all_lookup_branches_verified": false
+  },
+  "database_function_abi": {
+    "wrapper": "0x3aeddb4",
+    "arguments": "x0=service,x1=32-byte function address; reads erased object at function+0x18",
+    "effect": "clones function via virtual+0x10 or+0x18; calls0x56f412c(service+0x8 pointer value,cloned function); destroys clone; preserves scalar return",
+    "nested_wrapper": "0x56f412c obtains handle, wraps original function and calls0x56462d0",
+    "nested_invoke_slot": "0x9f23928 ->0x56f4b4c",
+    "nested_invoke": "constructs local context, invokes captured function virtual+0x30 before local destruction",
+    "core": "0x56462d0: handle virtual+0x50 gate, function virtual+0x30 call, then0x5694fd0 or handle virtual+0x60",
+    "global_drain_or_arbitrary_thread_safety_proven": false
+  },
+  "record_callback": {
+    "vtable": "0x9df1b90",
+    "invoke_slot": "0x9df1bc0",
+    "invoke": "0x32961a4",
+    "captures": {"record_address": "0x8", "key_to_number_map_address": "0x10", "flag_address": "0x18", "selected_string_address": "0x20", "service": "0x28"},
+    "direct_record_writes": [
+      "record+0x198 from map lookup keyed by record+0x18; record+0x204 OR1",
+      "record+0x19c from map lookup keyed by record+0x30; record+0x204 OR2",
+      "record+0x110 from map lookup keyed by record+0x48",
+      "record+0x218 from captured flag byte"
+    ],
+    "prepare_helpers": ["0x4cbf820", "0x4cbfb58"],
+    "insertion_copy": "0x2e86b60 grows vector of0x278 records using copy constructor0xf57630",
+    "operation": "0x3296b1c receives vector copy and mode2; one-record path in0x32970cc reaches0x32973c8 then0x32979e0",
+    "local_id_result": "0x32979e0 calls0x56f4db0; if bit0 set,0x56f90e0 return is stored through vector_record+0x208 pointer",
+    "shared_result_identity": "0xf57630 copies record+0x208/+0x210 and retains same control; vector and original refer to same integer cell",
+    "local_id_publication": "0x32961a4: operation result bit0 and captured flag==1 -> low32 of *original_record+0x208 written to original_record+0xf4",
+    "local_id_business_name_source": "newsendmsg-business-field-investigation.md binding0x4cc245c maps local_id to0xf4",
+    "post_operation": "copies record into another vector for0x3263cd4, then returns operation scalar;0x335c1b4 subsequently publishes record via0x335c414",
+    "local_id_is_delivery_receipt": false
+  },
+  "initial_shared_cell": {
+    "constructor": "0xac6038",
+    "value": 0,
+    "pair": "record+0x208/+0x210",
+    "initial_flag_218": 0,
+    "initial_flag_240": 1,
+    "initial_auxiliary_pairs": "record+0x220/+0x228 and+0x230/+0x238 zero"
+  },
+  "numeric_one_auxiliary": {
+    "entry": "0x4cbf820 synchronizes64 bits record+0xc ->record+0x108",
+    "gate": "record+0x240==1 ->0x4cbebac, then optional record+0x220 virtual+0x10, then0x4cbf994",
+    "creation_limit": "0x4cbebac chooses a factory only when record+0x220 is null; existing auxiliary identity is not inferred from low type",
+    "low_type_one_factory_choice": "other numeric predicates are false;0x4a292e4 compares record+0x18 with string returned by0x4bb4e7c; true ->0x4cbf170, false ->0x4cbf3c0",
+    "ghidra_caution": "0x4a292e4 pseudocode says void; raw w0 returns equality result",
+    "false_branch": {"factory": "0x4cbf3c0", "vtable": "0x9eb0fe8", "vslot_10": "0x4cd949c", "instruction": "ret"},
+    "true_branch": {"factory": "0x4cbf170", "vtable": "0x9eb1650", "vslot_10": "0x4ce9cd8", "instruction": "ret"},
+    "effect_boundary": "These two newly created auxiliary virtual+0x10 methods do not change record content; this does not cover preexisting auxiliary objects or all parent lookup branches",
+    "source_update": "0x4cbf994 ensures record+0x230 auxiliary and assigns0x4d1dd74 string output to record+0x160",
+    "metadata_update": "0x4cbfb58 serializes record+0x190 into byte vector+0x178/+0x180/+0x188",
+    "whole_path_content_preservation_proven": false
+  },
+  "local_id_shared_propagation_proven": true,
+  "numeric_one_new_auxiliary_invoke_is_noop": true,
+  "whole_path_content_preservation_proven": false,
+  "runtime_observed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "remaining": ["all lookup branches and existing auxiliary identity", "builder argument origins and recipient direction", "real scheduler/config/thread, cancellation composition and final drain", "complete adapter and independent delivery receipt"],
+  "safety": "account-safety-stop-20261016.md remains authoritative; no live operation or new observation request"
+}

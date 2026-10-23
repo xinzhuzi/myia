@@ -1,0 +1,42 @@
+{
+  "mode": "fixture",
+  "case": "raised_error",
+  "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-raised_error-0y7wlqr2",
+  "deadline_seconds": 6.0,
+  "lldb_exit": 0,
+  "server_exit": 0,
+  "prompt_exit": 0,
+  "local_prompt_visible": true,
+  "local_prompt_ready": false,
+  "before": {
+    "pid": 41996,
+    "flags": 18436,
+    "state": 4,
+    "start_sec": 1792137964,
+    "start_usec": 507354,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/factory_snapshot_fixture_4115"
+  },
+  "after": {
+    "pid": 41996,
+    "flags": 16388,
+    "state": 2,
+    "start_sec": 1792137964,
+    "start_usec": 507354,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/factory_snapshot_fixture_4115"
+  },
+  "elapsed_seconds": 0.785,
+  "target_recovered": true,
+  "helpers_remaining": 0,
+  "cleanup_ok": true,
+  "observer": {
+    "outcome": "RuntimeError",
+    "detach_ack": true,
+    "attach_calls": 0,
+    "launch_calls": 1,
+    "detached": true,
+    "hit": false,
+    "error": "intentional embedded LLDB exception",
+    "detach_error": "success",
+    "finished_monotonic": 121178.449924
+  }
+}

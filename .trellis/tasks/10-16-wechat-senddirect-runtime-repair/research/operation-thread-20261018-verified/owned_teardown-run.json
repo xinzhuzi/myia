@@ -1,0 +1,8 @@
+{
+  "args": [
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/operation-thread-20261018-verified/owned_teardown"
+  ],
+  "returncode": 0,
+  "stdout": "{\"cases\":2,\"group_removed_before_final\":true,\"argument_released_after_final\":true,\"external_owner_delays_job_destruction\":true,\"executor_capture_retains_core\":true,\"late_request_survives_job_teardown\":true,\"balanced_lifetime\":true,\"native_scheduler_executed\":false,\"sent\":false}\n",
+  "stderr": ""
+}

@@ -1,0 +1,22 @@
+{
+  "compile": {
+    "args": [
+      "clang++",
+      "-std=c++17",
+      "-fsanitize=address",
+      "-fno-omit-frame-pointer",
+      ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-input-owner-qualified-20261018/asan-minimal.cpp",
+      "-o",
+      ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-input-owner-qualified-20261018/asan-minimal"
+    ],
+    "returncode": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "run": {
+    "timed_out_seconds": 5,
+    "child_killed_by_subprocess": true,
+    "stdout": "None",
+    "stderr": "None"
+  }
+}

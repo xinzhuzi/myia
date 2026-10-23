@@ -1,0 +1,39 @@
+{
+  "verified_at": "2026-10-16T06:31:52.549708+00:00",
+  "slice_passed": true,
+  "prior_test_evidence": "post-identity-validation.json",
+  "unchanged_cpp_evidence": "newsendmsg-cpp-verification.json",
+  "instruction_evidence": "text-contract-byte-verification-v5.json",
+  "function_exports_including_duplicates": 165,
+  "instructions": 28009,
+  "bytes": 112036,
+  "source_sha256": {
+    "newsendmsg-4115-static-contract.json": "ad244c449a2311f9d7c8fefa88f25da9a1eec529ab209d4016bb0b0743ff14c7",
+    "newsendmsg_completion_4115.hpp": "657caf0781d8a2562fa6c35b69b64ea9569e373f5b0ebcea318e6b49e0a0c2ad",
+    "newsendmsg_native_body_4115.hpp": "90d0943eca268abdebadbfe0c00e3105d7e37d23774997c35f885af8064d4eec",
+    "test_newsendmsg_completion_4115.cpp": "cf015ddcfa28269cfd75947144a578e53cccd48a2e970cdcab3716de1af44f67",
+    "test_newsendmsg_native_body_4115.cpp": "04d6a3feeb5481ea7e88db7ad8db1c759a5578328d0a937e3627c14b170bbd4a",
+    "newsendmsg-next-runtime-window.md": "4b717fa4e9fe37d72f4df9bdc7400758a2654a70169ce6629fbcbcbab28fa8b4"
+  },
+  "wechat_health": {
+    "pid": 33589,
+    "flags": 16452,
+    "state": 2,
+    "start_sec": 1792085027,
+    "start_usec": 181673,
+    "executable": "/Applications/WeChat.app/Contents/MacOS/WeChat"
+  },
+  "authorization_consumed": true,
+  "new_attachment_after_identity_window": false,
+  "native_called": false,
+  "sent": false,
+  "product_json_modified": false,
+  "sanitizers_passed": false,
+  "live_ready": false,
+  "send_verified": false,
+  "remaining": [
+    "Business input mapping and complete executable adapter",
+    "Coroutine invocation, timeout cancellation and thread-affinity contract",
+    "Explicit recipient/body scope and independent actual delivery validation"
+  ]
+}

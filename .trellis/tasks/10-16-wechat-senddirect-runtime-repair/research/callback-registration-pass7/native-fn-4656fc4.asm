@@ -1,0 +1,4 @@
+0x4656fc4	c8c102f0	adrp x8,0x9e91000
+0x4656fc8	08c12b91	add x8,x8,#0xaf0
+0x4656fcc	080400a9	stp x8,x1,[x0]
+0x4656fd0	c0035fd6	ret

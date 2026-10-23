@@ -1,0 +1,181 @@
+{
+  "passed": true,
+  "scope": "frozen 4.1.15 account comparison string provenance, selected installation route only",
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass72/native-fn-4669774.asm",
+      "instructions": 3,
+      "sha256": "b2ce98a056de8c6d77fd4141687ad0ca5c834c73ad77daeaf9b0d138a4c431f4"
+    },
+    {
+      "file": "text-contract-pass131/native-fn-4cbd624.asm",
+      "instructions": 60,
+      "sha256": "e98182667b280109e4f783c93ea5997c97ef6882f627302082ab350bd39098fd"
+    },
+    {
+      "file": "text-contract-pass133/native-fn-4670680.asm",
+      "instructions": 61,
+      "sha256": "7b3b353e49ce450cfbc2fe4123088a711cf6f36a90641765580dd320f2906eae"
+    },
+    {
+      "file": "text-contract-pass135/native-fn-466a2fc.asm",
+      "instructions": 7,
+      "sha256": "0685da6fa6e5060843ef6f494c915eea674a59e682b5f54148b174ac8a4c4be0"
+    },
+    {
+      "file": "text-contract-pass246/native-fn-4cbd748.asm",
+      "instructions": 59,
+      "sha256": "939412fd8c2b00fff34c552e21205130f1b61b69d994803fbea7e795309f559e"
+    },
+    {
+      "file": "text-contract-pass264/native-fn-46710fc.asm",
+      "instructions": 54,
+      "sha256": "ccc0a87ab4f095cb1b992e9444a180a7e4dc1963c2340eefd4bf4d72be6dda70"
+    },
+    {
+      "file": "text-contract-pass265/native-fn-4666b54.asm",
+      "instructions": 189,
+      "sha256": "040cb7bcaa32a1cd7201d663437ae6c769294aa450d71cfe30fff8d0be4b67cc"
+    },
+    {
+      "file": "text-contract-pass315/native-fn-4553f4c.asm",
+      "instructions": 2,
+      "sha256": "8fe2e1ea703fcee070edcbc9410203e479b97bd1cd46a726058251325154de74"
+    },
+    {
+      "file": "text-contract-pass315/native-fn-4553f54.asm",
+      "instructions": 2,
+      "sha256": "27d7b787ff8d47d652c1361e51ef138da2af1b02472e0ddc44df64822a27ce0f"
+    },
+    {
+      "file": "text-contract-pass317/native-fn-454cb70.asm",
+      "instructions": 1048,
+      "sha256": "fd1c3d9248f55123d24774aea03ed2f4555b57d4b63a35055253c09d65fc719d"
+    },
+    {
+      "file": "text-contract-pass319/native-fn-467c394.asm",
+      "instructions": 51,
+      "sha256": "a395c00737e5825ab3b147c796a153b8abac216515e49fd34788726a444fd434"
+    },
+    {
+      "file": "text-contract-pass320/native-fn-467bc6c.asm",
+      "instructions": 290,
+      "sha256": "038e9cd391e629c7caeb48cb1b5f3c0bd6c08b6b81fd03fcbbbb8be7d3798e12"
+    },
+    {
+      "file": "text-contract-pass321/native-fn-466ee94.asm",
+      "instructions": 154,
+      "sha256": "9cbe96be884c9537f9122d64ee71d481ed6e64fa7e14f87eb60ebb1235c5a76b"
+    },
+    {
+      "file": "text-contract-pass322/native-fn-466dfb8.asm",
+      "instructions": 749,
+      "sha256": "ba7e666073441f357c401202866148f7b62f827e27cc3a74e0bcbfadcd58ed81"
+    },
+    {
+      "file": "text-contract-pass322/native-fn-4556dc0.asm",
+      "instructions": 137,
+      "sha256": "0f2cfd3d6e69f395333abd3171f3c149a8fc9c8744dea9df3ed85ca482734d07"
+    },
+    {
+      "file": "text-contract-pass323/native-fn-2fea968.asm",
+      "instructions": 666,
+      "sha256": "eff345b06218296fac589e411cef3db476810a3ecd10226db816d9054dc0552d"
+    }
+  ],
+  "instructions_matched": 3532,
+  "unique_instruction_positions": 3532,
+  "instruction_checks": 61,
+  "slots": [
+    {
+      "slot": "0x9e92428",
+      "decoded": "0x4670680",
+      "chain_steps": 1085
+    },
+    {
+      "slot": "0x9e92468",
+      "decoded": "0x466a2fc",
+      "chain_steps": 1093
+    },
+    {
+      "slot": "0x9e87760",
+      "decoded": "0x9e877e8",
+      "chain_steps": 1643
+    },
+    {
+      "slot": "0x9e877f0",
+      "decoded": "0x80000000089fff95",
+      "chain_steps": 1661
+    },
+    {
+      "slot": "0x9e87780",
+      "decoded": "0x4553f4c",
+      "chain_steps": 1647
+    },
+    {
+      "slot": "0x9e87788",
+      "decoded": "0x4553f54",
+      "chain_steps": 1648
+    }
+  ],
+  "decoded_branches": [
+    {
+      "address": "0x454e28c",
+      "target": "0x454cb70"
+    },
+    {
+      "address": "0x467c3d4",
+      "target": "0x454e28c"
+    },
+    {
+      "address": "0x467bf88",
+      "target": "0x467c394"
+    },
+    {
+      "address": "0x466eec0",
+      "target": "0x4556dc0"
+    },
+    {
+      "address": "0x466f028",
+      "target": "0x4556dc0"
+    },
+    {
+      "address": "0x466e774",
+      "target": "0x466ee94"
+    },
+    {
+      "address": "0x2feb0a8",
+      "target": "0x466dfb8"
+    },
+    {
+      "address": "0x2feb09c",
+      "target": "0x4669774"
+    },
+    {
+      "address": "0x454cdc8",
+      "target": "0x713f8e0"
+    },
+    {
+      "address": "0x2feaf64",
+      "target": "0x713f8e0"
+    }
+  ],
+  "rtti_names_checked": 1,
+  "contract_sha256": "ba25beeb4ee3cf3c7056f6be68a0eeee563295ba8c358ef5f5733b71fcc8f9b1",
+  "source_sha256": "b3fdea7524c4b18894926d4b39b03c1ccc6539f659e5acde80fa6a806cfe38d6",
+  "target_executed": false,
+  "target_attached": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "deployed": false,
+  "A7_complete": false,
+  "account_stop_unchanged": true,
+  "limitations": [
+    "upstream result+0x70 production and exact business identity",
+    "other child replacement or subclass routes and concurrent lifetime rules",
+    "complete input-to-final-request sender/recipient and record mutation mapping",
+    "actual executor identity, cancellation final cleanup, complete native adapter",
+    "real sending, independent receipt and deployment"
+  ]
+}

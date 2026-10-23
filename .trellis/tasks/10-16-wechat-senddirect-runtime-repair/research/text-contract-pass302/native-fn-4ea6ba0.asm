@@ -1,0 +1,12 @@
+0x4ea6ba0	e88002d0	adrp x8,0x9ec4000
+0x4ea6ba4	08a10891	add x8,x8,#0x228
+0x4ea6ba8	080000f9	str x8,[x0]
+0x4ea6bac	00e4006f	movi v0.2D,#0x0
+0x4ea6bb0	0080803c	stur q0,[x0, #0x8]
+0x4ea6bb4	0080813c	stur q0,[x0, #0x18]
+0x4ea6bb8	0080823c	stur q0,[x0, #0x28]
+0x4ea6bbc	0080833c	stur q0,[x0, #0x38]
+0x4ea6bc0	0080843c	stur q0,[x0, #0x48]
+0x4ea6bc4	0080853c	stur q0,[x0, #0x58]
+0x4ea6bc8	0080863c	stur q0,[x0, #0x68]
+0x4ea6bcc	c0035fd6	ret

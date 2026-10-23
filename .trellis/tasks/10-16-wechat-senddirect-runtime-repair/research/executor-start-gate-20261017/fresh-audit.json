@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "verification_sha256": "3f4ad5ade64751bfccf51bdf6c5fc91b92298d1b2f9f5b01616bca46df2c48f0",
+  "source_files_unchanged": 13,
+  "frozen_exports_unchanged": 46,
+  "fixture_executables_unchanged": 2,
+  "A7_complete": false,
+  "step55_complete": false,
+  "target_operated": false,
+  "deployed": false
+}

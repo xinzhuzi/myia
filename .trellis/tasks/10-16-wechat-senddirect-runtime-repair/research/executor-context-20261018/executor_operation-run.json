@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\"cases\":9,\"wrong_thread_rejections\":64,\"passed\":true,\"balanced_lifetime\":true,\"wechat_loaded\":false,\"sent\":false}\n",
+  "stderr": ""
+}

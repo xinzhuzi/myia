@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "dependency_source_hashes_verified": 91,
+  "rtti_name_address": "0x883e12c",
+  "rtti_including_nul_hex": "5f623539306633376100",
+  "checked_sites": {
+    "0x2ae22d4": "adrp x9,0x883e000",
+    "0x2ae22d8": "add x9,x9,#0x12c",
+    "0x2ae22dc": "mov x10,#-0x8000000000000000",
+    "0x2ae22e8": "and x1,x9,#0x7fffffffffffffff",
+    "0x2ae22f8": "adds x0,x8,#0x8",
+    "0x6685724": "bl 0x06674d5c",
+    "0x6685728": "tbnz x0,#0x3f,0x06685990",
+    "0x668572c": "ldr x0,[x19]",
+    "0x6685730": "bl 0x06668c3c"
+  },
+  "source_sha256": {
+    "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/verify_wechat_input_type_20261016.py": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/recipient-lookup-20261018/verification.json": "03543858f0bb6421b3db0207f0f6f07bf6ec8073c2293246a35c7239f4ece0a6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass419/native-fn-2ae2294.asm": "9fe80b32c6afa5c8c239d51cc478becfa1bbf36ec04a02ba35eead31a7e262b7",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass223/native-fn-66856fc.asm": "e88680817b0b337e367a5a1fc6b756e602c6ee420f886b03b37fb931827fc857"
+  },
+  "target_attached": false,
+  "target_executed": false,
+  "send_verified": false
+}

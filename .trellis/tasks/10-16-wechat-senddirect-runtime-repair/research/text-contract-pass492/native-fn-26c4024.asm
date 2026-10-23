@@ -1,0 +1,5 @@
+0x26c4024	48b903b0	adrp x8,0x9ded000
+0x26c4028	08010c91	add x8,x8,#0x300
+0x26c402c	080540f9	ldr x8,[x8, #0x8]
+0x26c4030	00f94092	and x0,x8,#0x7fffffffffffffff
+0x26c4034	c0035fd6	ret

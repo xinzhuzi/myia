@@ -1,0 +1,11 @@
+{
+  "outcome": "observed",
+  "detach_ack": true,
+  "attach_calls": 0,
+  "launch_calls": 1,
+  "detached": true,
+  "hit": true,
+  "hardware_breakpoint": true,
+  "detach_error": "success",
+  "finished_monotonic": 113647.338206
+}

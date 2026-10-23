@@ -1,0 +1,16 @@
+{
+  "args": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_owned_teardown_4115.cpp",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/core-teardown-20261017/fixture"
+  ],
+  "returncode": 0,
+  "stdout": "",
+  "stderr": ""
+}

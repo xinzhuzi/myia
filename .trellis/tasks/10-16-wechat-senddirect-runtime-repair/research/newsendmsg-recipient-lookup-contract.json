@@ -1,0 +1,56 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "scope": "selected recipient prerequisite normal branches, static only",
+  "lookup_abi": {
+    "entry": "0x2ab6388",
+    "x0": "service",
+    "x1": "parsed chat_id string pointer",
+    "hidden_x8": "shared result pair address"
+  },
+  "lookup_routes": {
+    "suffix_enterprise": [
+      "@qy_u",
+      "@qy_g"
+    ],
+    "suffix_app": "@app except exact weixin",
+    "ordinary_lookup": "0x44fb300",
+    "cached_exact_mail": "qqmail",
+    "cached_exact_file_transfer": "filehelper",
+    "uncached_exact_special": "wa_app_kefu_message",
+    "dynamic_identity_comparison": "0x4bb5f30 service virtual+0x28; identity not named",
+    "mutable_comparison": "0x4bb4dc0 -> 0x4bb4e7c -> 0xa4a5490; initialization unresolved"
+  },
+  "cache_miss_waits": [
+    {
+      "site": "0x2b4b260",
+      "entry": "0x66856fc",
+      "x0": "address of locally owned async shared pair"
+    },
+    {
+      "site": "0x2ab66a4",
+      "entry": "0x66856fc",
+      "x0": "address of locally owned async shared pair"
+    }
+  ],
+  "filehelper_selected_object_path": {
+    "branch": "0x2ab6b80",
+    "copy": "0x233200c",
+    "explicit_mutation": "0x2ab9104 writes object+0x54 and assigns object+0xa8",
+    "shared_wrapper": "0x2ab8f80, x0 source, hidden x8 output pair"
+  },
+  "numeric_one_input_assignments": {
+    "input+0x90": "original parsed chat_id string",
+    "input+0x5c8": "builder local body string"
+  },
+  "verification": "recipient-lookup-20261018/verification.json",
+  "all_lookup_effects_proven": false,
+  "whole_path_recipient_preservation_proven": false,
+  "whole_path_content_preservation_proven": false,
+  "native_coroutine_entry_and_cleanup_proven": false,
+  "target_executed": false,
+  "target_attached": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "deployed": false,
+  "typed_wait_supplement": "recipient-lookup-20261018/typed-wait-supplement.json"
+}

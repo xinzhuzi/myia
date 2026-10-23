@@ -1,0 +1,68 @@
+{
+  "passed": true,
+  "scope": "implementation81 local overwrite ordering and implementation82 database record outlets",
+  "previous_goal_turn_classification": "no_progress_status_only_revalidated",
+  "current_goal_turn_classification": "progress",
+  "completed_current_slices": [
+    81,
+    82
+  ],
+  "verified_evidence_source_hashes": [
+    9,
+    31
+  ],
+  "open_implementation_items": [
+    11,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    55,
+    67
+  ],
+  "a7_complete": false,
+  "lint": {
+    "returncode": 0,
+    "stdout": "All checks passed!\n",
+    "stderr": ""
+  },
+  "task_validation": {
+    "returncode": 0,
+    "stdout": "\u001b[0;34m=== Validating Context Files ===\u001b[0m\nTarget dir: /Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair\n\n  \u001b[0;32mimplement.jsonl: ✓ (5 entries)\u001b[0m\n  \u001b[0;32mcheck.jsonl: ✓ (5 entries)\u001b[0m\n\n\u001b[0;32m✓ All validations passed\u001b[0m\n",
+    "stderr": ""
+  },
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task.json": "5a27767910ce9b4758ba1ace4b98ffac97b5857cc35cd9342912e27e8598998a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task-tiers.json": "378c750a9437ee500e4e22b61caa062a49dd8e168fbdf1386cf4a18f16d0eb90",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/prd.md": "d42502f8857a8d5263206a61f9abf44d338630031c65867081793c14e5ff397a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/design.md": "c547715618e9dc7800505f23332d0252d723ccde02372fc5be34bbfd88eec0cd",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "87e5d291bb8fa9a74f4d4e43f837a0ec5f030b14978bb004fd8b8ad69f561324",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.jsonl": "d2885c6bcbb2e762d24cc75b277883059489ab242b64fa52a320bd528f619b8c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/check.jsonl": "d2885c6bcbb2e762d24cc75b277883059489ab242b64fa52a320bd528f619b8c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-prepare-order-20261018/verification.json": "62cca35cbc5c22eb07ffa0148dff9b76ee539f7d334f99114564b5c991b5d561",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/database-record-outlets-20261018/verification.json": "ae39a85a20bf133b5f6f6b3997699e0a3138c869bf56861576ff8f00ad59931f",
+    "Library/ai/analyze_wechat_text_prepare_cfg_20261018.py": "b23cb9d3f67a928e4f3aac16130e6767862be41ba163a9edb1df4a73bffec9b2",
+    "Library/ai/analyze_wechat_database_record_outlets_20261018.py": "a6d0c9e1269f94b7a6b3869d0ddc0233b0017a904484bf4af89b4c992ddb3170",
+    "Library/ai/audit_wechat_text_database_boundaries_20261018.py": "279f4da69bea45cded6c9cbdd493e76f503415479fdd27745bfccce6d75b1b83",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-text-prepare-order-result.md": "a9408c4ecd84547cf8226bc7b4e172b708a0dbfed20c01695ed6b01b536d86c6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-database-record-outlets-result.md": "e98a1b15b96fbd48eb0b58f62bede3f96707cce7c7ded168ef442ad1ba266c01",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/completion-gap-audit-20261017.md": "676a785184345277b79c9b61eeacffad70aaee7495e3945892e8a7fa23af37ae",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d"
+  },
+  "limitations": [
+    "Implementation81 saved analysis was revalidated by source hashes; its exclusive producer was not rerun.",
+    "Implementation82 graph analysis executed this turn; old exports do not represent newly discovered functions.",
+    "No whole-path field preservation, valid native coroutine, cancellation final cleanup or complete adapter proof.",
+    "No native owned fixture, ASan, target, installation or send/independent receipt validation this turn.",
+    "Prior implementation80 final audit predates these task document changes and remains historical."
+  ],
+  "next_safe_action": "Verify record and shared-subobject mutations in 0x326a144/0x32961a4 and subsequent queue stages; do not re-prove lookup tag provenance.",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "deployed": false,
+  "full_objective_complete": false
+}

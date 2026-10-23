@@ -1,0 +1,20 @@
+{
+  "args": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "-pthread",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_job_config_4115.cpp",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_config_fixture_4115.S",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_abi_fixture_4115.S",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_erasure_fixture_4115.S",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job-config-20261017-v2/fixture"
+  ],
+  "returncode": 0,
+  "stdout": "",
+  "stderr": ""
+}

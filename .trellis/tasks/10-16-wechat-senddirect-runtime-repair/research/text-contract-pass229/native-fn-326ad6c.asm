@@ -1,0 +1,111 @@
+0x326ad6c	ff0302d1	sub sp,sp,#0x80
+0x326ad70	f44f06a9	stp x20,x19,[sp, #0x60]
+0x326ad74	fd7b07a9	stp x29,x30,[sp, #0x70]
+0x326ad78	fdc30191	add x29,sp,#0x70
+0x326ad7c	f40301aa	mov x20,x1
+0x326ad80	f30300aa	mov x19,x0
+0x326ad84	68460390	adrp x8,0x9b36000
+0x326ad88	084d46f9	ldr x8,[x8, #0xc98]
+0x326ad8c	080140f9	ldr x8,[x8]
+0x326ad90	a8831ef8	stur x8,[x29, #-0x18]
+0x326ad94	e8f301b2	orr x8,xzr,#-0x5555555555555556
+0x326ad98	e82301a9	stp x8,x8,[sp, #0x10]
+0x326ad9c	e80700f9	str x8,[sp, #0x8]
+0x326ada0	e8230091	add x8,sp,#0x8
+0x326ada4	e00301aa	mov x0,x1
+0x326ada8	09e9f697	bl 0x030251cc
+0x326adac	e1230091	add x1,sp,#0x8
+0x326adb0	e00313aa	mov x0,x19
+0x326adb4	f40a2294	bl 0x03aed984
+0x326adb8	00010034	cbz w0,0x0326add8
+0x326adbc	885ec039	ldrsb w8,[x20, #0x17]
+0x326adc0	4803f837	tbnz w8,#0x1f,0x0326ae28
+0x326adc4	8002c03d	ldr q0,[x20]
+0x326adc8	a0039d3c	stur q0,[x29, #-0x30]
+0x326adcc	880a40f9	ldr x8,[x20, #0x10]
+0x326add0	a8031ef8	stur x8,[x29, #-0x20]
+0x326add4	18000014	b 0x0326ae34
+0x326add8	00048052	mov w0,#0x20
+0x326addc	9554fb94	bl 0x07140030
+0x326ade0	485c0390	adrp x8,0x9df2000
+0x326ade4	08013691	add x8,x8,#0xd80
+0x326ade8	084c00a9	stp x8,x19,[x0]
+0x326adec	e8230091	add x8,sp,#0x8
+0x326adf0	085001a9	stp x8,x20,[x0, #0x10]
+0x326adf4	e01f00f9	str x0,[sp, #0x38]
+0x326adf8	f4830091	add x20,sp,#0x20
+0x326adfc	e1830091	add x1,sp,#0x20
+0x326ae00	e00313aa	mov x0,x19
+0x326ae04	ec0b2294	bl 0x03aeddb4
+0x326ae08	f30300aa	mov x19,x0
+0x326ae0c	e01f40f9	ldr x0,[sp, #0x38]
+0x326ae10	1f0014eb	cmp x0,x20
+0x326ae14	40070054	b.eq 0x0326aefc
+0x326ae18	800500b4	cbz x0,0x0326aec8
+0x326ae1c	080040f9	ldr x8,[x0]
+0x326ae20	081540f9	ldr x8,[x8, #0x28]
+0x326ae24	38000014	b 0x0326af04
+0x326ae28	810a40a9	ldp x1,x2,[x20]
+0x326ae2c	a0c300d1	sub x0,x29,#0x30
+0x326ae30	bcb73697	bl 0x00018d20
+0x326ae34	e0830091	add x0,sp,#0x20
+0x326ae38	a1c300d1	sub x1,x29,#0x30
+0x326ae3c	22008052	mov w2,#0x1
+0x326ae40	f1bf4097	bl 0x0029ae04
+0x326ae44	e2830091	add x2,sp,#0x20
+0x326ae48	e00313aa	mov x0,x19
+0x326ae4c	21008052	mov w1,#0x1
+0x326ae50	e2530094	bl 0x0327fdd8
+0x326ae54	f31340f9	ldr x19,[sp, #0x20]
+0x326ae58	b30200b4	cbz x19,0x0326aeac
+0x326ae5c	f41740f9	ldr x20,[sp, #0x28]
+0x326ae60	e00313aa	mov x0,x19
+0x326ae64	9f0213eb	cmp x20,x19
+0x326ae68	a1000054	b.ne 0x0326ae7c
+0x326ae6c	0c000014	b 0x0326ae9c
+0x326ae70	946200d1	sub x20,x20,#0x18
+0x326ae74	9f0213eb	cmp x20,x19
+0x326ae78	00010054	b.eq 0x0326ae98
+0x326ae7c	88f2df38	ldursb w8,[x20, #-0x1]
+0x326ae80	88ffff36	tbz w8,#0x1f,0x0326ae70
+0x326ae84	80825ef8	ldur x0,[x20, #-0x18]
+0x326ae88	88825ff8	ldur x8,[x20, #-0x8]
+0x326ae8c	01f94092	and x1,x8,#0x7fffffffffffffff
+0x326ae90	5f54fb94	bl 0x0714000c
+0x326ae94	f7ffff17	b 0x0326ae70
+0x326ae98	e01340f9	ldr x0,[sp, #0x20]
+0x326ae9c	f31700f9	str x19,[sp, #0x28]
+0x326aea0	e81b40f9	ldr x8,[sp, #0x30]
+0x326aea4	010100cb	sub x1,x8,x0
+0x326aea8	5954fb94	bl 0x0714000c
+0x326aeac	a873de38	ldursb w8,[x29, #-0x19]
+0x326aeb0	a800f836	tbz w8,#0x1f,0x0326aec4
+0x326aeb4	a0035df8	ldur x0,[x29, #-0x30]
+0x326aeb8	a8035ef8	ldur x8,[x29, #-0x20]
+0x326aebc	01f94092	and x1,x8,#0x7fffffffffffffff
+0x326aec0	5354fb94	bl 0x0714000c
+0x326aec4	33008052	mov w19,#0x1
+0x326aec8	e87fc039	ldrsb w8,[sp, #0x1f]
+0x326aecc	2802f837	tbnz w8,#0x1f,0x0326af10
+0x326aed0	a8835ef8	ldur x8,[x29, #-0x18]
+0x326aed4	69460390	adrp x9,0x9b36000
+0x326aed8	294d46f9	ldr x9,[x9, #0xc98]
+0x326aedc	290140f9	ldr x9,[x9]
+0x326aee0	3f0108eb	cmp x9,x8
+0x326aee4	01020054	b.ne 0x0326af24
+0x326aee8	e00313aa	mov x0,x19
+0x326aeec	fd7b47a9	ldp x29,x30,[sp, #0x70]
+0x326aef0	f44f46a9	ldp x20,x19,[sp, #0x60]
+0x326aef4	ff030291	add sp,sp,#0x80
+0x326aef8	c0035fd6	ret
+0x326aefc	080040f9	ldr x8,[x0]
+0x326af00	081140f9	ldr x8,[x8, #0x20]
+0x326af04	00013fd6	blr x8
+0x326af08	e87fc039	ldrsb w8,[sp, #0x1f]
+0x326af0c	28feff36	tbz w8,#0x1f,0x0326aed0
+0x326af10	e00740f9	ldr x0,[sp, #0x8]
+0x326af14	e80f40f9	ldr x8,[sp, #0x18]
+0x326af18	01f94092	and x1,x8,#0x7fffffffffffffff
+0x326af1c	3c54fb94	bl 0x0714000c
+0x326af20	ecffff17	b 0x0326aed0
+0x326af24	a054fb94	bl 0x071401a4

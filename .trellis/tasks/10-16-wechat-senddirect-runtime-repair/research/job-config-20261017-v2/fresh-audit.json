@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "verification_sha256": "1c221ed5e9a6d950b07e2e06d95b851d1d1bb91bc437eb7785fdeffbb1523026",
+  "source_files_unchanged": 15,
+  "exports_unchanged": 12,
+  "strict_build_passed": true,
+  "fixture_scenarios": 8,
+  "branch_cases": 16,
+  "failed_first_build_preserved": true,
+  "A7_complete": false,
+  "step55_complete": false,
+  "step57_complete": true,
+  "target_operated": false,
+  "deployed": false,
+  "previous_goal_turn_classification": "no_progress_status_restatement",
+  "current_goal_turn_classification": "progress_config_ABI_component_and_verified_integration"
+}

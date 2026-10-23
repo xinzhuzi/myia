@@ -1,0 +1,254 @@
+{
+  "passed": true,
+  "scope": "frozen 4.1.15 selected login callers, state construction, map conversion and cached numbered-string provenance",
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "ghidra_exports": [
+    {
+      "file": "text-contract-pass348/native-fn-2b38c0.asm",
+      "instructions": 219,
+      "sha256": "ff5b32b91aa5b4958f6acd732d17482d5ed061a91877899a6e20d29d10d8f852"
+    },
+    {
+      "file": "text-contract-pass348/native-fn-11bad90.asm",
+      "instructions": 807,
+      "sha256": "d1a51af050150d5ead52404f215c2edf1b4b4bf20be9413675309e7d8a707ef3"
+    },
+    {
+      "file": "text-contract-pass352/native-fn-2b355c.asm",
+      "instructions": 24,
+      "sha256": "89e018ae9838bdbf51b4ae72421deea7a8df2e0a4440452b6b3886d58a9eb070"
+    },
+    {
+      "file": "text-contract-pass353/native-fn-2b3f8c.asm",
+      "instructions": 42,
+      "sha256": "a9ff21ae61ff87e0ee46f606c29a5cae525c89287bfa219f02163a057782c70e"
+    },
+    {
+      "file": "text-contract-pass353/native-fn-255b9c.asm",
+      "instructions": 42,
+      "sha256": "7ec8de80d62add142518ecad994c3c7eb377266e888b0a599b011b6aceb96c93"
+    },
+    {
+      "file": "text-contract-pass356/native-fn-2a16a8.asm",
+      "instructions": 839,
+      "sha256": "b78fcf21d0a07baf4189d9b89c97252207770e8db14202e0262c5b33cac0deaa"
+    },
+    {
+      "file": "text-contract-pass356/native-fn-2b35f8.asm",
+      "instructions": 1,
+      "sha256": "354718be86133b32aba739587f63618eac1a8b3854f41d5612c71443b4f3cd77"
+    },
+    {
+      "file": "text-contract-pass358/native-fn-2b1650.asm",
+      "instructions": 589,
+      "sha256": "3b1573a6ec2d200cb356662f7912df47fdb0f2e3f545caf9423bbc25fcff10d0"
+    },
+    {
+      "file": "text-contract-pass358/native-fn-6fe2590.asm",
+      "instructions": 56,
+      "sha256": "d5e0d009d16791dcb020d81cce885d728e580e081edf5c33cb4c95d490f8bbfc"
+    },
+    {
+      "file": "text-contract-pass358/native-fn-20ba10.asm",
+      "instructions": 58,
+      "sha256": "9e5c93b9e37ef6a9b87581a194766c98ea33c3b9874f83e0a947150e211072d8"
+    },
+    {
+      "file": "text-contract-pass358/native-fn-6ef30ec.asm",
+      "instructions": 34,
+      "sha256": "5a335aea49df126f8e21fc9dbcd711ed3a17c1ef059e4f330df147b3d2a6e831"
+    },
+    {
+      "file": "text-contract-pass359/native-fn-3c7579c.asm",
+      "instructions": 74,
+      "sha256": "285728e09d20edb9e5f3f3e0df5be44bcc9227e9d6f421d802739fbebb61f859"
+    },
+    {
+      "file": "text-contract-pass359/native-fn-2b2110.asm",
+      "instructions": 85,
+      "sha256": "bb06a87e2126754f05444d5727d2263eed534a693e4952555c902452f9dcc619"
+    },
+    {
+      "file": "text-contract-pass359/native-fn-6fe12fc.asm",
+      "instructions": 14,
+      "sha256": "cfee880debe8af7a1cb9659b94ad17b00a929bc881e83db9f6b5483129e7a24a"
+    },
+    {
+      "file": "text-contract-pass359/native-fn-6ef81e0.asm",
+      "instructions": 6,
+      "sha256": "0190fb4c39f55601078c539d830478026242901fc771f818a6b54c124b2ad1dc"
+    },
+    {
+      "file": "text-contract-pass361/native-fn-3c7534c.asm",
+      "instructions": 223,
+      "sha256": "deeadc532a403a542b4c13ec6e969212604ed31ec7af27d41fd12fb83c2f698b"
+    }
+  ],
+  "instruction_positions": 3113,
+  "instruction_checks": 148,
+  "decoded_branches": [
+    {
+      "address": "0x11bb7d4",
+      "target": "0x255b9c",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x11bb7e4",
+      "target": "0x255b9c",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x11bb7f8",
+      "target": "0x41009a0",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x255bbc",
+      "target": "0x71419f8",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x255be4",
+      "target": "0x255c20",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2b3984",
+      "target": "0x4101688",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2b3590",
+      "target": "0x2b3f8c",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2b35f8",
+      "target": "0x2b355c",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2a1d14",
+      "target": "0x2a1d70",
+      "immediate_bits": 19
+    },
+    {
+      "address": "0x2a20bc",
+      "target": "0x6ef30ec",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2a20e4",
+      "target": "0x6ef30ec",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2a2108",
+      "target": "0x6fe2590",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2a2114",
+      "target": "0x20ba10",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2a22c8",
+      "target": "0x2b35f8",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2b1b50",
+      "target": "0x3c7579c",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2b1b54",
+      "target": "0x2b1d98",
+      "immediate_bits": 19
+    },
+    {
+      "address": "0x2b1cd8",
+      "target": "0x6ef81e0",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2b1ce4",
+      "target": "0x6fe12fc",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2b1cf4",
+      "target": "0x2b2110",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x3c75828",
+      "target": "0x3c758b0",
+      "immediate_bits": 19
+    },
+    {
+      "address": "0x3c75848",
+      "target": "0x3c758b0",
+      "immediate_bits": 19
+    },
+    {
+      "address": "0x3c75868",
+      "target": "0x3c758b0",
+      "immediate_bits": 19
+    },
+    {
+      "address": "0x3c75878",
+      "target": "0x713f8e0",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x3c75594",
+      "target": "0x487929c",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x20ba30",
+      "target": "0x6ef7df4",
+      "immediate_bits": 26
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9bf7ff0",
+      "decoded": "0x2b38c0",
+      "chain_steps": 1851
+    },
+    {
+      "slot": "0x9bf7f88",
+      "decoded": "0x9bf8028",
+      "chain_steps": 1838
+    },
+    {
+      "slot": "0x9bf8030",
+      "decoded": "0x80000000084e0bc0",
+      "chain_steps": 7
+    }
+  ],
+  "empty_string_literal_hex": "00",
+  "state_type_name_hex": "5f363037346264633600",
+  "contract_sha256": "b13b5b24ed259afc9b5b05274825c2badd40e8283454285564570623e37d4b96",
+  "source_sha256": "36807f81055b69c1be9a3cbd3b9189aca4abe5f7c48abda230ab5bc5c32310dd",
+  "previous_contract_sha256": "d0beb5757c99d3cfc32982f0c09b5f82c8e6bf3d67d0f8be84e7e2939a6ff7f3",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "business_identity_verified": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "deployed": false,
+  "account_stop_unchanged": true,
+  "A7_complete": false,
+  "limitations": [
+    "exact business identity of cached numbered field3 and map key object's initialized text; conversion semantics and dispatcher linkage",
+    "selector0 full result preservation, all state/cache mutations and concurrent ownership",
+    "complete sender/recipient/record mutation and nested schema mapping",
+    "actual executor/thread identity, cancellation final cleanup, complete native adapter integration",
+    "real sending, independent receipt and deployment"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "passed": true,
+  "scope": "fresh source/artifact hashes, LEB128 vectors and independent ARM64 branch decoding",
+  "leb_vectors": 6,
+  "malformed_rejections": 2,
+  "resume_branches": [
+    {
+      "pc": "0x667fa14",
+      "target": "0x713f1d8"
+    },
+    {
+      "pc": "0x667fd00",
+      "target": "0x713f1d8"
+    },
+    {
+      "pc": "0x6679084",
+      "target": "0x713f1d8"
+    },
+    {
+      "pc": "0x6674c5c",
+      "target": "0x713f1d8"
+    }
+  ],
+  "verification_sha256": "4f1a1de6e704448f0b7c7913bb5990aa17d3b4201f7f05f121562dd29178a243",
+  "target_executed": false,
+  "target_attached": false,
+  "callable_for_send": false
+}

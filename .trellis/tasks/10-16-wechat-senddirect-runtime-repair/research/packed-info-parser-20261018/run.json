@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "instructions": 833,
+  "start": "0x4eaeeb8",
+  "end_exclusive": "0x4eafbbc",
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "source_sha256": "9f95da5327b86940df0273bc6a38e91792d2ac001806ec5c6de19b61f613df9c",
+  "parser_sha256": "c430800f2c8afda65238459c77f37c0f3ae3d3bf4c230d844b7969698ee47fc2",
+  "target_executed": false,
+  "target_attached": false
+}

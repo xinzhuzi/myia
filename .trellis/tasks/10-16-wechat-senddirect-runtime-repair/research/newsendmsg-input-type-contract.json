@@ -1,0 +1,44 @@
+{
+  "evidence_kind": "offline_static_only",
+  "wechat_version": "4.1.15",
+  "build": "270135",
+  "arm64_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "payload_type_sources": {
+    "vtables": ["0x9eb26a0", "0x9eb2918"],
+    "low_type_vslot": "0x10",
+    "low_type_getter": "0xd6bf98",
+    "low_type_offset": "0xe4",
+    "high_type_vslot": "0x18",
+    "high_type_getter": "0xd6bfa0",
+    "high_type_offset": "0xe8",
+    "vslot_0x20": "0xd6bfa8 returns 1; not the wire message type",
+    "record_setters": "0x30efce4 passes vslot+0x10 result to 0x4cbbd20 and vslot+0x18 result to 0x4cbcfd4"
+  },
+  "branches_excluded_from_plain_text_proof": [
+    {
+      "function": "0x2eb4418",
+      "payload_factory": "0x77bdd0",
+      "payload_constructor": "0x77be90",
+      "payload_vtable": "0x9eb26a0",
+      "constant_address": "0x87b64c8",
+      "low_type": 49,
+      "high_type": 1,
+      "raw_bytes_hex": "3100000001000000"
+    },
+    {
+      "function": "0x2eb5688",
+      "payload_factory": "0x23ca588",
+      "payload_constructor": "0x23ca648",
+      "payload_vtable": "0x9eb2918",
+      "constant_address": "0x8798418",
+      "low_type": 49,
+      "high_type": 51,
+      "raw_bytes_hex": "3100000033000000"
+    }
+  ],
+  "type_names": "Retained RTTI labels are obfuscated; no business class names assigned.",
+  "verification": "newsendmsg-input-type-verification.json",
+  "runtime_observed": false,
+  "ordinary_text_type_verified": false,
+  "callable_for_send": false
+}

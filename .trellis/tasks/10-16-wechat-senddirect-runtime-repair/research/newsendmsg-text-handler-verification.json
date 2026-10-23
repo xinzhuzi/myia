@@ -1,0 +1,159 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass140/native-fn-30e3fb0.asm",
+      "instructions": 2971,
+      "sha256": "ea89220b9c67b6263b615c7fe3cdd71a6191f70181ac1a332fc2bec7c12a8fe2"
+    },
+    {
+      "file": "text-contract-pass200/native-fn-30d00d0.asm",
+      "instructions": 271,
+      "sha256": "4ca623e33fb7a679ed70fc20f43eb2d4429e78395cd74de9283285eef0051c8e"
+    },
+    {
+      "file": "text-contract-pass200/native-fn-30d0a14.asm",
+      "instructions": 274,
+      "sha256": "d61b06a431ba559d8c36f7c3a90a87cfb43370db5ea9bd56bed8d8e98c476d50"
+    },
+    {
+      "file": "text-contract-pass201/native-fn-30ece0c.asm",
+      "instructions": 244,
+      "sha256": "9c047338b578208abc52720c1e617f872cb76f8b400a7927e27ead5c0425b6ea"
+    },
+    {
+      "file": "text-contract-pass202/native-fn-30dcaf4.asm",
+      "instructions": 5,
+      "sha256": "bfbadb2ce4666af7282c0a93317038095bc71a4a43e91e223f4e048bef0a33e3"
+    },
+    {
+      "file": "text-contract-pass202/native-fn-30dcee4.asm",
+      "instructions": 6,
+      "sha256": "011b984cd2c68ea932c79dd97b2a7e85235f96d2c239957658d5fde4d1a37550"
+    },
+    {
+      "file": "text-contract-pass202/native-fn-30e74f4.asm",
+      "instructions": 52,
+      "sha256": "e8f15c560fed88b596ff3256df8797653d48fa193250a53b1109e883c36f826f"
+    },
+    {
+      "file": "text-contract-pass202/native-fn-30e7aa0.asm",
+      "instructions": 55,
+      "sha256": "b9ed4e96281bc7460fb7c8115a96a0704f473c231542c407b65c3ec7feafe71a"
+    },
+    {
+      "file": "text-contract-pass202/native-fn-30e7be8.asm",
+      "instructions": 244,
+      "sha256": "7125a156c469fbd9c8321ef9fa8b37d3db9a424e94ff9b0616a0c8dd41aa3860"
+    },
+    {
+      "file": "text-contract-pass203/native-fn-3105a98.asm",
+      "instructions": 659,
+      "sha256": "d5f6911822079ee22866e87bc7ab3b5365973fa5098b31985dd3dfe14e77ca97"
+    },
+    {
+      "file": "text-contract-pass203/native-fn-3107afc.asm",
+      "instructions": 4,
+      "sha256": "4992f3bac101b33cb74b851c01ec57593d7ccb9aa0d4053774aa20d3cb6bc112"
+    },
+    {
+      "file": "text-contract-pass203/native-fn-3107b0c.asm",
+      "instructions": 1805,
+      "sha256": "9f1ff4c6e84862d3ecb73ea0c0122db16c6f88130274dd40b63230645761140d"
+    },
+    {
+      "file": "text-contract-pass204/native-fn-30d80ac.asm",
+      "instructions": 125,
+      "sha256": "c6618cf2ad12d7faf6190dafceb7c4d0218084a51b34506605c7afde95e86043"
+    },
+    {
+      "file": "text-contract-pass204/native-fn-30d8a3c.asm",
+      "instructions": 143,
+      "sha256": "41d37f53438ea9526c6d2756e4abac30637a95315cc2fb53d6992a0c4cc89df5"
+    },
+    {
+      "file": "text-contract-pass204/native-fn-30d9d38.asm",
+      "instructions": 19,
+      "sha256": "bc824b5ddc347c61a493a0fc7235f80413807731e5a3d1d010e39da65fc0b90f"
+    },
+    {
+      "file": "text-contract-pass204/native-fn-30f1d74.asm",
+      "instructions": 94,
+      "sha256": "d8ebec839644ab22f7d1d4f16711fa2b52382057583c7fdc17b94f9853416975"
+    },
+    {
+      "file": "text-contract-pass204/native-fn-31099b8.asm",
+      "instructions": 382,
+      "sha256": "b4ef78093a81a61aecfdbdac08cab5927cab2d0a152d9f462929c541c72f83e0"
+    },
+    {
+      "file": "text-contract-pass205/native-fn-30d214c.asm",
+      "instructions": 2,
+      "sha256": "9b4e6ad1d59179f6714c711e537072d6b703609aca3700dcf8d5f77599343856"
+    },
+    {
+      "file": "text-contract-pass205/native-fn-30d7e4c.asm",
+      "instructions": 139,
+      "sha256": "e38d4f0039583f9852743ddec3c17c816baeaeceb20d131f2f9a2f61d02d7126"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9de9ae0",
+      "decoded": "0x3105a98",
+      "chain_steps": 794
+    },
+    {
+      "slot": "0x9de9ae8",
+      "decoded": "0x30d82d8",
+      "chain_steps": 795
+    },
+    {
+      "slot": "0x9de9af0",
+      "decoded": "0x303fdf0",
+      "chain_steps": 796
+    },
+    {
+      "slot": "0x9de9af8",
+      "decoded": "0x30d8538",
+      "chain_steps": 797
+    },
+    {
+      "slot": "0x9de9b38",
+      "decoded": "0x3107afc",
+      "chain_steps": 805
+    },
+    {
+      "slot": "0x9de9b40",
+      "decoded": "0x3107b0c",
+      "chain_steps": 806
+    },
+    {
+      "slot": "0x9de9b48",
+      "decoded": "0x31099b8",
+      "chain_steps": 807
+    },
+    {
+      "slot": "0x9de88d0",
+      "decoded": "0x30dcaf4",
+      "chain_steps": 262
+    },
+    {
+      "slot": "0x9de8950",
+      "decoded": "0x30dcee4",
+      "chain_steps": 277
+    }
+  ],
+  "instructions_matched": 7494,
+  "instruction_positions_checked": 66,
+  "names_checked": [
+    "TextMessageHandler",
+    "LocationMessageHandler"
+  ],
+  "contract_sha256": "75995ef81a55770aac6463f2f51c810e75f4b840fea77997b6c45297f84e2c65",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "Registration and cited preparation/request/notification slices only; entire initializer and producer semantics are not established by full byte matching. Runtime dispatch, recipient direction, thread/drain and independent receipt remain open."
+}

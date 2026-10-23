@@ -1,0 +1,4 @@
+0x4cc2f3c	090440f9	ldr x9,[x0, #0x8]
+0x4cc2f40	2100098b	add x1,x1,x9
+0x4cc2f44	e00308aa	mov x0,x8
+0x4cc2f48	4dc26817	b 0x026f387c

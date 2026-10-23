@@ -1,0 +1,66 @@
+0x5ab3ab8	ff0303d1	sub sp,sp,#0xc0
+0x5ab3abc	f44f0aa9	stp x20,x19,[sp, #0xa0]
+0x5ab3ac0	fd7b0ba9	stp x29,x30,[sp, #0xb0]
+0x5ab3ac4	fdc30291	add x29,sp,#0xb0
+0x5ab3ac8	f30300aa	mov x19,x0
+0x5ab3acc	ff0700a9	stp xzr,x1,[sp]
+0x5ab3ad0	28c0228b	add x8,x1,w2, SXTW 
+0x5ab3ad4	e80b00f9	str x8,[sp, #0x10]
+0x5ab3ad8	e21b00b9	str w2,[sp, #0x18]
+0x5ab3adc	ffc301f8	stur xzr,[sp, #0x1c]
+0x5ab3ae0	ff4b0079	strh wzr,[sp, #0x24]
+0x5ab3ae4	e22b00b9	str w2,[sp, #0x28]
+0x5ab3ae8	c88601b0	adrp x8,0x8b8c000
+0x5ab3aec	0071c23d	ldr q0,[x8, #0x9c0]
+0x5ab3af0	e0c3823c	stur q0,[sp, #0x2c]
+0x5ab3af4	88330290	adrp x8,0xa123000
+0x5ab3af8	08013f91	add x8,x8,#0xfc0
+0x5ab3afc	080140b9	ldr w8,[x8]
+0x5ab3b00	e83f00b9	str w8,[sp, #0x3c]
+0x5ab3b04	ff7f04a9	stp xzr,xzr,[sp, #0x40]
+0x5ab3b08	080040f9	ldr x8,[x0]
+0x5ab3b0c	081140f9	ldr x8,[x8, #0x20]
+0x5ab3b10	00013fd6	blr x8
+0x5ab3b14	680240f9	ldr x8,[x19]
+0x5ab3b18	082140f9	ldr x8,[x8, #0x40]
+0x5ab3b1c	e1030091	mov x1,sp
+0x5ab3b20	e00313aa	mov x0,x19
+0x5ab3b24	00013fd6	blr x8
+0x5ab3b28	14008052	mov w20,#0x0
+0x5ab3b2c	c0030034	cbz w0,0x05ab3ba4
+0x5ab3b30	680240f9	ldr x8,[x19]
+0x5ab3b34	081540f9	ldr x8,[x8, #0x28]
+0x5ab3b38	e00313aa	mov x0,x19
+0x5ab3b3c	00013fd6	blr x8
+0x5ab3b40	60000036	tbz w0,#0x0,0x05ab3b4c
+0x5ab3b44	f4934039	ldrb w20,[sp, #0x24]
+0x5ab3b48	17000014	b 0x05ab3ba4
+0x5ab3b4c	a2ee01b0	adrp x2,0x9888000
+0x5ab3b50	42341891	add x2,x2,#0x60d
+0x5ab3b54	a00301d1	sub x0,x29,#0x40
+0x5ab3b58	41008052	mov w1,#0x2
+0x5ab3b5c	630f8052	mov w3,#0x7b
+0x5ab3b60	33020094	bl 0x05ab442c
+0x5ab3b64	e8630191	add x8,sp,#0x58
+0x5ab3b68	e00313aa	mov x0,x19
+0x5ab3b6c	49000094	bl 0x05ab3c90
+0x5ab3b70	a00301d1	sub x0,x29,#0x40
+0x5ab3b74	e1630191	add x1,sp,#0x58
+0x5ab3b78	3d020094	bl 0x05ab446c
+0x5ab3b7c	e10300aa	mov x1,x0
+0x5ab3b80	e05f0191	add x0,sp,#0x57
+0x5ab3b84	7c020094	bl 0x05ab4574
+0x5ab3b88	e8bfc139	ldrsb w8,[sp, #0x6f]
+0x5ab3b8c	6800f836	tbz w8,#0x1f,0x05ab3b98
+0x5ab3b90	e02f40f9	ldr x0,[sp, #0x58]
+0x5ab3b94	1b315a94	bl 0x07140000
+0x5ab3b98	a00301d1	sub x0,x29,#0x40
+0x5ab3b9c	78020094	bl 0x05ab457c
+0x5ab3ba0	14008052	mov w20,#0x0
+0x5ab3ba4	e0030091	mov x0,sp
+0x5ab3ba8	d1faff97	bl 0x05ab26ec
+0x5ab3bac	80020012	and w0,w20,#0x1
+0x5ab3bb0	fd7b4ba9	ldp x29,x30,[sp, #0xb0]
+0x5ab3bb4	f44f4aa9	ldp x20,x19,[sp, #0xa0]
+0x5ab3bb8	ff030391	add sp,sp,#0xc0
+0x5ab3bbc	c0035fd6	ret

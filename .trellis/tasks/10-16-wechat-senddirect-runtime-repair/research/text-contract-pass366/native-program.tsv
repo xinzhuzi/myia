@@ -1,0 +1,5 @@
+name	wechat_arm64.dylib
+executable_sha256	6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7
+executable_path	/private/tmp/wechat_arm64.dylib
+language	AARCH64:LE:64:AppleSilicon
+image_base	0x0

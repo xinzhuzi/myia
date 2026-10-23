@@ -1,0 +1,76 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "scope": "Offline instruction ordering; no live target or native invocation.",
+  "instruction_sites_checked": 19,
+  "sources": [
+    {
+      "role": "start",
+      "file": "text-contract-pass146/native-fn-667e734.asm",
+      "sha256": "cd00b26cd0d40020fcb4bc57b81dfb4715265b3c9531410401316f04dc796562",
+      "instruction_sites": [
+        "0x667e750",
+        "0x667e79c",
+        "0x667e838",
+        "0x667e844"
+      ]
+    },
+    {
+      "role": "cancel",
+      "file": "text-contract-pass146/native-fn-667e8cc.asm",
+      "sha256": "82086e0467e532f57a1a0736d4f50e8e604b6419d1b3d1acc765e0da5b621ccc",
+      "instruction_sites": [
+        "0x667e8f8",
+        "0x667eb20",
+        "0x667eb6c",
+        "0x667ebbc"
+      ]
+    },
+    {
+      "role": "worker",
+      "file": "text-contract-pass148/native-fn-667f534.asm",
+      "sha256": "44b4c38a2109e34ec144c13efc76bcbe4a6131d1341af75609cf71ec01742666",
+      "instruction_sites": [
+        "0x667f558",
+        "0x667f584",
+        "0x667f598",
+        "0x667f5d8",
+        "0x667f5e4",
+        "0x667f5e8",
+        "0x667f604"
+      ]
+    },
+    {
+      "role": "completion",
+      "file": "text-contract-pass149/native-fn-667fc38.asm",
+      "sha256": "2e46b6d188d566886fe98f5560dec2d0874da8f206af8f1abf97a33e8520baf4",
+      "instruction_sites": [
+        "0x667fc50",
+        "0x667fc94",
+        "0x667fcb4",
+        "0x667fcd0"
+      ]
+    }
+  ],
+  "provenance": "text-contract-byte-verification-v13.json",
+  "slot_provenance": "newsendmsg-scheduler-slot-verification.json",
+  "fields": {
+    "0x140": "start-once flag",
+    "0x141": "running indicator",
+    "0x142": "completion-entry-once flag",
+    "0x143": "cancel-once flag"
+  },
+  "constraints": [
+    "Cancel return and running=false are not proof of callback destruction or drain.",
+    "Worker clears running before disposing its body functor and publishing completion.",
+    "Completion entry flag precedes result publication and the final user callback.",
+    "No flag alone proves that adapter callbacks or native references have drained."
+  ],
+  "unresolved": [
+    "Dispatcher implementation and full queue drain",
+    "Join return versus final callback and weak-reference destruction",
+    "Exception paths, module-unload barrier and end-to-end send receipt"
+  ],
+  "limitations": "Site checks do not constitute a full control-flow or concurrency proof.",
+  "runtime_observed": false,
+  "callable_for_send": false
+}

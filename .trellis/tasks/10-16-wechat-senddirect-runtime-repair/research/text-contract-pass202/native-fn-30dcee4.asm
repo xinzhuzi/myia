@@ -1,0 +1,6 @@
+0x30dcee4	089040a9	ldp x8,x4,[x0, #0x8]
+0x30dcee8	01600091	add x1,x0,#0x18
+0x30dceec	02800191	add x2,x0,#0x60
+0x30dcef0	03a00191	add x3,x0,#0x68
+0x30dcef4	e00308aa	mov x0,x8
+0x30dcef8	80001fd6	br x4

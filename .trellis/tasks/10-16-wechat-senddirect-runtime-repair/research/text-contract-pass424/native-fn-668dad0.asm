@@ -1,0 +1,35 @@
+0x668dad0	ff0301d1	sub sp,sp,#0x40
+0x668dad4	f44f02a9	stp x20,x19,[sp, #0x20]
+0x668dad8	fd7b03a9	stp x29,x30,[sp, #0x30]
+0x668dadc	fdc30091	add x29,sp,#0x30
+0x668dae0	f30300aa	mov x19,x0
+0x668dae4	48f401f0	adrp x8,0xa518000
+0x668dae8	08e13291	add x8,x8,#0xcb8
+0x668daec	08c1bff8	ldapr x8,[x8]
+0x668daf0	1f0500b1	cmn x8,#0x1
+0x668daf4	60010054	b.eq 0x0668db20
+0x668daf8	e83f0091	add x8,sp,#0xf
+0x668dafc	e80f00f9	str x8,[sp, #0x18]
+0x668db00	e8630091	add x8,sp,#0x18
+0x668db04	e80b00f9	str x8,[sp, #0x10]
+0x668db08	40f401f0	adrp x0,0xa518000
+0x668db0c	00e03291	add x0,x0,#0xcb8
+0x668db10	220000f0	adrp x2,0x6694000
+0x668db14	42301091	add x2,x2,#0x40c
+0x668db18	e1430091	add x1,sp,#0x10
+0x668db1c	0bc72a94	bl 0x0713f748
+0x668db20	48f401f0	adrp x8,0xa518000
+0x668db24	085946f9	ldr x8,[x8, #0xcb0]
+0x668db28	08fddf88	ldar w8,[x8]
+0x668db2c	00de0190	adrp x0,0xa24d000
+0x668db30	00403c91	add x0,x0,#0xf10
+0x668db34	090040f9	ldr x9,[x0]
+0x668db38	20013fd6	blr x9
+0x668db3c	090040b9	ldr w9,[x0]
+0x668db40	3f010072	tst w9,#0x1
+0x668db44	0001537a	ccmp w8,w19,#0x0,eq
+0x668db48	e0c79f1a	cset w0,le
+0x668db4c	fd7b43a9	ldp x29,x30,[sp, #0x30]
+0x668db50	f44f42a9	ldp x20,x19,[sp, #0x20]
+0x668db54	ff030191	add sp,sp,#0x40
+0x668db58	c0035fd6	ret

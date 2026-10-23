@@ -1,0 +1,62 @@
+0x335fcb0	fc6fbda9	stp x28,x27,[sp, #-0x30]!
+0x335fcb4	f44f01a9	stp x20,x19,[sp, #0x10]
+0x335fcb8	fd7b02a9	stp x29,x30,[sp, #0x20]
+0x335fcbc	fd830091	add x29,sp,#0x20
+0x335fcc0	ff830ad1	sub sp,sp,#0x2a0
+0x335fcc4	f30308aa	mov x19,x8
+0x335fcc8	e8f301b2	orr x8,xzr,#-0x5555555555555556
+0x335fccc	e82301a9	stp x8,x8,[sp, #0x10]
+0x335fcd0	e8430091	add x8,sp,#0x10
+0x335fcd4	e0830091	add x0,sp,#0x20
+0x335fcd8	863fba97	bl 0x021efaf0
+0x335fcdc	e92341a9	ldp x9,x8,[sp, #0x10]
+0x335fce0	e92300a9	stp x9,x8,[sp]
+0x335fce4	880000b4	cbz x8,0x0335fcf4
+0x335fce8	08210091	add x8,x8,#0x8
+0x335fcec	29008052	mov w9,#0x1
+0x335fcf0	080129f8	ldadd x9,x8,[x8]
+0x335fcf4	ff830039	strb wzr,[sp, #0x20]
+0x335fcf8	ff630a39	strb wzr,[sp, #0x298]
+0x335fcfc	e0030091	mov x0,sp
+0x335fd00	e1830091	add x1,sp,#0x20
+0x335fd04	35000094	bl 0x0335fdd8
+0x335fd08	e8634a39	ldrb w8,[sp, #0x298]
+0x335fd0c	1f050071	cmp w8,#0x1
+0x335fd10	61000054	b.ne 0x0335fd1c
+0x335fd14	e0830091	add x0,sp,#0x20
+0x335fd18	5e995d97	bl 0x00ac6290
+0x335fd1c	f40740f9	ldr x20,[sp, #0x8]
+0x335fd20	740100b4	cbz x20,0x0335fd4c
+0x335fd24	88220091	add x8,x20,#0x8
+0x335fd28	09008092	mov x9,#-0x1
+0x335fd2c	0801e9f8	ldaddal x9,x8,[x8]
+0x335fd30	e80000b5	cbnz x8,0x0335fd4c
+0x335fd34	880240f9	ldr x8,[x20]
+0x335fd38	080940f9	ldr x8,[x8, #0x10]
+0x335fd3c	e00314aa	mov x0,x20
+0x335fd40	00013fd6	blr x8
+0x335fd44	e00314aa	mov x0,x20
+0x335fd48	b57ff794	bl 0x0713fc1c
+0x335fd4c	e92341a9	ldp x9,x8,[sp, #0x10]
+0x335fd50	692200a9	stp x9,x8,[x19]
+0x335fd54	080200b4	cbz x8,0x0335fd94
+0x335fd58	08210091	add x8,x8,#0x8
+0x335fd5c	29008052	mov w9,#0x1
+0x335fd60	080129f8	ldadd x9,x8,[x8]
+0x335fd64	f30f40f9	ldr x19,[sp, #0x18]
+0x335fd68	730100b4	cbz x19,0x0335fd94
+0x335fd6c	68220091	add x8,x19,#0x8
+0x335fd70	09008092	mov x9,#-0x1
+0x335fd74	0801e9f8	ldaddal x9,x8,[x8]
+0x335fd78	e80000b5	cbnz x8,0x0335fd94
+0x335fd7c	680240f9	ldr x8,[x19]
+0x335fd80	080940f9	ldr x8,[x8, #0x10]
+0x335fd84	e00313aa	mov x0,x19
+0x335fd88	00013fd6	blr x8
+0x335fd8c	e00313aa	mov x0,x19
+0x335fd90	a37ff794	bl 0x0713fc1c
+0x335fd94	ff830a91	add sp,sp,#0x2a0
+0x335fd98	fd7b42a9	ldp x29,x30,[sp, #0x20]
+0x335fd9c	f44f41a9	ldp x20,x19,[sp, #0x10]
+0x335fda0	fc6fc3a8	ldp x28,x27,[sp], #0x30
+0x335fda4	c0035fd6	ret

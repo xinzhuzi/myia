@@ -1,0 +1,8 @@
+0x56f5578	fd7bbfa9	stp x29,x30,[sp, #-0x10]!
+0x56f557c	fd030091	mov x29,sp
+0x56f5580	000440f9	ldr x0,[x0, #0x8]
+0x56f5584	040e0094	bl 0x056f8d94
+0x56f5588	1f0000f1	cmp x0,#0x0
+0x56f558c	e0079f1a	cset w0,ne
+0x56f5590	fd7bc1a8	ldp x29,x30,[sp], #0x10
+0x56f5594	c0035fd6	ret

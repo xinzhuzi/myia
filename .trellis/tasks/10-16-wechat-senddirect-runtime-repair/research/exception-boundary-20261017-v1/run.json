@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\"cases\":8,\"erased_bool_invoke\":true,\"std_and_nonstd_caught\":true,\"first_failure_preserved\":true,\"clone_lifetime_balanced\":true,\"concurrent_faults\":32,\"cleanup_after_final_fault\":true,\"native_scheduler_executed\":false,\"sent\":false}\n",
+  "stderr": ""
+}

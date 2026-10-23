@@ -1,0 +1,496 @@
+{
+  "status": "static_contract_with_consumed_readonly_identity_snapshot",
+  "wechat_version": "4.1.15",
+  "build": "270135",
+  "arm64_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "addresses": "Ghidra VA; runtime slide not applied",
+  "cgi": "/cgi-bin/micromsg-bin/newsendmsg",
+  "request_number": 522,
+  "request_options": {
+    "function": "0x30c14a4",
+    "return_abi": "hidden x8",
+    "cipher": "0x88ada2e",
+    "adjacent_key": "0x88ada1e",
+    "decoded_bytes": 33
+  },
+  "request_object": {
+    "factory": "0x30c2c1c",
+    "constructor": "0x30c2de4",
+    "allocation_bytes": 224,
+    "vtable": "0x9de8268",
+    "request_number_offset": "0xc",
+    "cgi_std_string_offset": "0x18",
+    "completion_functor_pointer_offset": "0x68",
+    "inner_request_offset": "0x78",
+    "inner_response_offset": "0xa8",
+    "serialize_vslot": {
+      "slot": "0x10",
+      "function": "0x30c2ed8"
+    },
+    "response_vslot": {
+      "slot": "0x18",
+      "function": "0x30c2f80"
+    },
+    "request_getter_vslot": {
+      "slot": "0x20",
+      "function": "0x30c2fd4"
+    }
+  },
+  "inner_request": {
+    "vtable": "0x9e91df8",
+    "serialize": "0x465da58",
+    "is_initialized": "0x465dbc0",
+    "fields": [
+      {
+        "number": 1,
+        "wire_type": 0,
+        "native_bits": 32,
+        "offset": "0x20",
+        "required": true,
+        "producer_value_for_one_item": 1
+      },
+      {
+        "number": 2,
+        "wire_type": 2,
+        "repeated": true,
+        "element_vtable": "0x9e91d80"
+      }
+    ],
+    "allocation_bytes": 48,
+    "constructor": "0x465bdac",
+    "parse_from_array": "0x5ab3ab8",
+    "non_deleting_destructor": "0x465d634"
+  },
+  "message_item": {
+    "allocation_bytes": 56,
+    "serialize": "0x465d024",
+    "is_initialized": "0x465d30c",
+    "presence_mask_offset": "0x34",
+    "required_mask": "0x1d",
+    "fields": [
+      {
+        "number": 1,
+        "wire_type": 2,
+        "native_kind": "nested_message",
+        "offset": "0x8",
+        "required": true,
+        "native_producer_record_offset": "0x30",
+        "nested_schema": {
+          "vtable": "0x9eca390",
+          "serialize": "0x4f37c94",
+          "is_initialized": "0x4f37d40",
+          "fields": [
+            {
+              "number": 1,
+              "wire_type": 2,
+              "required": false,
+              "native_kind": "std_string"
+            }
+          ],
+          "evidence": [
+            "text-contract-pass76/table.tsv",
+            "text-contract-pass77/native-fn-4f37b88.c",
+            "text-contract-pass79/native-fn-4f37c94.c"
+          ]
+        }
+      },
+      {
+        "number": 2,
+        "wire_type": 2,
+        "native_kind": "std_string",
+        "offset": "0x10",
+        "required": false,
+        "native_producer_record_offset": "0x130"
+      },
+      {
+        "number": 3,
+        "wire_type": 0,
+        "native_bits": 32,
+        "offset": "0x18",
+        "required": true,
+        "native_producer_record_offset": "0xc"
+      },
+      {
+        "number": 4,
+        "wire_type": 0,
+        "native_bits": 32,
+        "offset": "0x1c",
+        "required": true,
+        "native_producer_record_offset": "0x114"
+      },
+      {
+        "number": 5,
+        "wire_type": 0,
+        "native_bits": 32,
+        "offset": "0x28",
+        "required": true,
+        "native_producer_helper": "0x30f2168 then 0x33fcc",
+        "native_producer_helper_detail": {
+          "client_id_string_helper": "0x30f2168",
+          "retained_native_helper_label": "GetSendClientId",
+          "string_hash_wrapper": "0x33fcc",
+          "hash_leaf": "0x9ebf8",
+          "signed_tail_bytes_for_remainders": [
+            1,
+            3
+          ],
+          "offline_port": "newsendmsg_client_hash_4115.py",
+          "native_synthetic_verification": "client-hash-native-verification.json",
+          "string_source_contract": {
+            "evidence_kind": "offline_static_only",
+            "input_x0": "producer object; not the record directly",
+            "return_abi": "std::string through hidden x8",
+            "cached_string_offset": "0xb8",
+            "nonempty_cache_is_reused": true,
+            "record_pointer_offset": "0x18",
+            "record_identity_string_chain": "0x4cbe440 -> 0x4d31170 -> 0x4d310bc -> 0x8ad29c",
+            "identity_when_local_id_zero_and_record_string_nonempty": "record+0x260 string",
+            "identity_otherwise": "0x4cbd624(record) string + underscore + uint32 create_time + underscore + uint32 local_id",
+            "record_create_time_offset": "0x114",
+            "record_local_id_offset": "0xf4",
+            "suffix_source_address": "0x88b02f8",
+            "suffix_source_bytes_hex": "5f78776563686174",
+            "suffix_after_appending_underscore": "_xwechat_",
+            "counter_global": "0xa05a2b8",
+            "counter_bits": 64,
+            "counter_value_used": "value before increment; write back value+1",
+            "counter_without_record": "same counter, without record identity or suffix",
+            "counter_initialization_and_thread_serialization_verified": false,
+            "record_direction_and_text_type_verified": false,
+            "verification": "newsendmsg-client-id-source-verification.json",
+            "callable_for_send": false
+          },
+          "live_client_id_not_observed": true
+        }
+      },
+      {
+        "number": 6,
+        "wire_type": 2,
+        "native_kind": "std_string",
+        "offset": "0x20",
+        "required": false,
+        "native_producer_record_offset": "0x160"
+      },
+      {
+        "number": 7,
+        "wire_type": 0,
+        "native_bits": 32,
+        "offset": "0x2c",
+        "required": false,
+        "native_producer_assignment_verified": false
+      }
+    ],
+    "producer": "0x30bda14",
+    "independent_second_producer": "0x30f9248"
+  },
+  "completion": {
+    "factory_moves_or_clones_functor_before_enqueue": true,
+    "on_task_end": "0x4635b9c",
+    "completion_invoke_vslot": "0x30",
+    "null_functor_throws": true,
+    "destroy_request_only_on_nonzero_completion_result": true,
+    "upstream_captures_fully_verified": false,
+    "upstream_static_layout": {
+      "factory": "0x30c295c",
+      "allocation_bytes": 48,
+      "vtable": "0x9de82c0",
+      "captures": {
+        "0x8": "async context pointer",
+        "0x10": "context shared control block",
+        "0x18": "steady_clock value",
+        "0x20": "mutex pointer",
+        "0x28": "mutex owner shared control block"
+      },
+      "invoke_thunk": "0x30c338c",
+      "invoke_handler": "0x30c3420",
+      "normal_return": 1,
+      "request_deleted_after_normal_return": true,
+      "clone_functions": [
+        "0x30c31bc",
+        "0x30c3224"
+      ],
+      "destroy_functions": [
+        "0x30c326c",
+        "0x30c3300"
+      ],
+      "shared_captures_retained_on_clone_and_released_on_destroy": true,
+      "response_copy_and_scheduled_delivery": "0x30c35a0 -> 0x66696dc -> 0x6669058; context resolution, not proof of thread scheduling",
+      "context_internal_type_and_scheduler_full_contract_verified": false,
+      "context_resolution": {
+        "function": "0x6669058",
+        "state_offset": "0x9c",
+        "pending_value": 0,
+        "normal_resolved_value": 1,
+        "owned_functor_offset": "0x90",
+        "condition_variable_offset": "0x50",
+        "optional_continuation_offset": "0xd8",
+        "later_resolution_does_not_replace_first_result": true,
+        "source": "text-contract-pass86/native-fn-6669058.c"
+      }
+    },
+    "factory_publication_gate": {
+      "producer": "0x30c295c holds captured mutex across factory and cancel registration",
+      "consumer": "0x30c3420 locks same mutex before reading response",
+      "reason": "0x30c2c1c accesses request+8 after enqueue; callback must not delete it first",
+      "host_fixture": "test_newsendmsg_publication_4115.cpp"
+    }
+  },
+  "limitations": [
+    "Numbered fields preserve native evidence; original business names are not fully established.",
+    "Account-dependent envelope packaging must use the native producer; Python base envelope is incomplete.",
+    "Service identity matched one authorized read-only runtime snapshot; it does not prove callability or stable future pointers.",
+    "Captured async context internals, scheduling/threading and live client-ID generation require further verification.",
+    "One read-only identity window completed in 3.822 seconds; no native call, injection or sending.",
+    "This research JSON must not enable the rejected schema-3 driver."
+  ],
+  "live_ready": false,
+  "send_verified": false,
+  "service_static_identity": {
+    "singleton_global": "0xa45df38",
+    "getter": "0x4669774",
+    "account_constructor": "0x4666b54",
+    "account_vtable": "0x9e92400",
+    "account_service_vslot": "0x18",
+    "account_service_getter": "0x466a318",
+    "account_service_pointer_offset": "0x250",
+    "control_pointer_offset": "0x258",
+    "service_initializer": "0x4668ad0",
+    "owner_constructor": "0x462e4d4",
+    "control_vtable": "0x9e92c98",
+    "owner_embedded_offset_in_control": "0x18",
+    "service_embedded_offset_in_control": "0x28",
+    "owner_vtable": "0x9e8fc30",
+    "secondary_vtable_at_owner_plus_8": "0x9e8fd78",
+    "service_vtable": "0x9e8fda0",
+    "enqueue_vslot": "0x28",
+    "enqueue_thunk": "0x46353a0",
+    "owner_this_adjustment": "-0x10",
+    "runtime_observed": true,
+    "runtime_evidence": "live-observe-xk07n8e9/supervisor.json",
+    "runtime_pointer_policy": "Historical identity snapshot only; never reuse these pointers as a later execution recipe."
+  },
+  "offline_implementations": {
+    "inner_wire": "newsendmsg_wire_4115.py",
+    "base_envelope": "mmreq_base_4115.py",
+    "service_snapshot": "newsendmsg_identity_4115.py",
+    "completion_cpp": "newsendmsg_completion_4115.hpp",
+    "native_body_cpp": "newsendmsg_native_body_4115.hpp",
+    "cpp_validation": "newsendmsg-cpp-verification.json",
+    "native_response_cpp": "newsendmsg_native_response_4115.hpp",
+    "operation_cpp": "newsendmsg_operation_4115.hpp",
+    "response_parser": "newsendmsg_response_4115.py",
+    "latest_integrated_validation": "newsendmsg-integrated-verification.json"
+  },
+  "host_libcpp_fixture": {
+    "function_bytes": 32,
+    "function_alignment": 8,
+    "string_bytes": 24,
+    "erased_functor_pointer_offset": "0x18",
+    "invoke_vslot": "0x30",
+    "heap_transfer_and_reference_argument_invocation_verified": true,
+    "native_factory_or_callback_executed": false,
+    "sanitizers_passed": false
+  },
+  "scheduler_static_contract": {
+    "launch_wrapper": "0x6684b8c",
+    "launch": "0x66846b8",
+    "job_constructor_wrapper": "0x667ddf8",
+    "group_enqueue": "0x6682d18",
+    "group_mutex_offset": "0x78",
+    "group_job_list_offset": "0xb8",
+    "group_job_count_offset": "0xc8",
+    "normal_path": "Build an owned job, register its continuation, retain job in the mutex-protected co_job_group list; context flags select start/resume paths.",
+    "arbitrary_thread_invocation_verified": false,
+    "context_internals_and_thread_affinity_fully_verified": false,
+    "sources": [
+      "text-contract-pass88/native-fn-66846b8.c",
+      "text-contract-pass89/native-fn-6682d18.c"
+    ],
+    "context_source": {
+      "timeout_context_factory": "0x30c0d04 -> 0x66853a4",
+      "current_or_default_group": "0x66845a4",
+      "current_group_lookup": "0x6684284",
+      "lookup_kind": "coroutine-local lookup when present; thread-local lookup otherwise",
+      "default_group_initializer": "0x6684444",
+      "default_group_global": "0xa518700",
+      "default_group_context_options_offset": "0x108",
+      "options_accessor": "0x2e0a888 returns x0+0x108, not a parameterless getter",
+      "sources": [
+        "text-contract-pass95/native-fn-30c0d04.asm",
+        "text-contract-pass96/native-fn-66853a4.asm",
+        "text-contract-pass97/native-fn-66845a4.c",
+        "text-contract-pass98/native-fn-6684284.c",
+        "text-contract-pass98/native-fn-6684444.c"
+      ],
+      "remaining": "Fallback existence does not establish safe invocation under a stopped debugger, timeout cancellation completion or all thread-affinity requirements."
+    },
+    "high_level_wrapper_abi": {
+      "function": "0x30bee20",
+      "x0": "service interface",
+      "x1": "inner request protobuf",
+      "x2": "const std::string pointer",
+      "x3": "options pointer",
+      "x8": "48-byte result storage",
+      "blocking_wait_and_retry_present": true,
+      "source": "text-contract-pass62/native-fn-30bee20.asm",
+      "inferred_ghidra_signature_must_not_be_called_verbatim": true
+    },
+    "launch_wrapper_abi": {
+      "x0": "group",
+      "x1": "config pointer",
+      "x2": "std::function pointer",
+      "x8": "hidden shared-context result",
+      "source": "text-contract-pass86/native-fn-6684b8c.asm",
+      "ghidra_inferred_explicit_output_parameter_is_incorrect": true
+    }
+  },
+  "response_static_contract": {
+    "constructor": "0x465bdcc",
+    "allocation_bytes": 56,
+    "vtable": "0x9e91ee8",
+    "parse": "0x465ef20",
+    "serialize": "0x465f2b8",
+    "is_initialized": "0x465f4a0",
+    "required_mask": "0x3",
+    "presence_mask_offset": "0x30",
+    "fields": [
+      {
+        "number": 1,
+        "wire_type": 2,
+        "offset": "0x8",
+        "required": true
+      },
+      {
+        "number": 2,
+        "wire_type": 0,
+        "offset": "0x28",
+        "native_bits": 32,
+        "required": true
+      },
+      {
+        "number": 3,
+        "wire_type": 2,
+        "offset": "0x10",
+        "repeated": true
+      }
+    ],
+    "item_vtable": "0x9e91e70",
+    "item_parse": "0x465e144",
+    "item_fields": [
+      {
+        "number": 1,
+        "wire_type": 0,
+        "offset": "0x10",
+        "native_bits": 32,
+        "native_kind": "int32"
+      },
+      {
+        "number": 2,
+        "wire_type": 2,
+        "offset": "0x8",
+        "native_kind": "nested_wrapper"
+      },
+      {
+        "number": 3,
+        "wire_type": 0,
+        "offset": "0x14",
+        "native_bits": 32
+      },
+      {
+        "number": 4,
+        "wire_type": 0,
+        "offset": "0x18",
+        "native_bits": 32
+      },
+      {
+        "number": 5,
+        "wire_type": 0,
+        "offset": "0x1c",
+        "native_bits": 32
+      },
+      {
+        "number": 6,
+        "wire_type": 0,
+        "offset": "0x20",
+        "native_bits": 32
+      },
+      {
+        "number": 7,
+        "wire_type": 0,
+        "offset": "0x24",
+        "native_bits": 32
+      },
+      {
+        "number": 8,
+        "wire_type": 0,
+        "offset": "0x28",
+        "native_bits": 64
+      }
+    ],
+    "producer_checks": "0x30bda14 requires outer errors both zero, a nonempty item list and first item +0x10 == 0, then copies first item +0x28 to record +0xf8.",
+    "limits": [
+      "Item initialization mask and complete business semantics are not established by this slice.",
+      "No response was read from WeChat; callback arrival alone must not report delivery.",
+      "Later pass109/113 prove item required mask 0x7f and base mask 3; business semantics and delivery remain unverified."
+    ],
+    "request_response_getter": "0x30c2fdc returns request+0xa8",
+    "copy": "0x465f460",
+    "non_deleting_destructor": "0x465ed38",
+    "byte_size": "0x465f354",
+    "serialize_cached_to_array": "0x5ab3bc0",
+    "serialization_order": "IsInitialized -> ByteSize (updates recursive caches) -> array writer -> end-pointer check",
+    "item_is_initialized": "0x465e934",
+    "item_required_mask": "0x7f",
+    "item_required_fields": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "item_optional_fields": [
+      8
+    ],
+    "base_parser": "0x465b43c",
+    "base_is_initialized": "0x465b7a0",
+    "base_required_mask": "0x3",
+    "base_fields": [
+      {
+        "number": 1,
+        "wire_type": 0,
+        "native_kind": "int32",
+        "required": true
+      },
+      {
+        "number": 2,
+        "wire_type": 2,
+        "native_kind": "nested_wrapper",
+        "required": true
+      }
+    ],
+    "field_2_business_meaning_verified": false,
+    "request_response_correlation_verified": false
+  },
+  "cancellation_static_contract": {
+    "functor_invoke": "0x30c39b4 -> 0x30c3a3c",
+    "service_vslot": "0x30",
+    "slot": "0x9e8fdd0",
+    "thunk": "0x46357ac",
+    "owner_cancel": "0x46353a8",
+    "this_adjustment": "-0x10",
+    "ready_flag": "owner+0x18 bit0",
+    "mutex": "owner+0x80",
+    "request_map": "owner+0x70",
+    "global_stop_pointer": "0xa124b98",
+    "global_stop_disk_initial_value": "0x5dad070",
+    "global_stop_assigned_by_init": "0x5974418 writes 0x5973a80",
+    "stop_chain": "0x5973a80 -> 0x597ee54 -> 0x5d5f2cc (queued StopTask work)",
+    "queued_request": "deleting vslot+8, erase map node, no completion invocation",
+    "completion_already_removed_from_map": "may finish after cancel returns",
+    "context_cancel_registration": "0x6668c44 stores owning functor at context+0xa8; does not invoke",
+    "network_and_callback_drain_proven": false,
+    "source": "newsendmsg-cancel-response-result.md"
+  }
+}

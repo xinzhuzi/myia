@@ -1,0 +1,134 @@
+[
+  {
+    "term": "sendmsg",
+    "rva": "0x854b730",
+    "start": "0x854b730",
+    "text": "sendmsg_yMer"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0x857f1a0",
+    "start": "0x857f190",
+    "text": "ChatBotMessagePasendmsg_forward"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0x85977d8",
+    "start": "0x85977d0",
+    "text": "parent iSendMsg"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0x85e8a00",
+    "start": "0x85e89d0",
+    "text": "forward result:%forward result: download result:sendmsg_fav_direforward success"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0x88bac38",
+    "start": "0x88bac38",
+    "text": "SendMsgFtouserna tou"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0x986e831",
+    "start": "0x986e7cd",
+    "text": " netstrategy=\"0\">newinit</cgi>\t\t<cgi reqid=\"237\" respid=\"1000000237\" nettype=\"3\" netstrategy=\"0\">newsendmsg</cgi>\t\t<cgi reqid=\"121\" respid=\"1000000121\" nettype=\"3\" netstrategy=\"0\">newsync</cgi>\t\t<cgi reqid=\"34\" respid=\"1000000034\" nettype=\"3\" netstra"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0x986e977",
+    "start": "0x986e913",
+    "text": "3\" netstrategy=\"0\">sendappmsg</cgi>\t\t<cgi reqid=\"2\" respid=\"1000000002\" nettype=\"3\" netstrategy=\"0\">sendmsg</cgi>\t\t<cgi reqid=\"68\" respid=\"1000000068\" nettype=\"3\" netstrategy=\"0\">sendemoji</cgi>\t\t<cgi reqid=\"19\" respid=\"1000000019\" nettype=\"3\" netstr"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0x987034b",
+    "start": "0x98702e7",
+    "text": "winit</cgi>        <cgi reqid=\"237\" respid=\"1000000237\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">newsendmsg</cgi>        <cgi reqid=\"121\" respid=\"1000000121\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">newsync</cgi>        <cgi reqid=\"34\" respid=\"100000"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0x98704dd",
+    "start": "0x9870479",
+    "text": "sendappmsg</cgi>        <cgi reqid=\"2\" respid=\"1000000002\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">sendmsg</cgi>        <cgi reqid=\"68\" respid=\"1000000068\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">sendemoji</cgi>        <cgi reqid=\"19\" respid=\"10000"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0x987da46",
+    "start": "0x987d9e2",
+    "text": "i reqid=\"611\" respid=\"1000000611\" nettype=\"1\" netstrategy=\"0\" netproto=\"2\" netchannel=\"1\">transferresendmsg</cgi>\n<cgi nettype=\"1\" netstrategy=\"0\" netproto=\"2\" netchannel=\"1\">checkbankbind_tsbc</cgi>\n<cgi nettype=\"1\" netstrategy=\"0\" netproto=\"2\" netc"
+  },
+  {
+    "term": "sendmsg",
+    "rva": "0xa0233a5",
+    "start": "0xa023398",
+    "text": "mmui::ChatBotSendMsgCardPanel"
+  },
+  {
+    "term": "send_msg",
+    "rva": "0x86d9588",
+    "start": "0x86d9588",
+    "text": "send_msgword_couline_courecv_msgdrag_inpdrag_dir"
+  },
+  {
+    "term": "send_msg",
+    "rva": "0x96848e0",
+    "start": "0x96848c0",
+    "text": "try_throw_exceptunknown error %_send_msg_noexcep_e7a8f07c"
+  },
+  {
+    "term": "SendMessage",
+    "rva": "0x88a7380",
+    "start": "0x88a7350",
+    "text": "BasicCheck failebasic check failapp_extinfo nullSendMessageCheckForwardMessageCh\ufffd"
+  },
+  {
+    "term": "SendMessage",
+    "rva": "0x89f8750",
+    "start": "0x89f8750",
+    "text": "SendMessageToWeTParseDecryptedBosession"
+  },
+  {
+    "term": "SendMessage",
+    "rva": "0x992fd22",
+    "start": "0x992fd22",
+    "text": "sendMessageToWeTypeWithEncodedData:"
+  },
+  {
+    "term": "SendMessage",
+    "rva": "0xa022b71",
+    "start": "0xa022b6f",
+    "text": "OnSendMessage"
+  },
+  {
+    "term": "newsend",
+    "rva": "0x986e82e",
+    "start": "0x986e7ca",
+    "text": "\"3\" netstrategy=\"0\">newinit</cgi>\t\t<cgi reqid=\"237\" respid=\"1000000237\" nettype=\"3\" netstrategy=\"0\">newsendmsg</cgi>\t\t<cgi reqid=\"121\" respid=\"1000000121\" nettype=\"3\" netstrategy=\"0\">newsync</cgi>\t\t<cgi reqid=\"34\" respid=\"1000000034\" nettype=\"3\" nets"
+  },
+  {
+    "term": "newsend",
+    "rva": "0x9870348",
+    "start": "0x98702e4",
+    "text": ">newinit</cgi>        <cgi reqid=\"237\" respid=\"1000000237\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">newsendmsg</cgi>        <cgi reqid=\"121\" respid=\"1000000121\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">newsync</cgi>        <cgi reqid=\"34\" respid=\"100"
+  },
+  {
+    "term": "NewSend",
+    "rva": "0x986e82e",
+    "start": "0x986e7ca",
+    "text": "\"3\" netstrategy=\"0\">newinit</cgi>\t\t<cgi reqid=\"237\" respid=\"1000000237\" nettype=\"3\" netstrategy=\"0\">newsendmsg</cgi>\t\t<cgi reqid=\"121\" respid=\"1000000121\" nettype=\"3\" netstrategy=\"0\">newsync</cgi>\t\t<cgi reqid=\"34\" respid=\"1000000034\" nettype=\"3\" nets"
+  },
+  {
+    "term": "NewSend",
+    "rva": "0x9870348",
+    "start": "0x98702e4",
+    "text": ">newinit</cgi>        <cgi reqid=\"237\" respid=\"1000000237\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">newsendmsg</cgi>        <cgi reqid=\"121\" respid=\"1000000121\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">newsync</cgi>        <cgi reqid=\"34\" respid=\"100"
+  },
+  {
+    "term": "MMStartTask",
+    "rva": "0x9859454",
+    "start": "0x9859454",
+    "text": "MMStartTask"
+  }
+]

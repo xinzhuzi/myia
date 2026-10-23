@@ -1,0 +1,471 @@
+--- installed/wechat_bridge/senddirect.py
++++ source/wechat_bridge/senddirect.py
+@@ -1,5 +1,9 @@
+ """直发通道驱动(LLDB 批式函数直调;task 10-14-wechat-sendmsg-direct
+ design-阶段3 §2/§3)。
++
++2026-10-16 修正：doctor/dry-run 仅离线检查。旧活调试驱动因取消/超时
++清理不可靠而停用，配置不能授权或恢复它；下文保留历史协议供离线测试。
++任何新执行器须先实现用户明确的单次目标/用途/时限授权及清理验证。
+ 
+ 形态(§3.4):桥侧 python 生成**单次 lldb 批**(attach→preflight→[expr 调用]
+ →postflight→detach→quit),subprocess + 硬超时驱动,无常驻调试器;lldb 内
+@@ -13,7 +17,7 @@
+                        放触发发送——消「触发先于断点」竞态)
+ ``PREFLIGHT_OK.json``  版本门+活性验全过(含 slide/ctx/attach_ms;capture
+                        形态另含 template 指纹与 svc_invariants 采集值)
+-``PREFLIGHT_FAIL.json`` 门失败({reason, detail};未调用,零风险)
++``PREFLIGHT_FAIL.json`` 门失败({reason, detail};未进入直发调用段)
+ ``ARMED.json``         expr 提交前落(armed 时点;此后绝不 rollback)
+ ``DONE.json``          调用返回({call_rc, alive};postflight 存活一并记)
+ ``ERROR.json``         调用/探测异常({stage, detail})
+@@ -60,7 +64,7 @@
+ import time
+ from dataclasses import dataclass
+ from pathlib import Path
+-from typing import Any, Callable
++from typing import Any, BinaryIO, Callable
+ 
+ from .codes import (
+     EXIT_GENERIC_FAILURE,
+@@ -138,6 +142,10 @@
+ RECEIPT_POLL_SCHEDULE = (5.0, 10.0, 15.0)
+ #: 哨兵轮询间隔(armed 及时落 fingerprint pending)。
+ SENTINEL_POLL_S = 0.2
++# 4.1.15 schema-3 模板路线已证伪；改标签/入口地址不能重新启用它。
++RETIRED_TEMPLATE_SLICE_SHA256 = frozenset({
++    "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
++})
+ 
+ 
+ def _now() -> float:
+@@ -148,6 +156,21 @@
+ def _sleep(seconds: float) -> None:
+     """sleep 注入点(回执退避的单测换装点)。"""
+     time.sleep(seconds)
++
++
++def _require_safe_live_driver() -> None:
++    """旧执行器尚无安全授权/清理入口，拒绝所有产品活调试调用。
++
++    SIGKILL 并不保证 PT_DETACH，daemon 触发线程还可能在调用返回后继续。
++    在替代执行器完成前，不提供参数、配置或环境变量绕过；离线单测只在
++    假 Popen/假 LLDB 边界注入此门，不产生任何真实授权。
++    """
++    raise BridgeError(
++        SEND_DIRECT_UNANCHORED,
++        "旧直发调试驱动无法保证取消/超时后解除附加，产品活调试入口已停用",
++        fix_hint="先实现可验证清理的前台单次执行器，再取得用户明确的目标、用途、"
++        "最长时限授权；禁止后台、循环重挂或失败自动重试",
++    )
+ 
+ 
+ def _cleanup_run_dir(run_dir: Path | None) -> None:
+@@ -392,6 +415,33 @@
+ # --------------------------------------------------- 切片哈希(F10 算法)----
+ 
+ 
++def _arm64_file_span(handle: BinaryIO) -> tuple[int, int] | None:
++    """定位切片文件区间；哈希与磁盘锚点读取共用，拒绝越界/多义表。"""
++    handle.seek(0)
++    head = handle.read(8)
++    file_size = os.fstat(handle.fileno()).st_size
++    if len(head) != 8:
++        return None
++    if head[:4] == b"\xca\xfe\xba\xbe":
++        nfat = struct.unpack(">I", head[4:])[0]
++        if not 1 <= nfat <= 16:
++            return None
++        table = handle.read(20 * nfat)
++        if len(table) != 20 * nfat:
++            return None
++        spans = []
++        for index in range(nfat):
++            cpu, _sub, offset, size, _align = struct.unpack_from(">IIIII", table, index * 20)
++            if cpu == ARM64_CPUTYPE:
++                if offset < 8 + len(table) or size == 0 or offset + size > file_size:
++                    return None
++                spans.append((offset, size))
++        return spans[0] if len(spans) == 1 else None
++    if struct.unpack("<I", head[:4])[0] == THIN_MAGIC_64:
++        return 0, file_size
++    return None
++
++
+ def slice_arm64_sha256(dylib_path: Path) -> str | None:
+     """磁盘 wechat.dylib 的 arm64 切片 sha256(F10 端到端亲验算法)。
+ 
+@@ -402,33 +452,11 @@
+     """
+     digest = hashlib.sha256()
+     with open(dylib_path, "rb") as handle:
+-        head = handle.read(8)
+-        if len(head) < 8:
++        span = _arm64_file_span(handle)
++        if span is None:
+             return None
+-        if head[:4] == b"\xca\xfe\xba\xbe":
+-            nfat = struct.unpack(">I", head[4:8])[0]
+-            if nfat == 0 or nfat > 16:
+-                return None
+-            table = handle.read(20 * nfat)
+-            if len(table) < 20 * nfat:
+-                return None
+-            chosen: tuple[int, int] | None = None
+-            for index in range(nfat):
+-                cputype, _cpusub, offset, size = struct.unpack_from(
+-                    ">IIII", table, index * 20
+-                )
+-                if cputype == ARM64_CPUTYPE:
+-                    chosen = (offset, size)
+-                    break
+-            if chosen is None:
+-                return None
+-            handle.seek(chosen[0])
+-            remaining = chosen[1]
+-        elif struct.unpack("<I", head[:4])[0] == THIN_MAGIC_64:
+-            handle.seek(0)
+-            remaining = os.fstat(handle.fileno()).st_size
+-        else:
+-            return None
++        handle.seek(span[0])
++        remaining = span[1]
+         while remaining > 0:
+             chunk = handle.read(min(4 * 1024 * 1024, remaining))
+             if not chunk:
+@@ -436,6 +464,69 @@
+             digest.update(chunk)
+             remaining -= len(chunk)
+     return digest.hexdigest()
++
++
++def _disk_anchor_bytes(path: Path, offset: int, size: int) -> bytes:
++    """按 __TEXT 的 VM/file 映射读取锚点，不能把虚拟地址当文件偏移。"""
++    with path.open("rb") as handle:
++        span = _arm64_file_span(handle)
++        if span is None:
++            raise ValueError("arm64_slice")
++        start, length = span
++        handle.seek(start)
++        header = handle.read(32)
++        if len(header) != 32 or struct.unpack_from("<II", header) != (THIN_MAGIC_64, ARM64_CPUTYPE):
++            raise ValueError("arm64_header")
++        count, command_size = struct.unpack_from("<II", header, 16)
++        if not 1 <= count <= 4096 or not count * 8 <= command_size <= min(length - 32, 16 * 1024 * 1024):
++            raise ValueError("load_commands")
++        commands = handle.read(command_size)
++        cursor = 0
++        for _ in range(count):
++            if cursor + 8 > len(commands):
++                raise ValueError("load_commands")
++            cmd, size_cmd = struct.unpack_from("<II", commands, cursor)
++            if size_cmd < 8 or cursor + size_cmd > len(commands):
++                raise ValueError("load_command_size")
++            if cmd == 0x19 and size_cmd >= 72:
++                name = commands[cursor + 8:cursor + 24].rstrip(b"\0")
++                if name == b"__TEXT":
++                    _vmaddr, vmsize, fileoff, filesize = struct.unpack_from("<QQQQ", commands, cursor + 24)
++                    # 锚点相对模块头部；__TEXT 含 Mach-O 头且 fileoff=0。
++                    if fileoff != 0 or offset < 0 or offset + size > min(vmsize, filesize, length):
++                        raise ValueError("anchor_region")
++                    handle.seek(start + offset)
++                    return handle.read(size)
++            cursor += size_cmd
++    raise ValueError("text_segment_missing")
++
++
++def _validate_disk_anchor(anchor: AnchorTable) -> dict[str, Any]:
++    """纯磁盘身份/字节校验；不能证明活进程、调用 ABI 或发送能力。"""
++    from .system_checks import WECHAT_BUNDLE_PATH
++
++    path = WECHAT_BUNDLE_PATH / "Contents" / "Resources" / "wechat.dylib"
++    try:
++        before = path.stat()
++        digest = slice_arm64_sha256(path)
++        matched = digest == anchor.slice_sha256
++        if not matched:
++            return {"anchored": "mismatch", "slice_sha256_matched": False, "reason": "slice_sha256"}
++        if len(anchor.anchor_bytes) != 16:
++            raise ValueError("anchor_size")
++        got = _disk_anchor_bytes(path, anchor.anchor_offset, len(anchor.anchor_bytes))
++        after = path.stat()
++        if (before.st_ino, before.st_size, before.st_mtime_ns) != (after.st_ino, after.st_size, after.st_mtime_ns):
++            return {"anchored": "unknown", "slice_sha256_matched": None, "reason": "disk_changed"}
++        return {
++            "anchored": "ok" if got == anchor.anchor_bytes else "mismatch",
++            "slice_sha256_matched": True,
++            "reason": "disk_match" if got == anchor.anchor_bytes else "anchor_bytes",
++        }
++    except OSError:
++        return {"anchored": "unknown", "slice_sha256_matched": None, "reason": "disk_unavailable"}
++    except ValueError as exc:
++        return {"anchored": "mismatch", "slice_sha256_matched": True, "reason": str(exc)}
+ 
+ 
+ # --------------------------------------------------------- 工件生成(纯)----
+@@ -643,6 +734,7 @@
+     超时序:SIGINT(批余段跑 detach)→ 宽限 → SIGKILL(SIGKILL 不保证
+     PT_DETACH → 微信可能残留停止态,冻结面由调用方探测,§5)。
+     """
++    _require_safe_live_driver()
+     log_path = run_dir / "lldb-batch.log"
+     environment = dict(os.environ)
+     environment["SENDDIRECT_RUN_DIR"] = str(run_dir)
+@@ -779,8 +871,9 @@
+     return BridgeError(
+         SEND_DIRECT_UNANCHORED,
+         f"直发版本门/活性验未过({reason}{': ' + detail if detail else ''}):"
+-        "微信已换包或锚定表失配——未调用,零风险",
+-        fix_hint="微信更新后须重锚(r4 钉入轮);期间走 send_text(UI/OCR 链)",
++        "直发前置条件未确认，未进入直发调用段",
++        fix_hint="先核对磁盘身份、锚定表和已验收的适配；配置不能授权调试。"
++        "如需发送可显式使用 send_text(UI/OCR 链)",
+     )
+ 
+ 
+@@ -845,6 +938,32 @@
+             anchor = load_anchor_table(data_root)
+         except _AnchorShapeError as exc:
+             raise _unanchored("anchor_file", str(exc)) from exc
++        if dry_run:
++            report = _validate_disk_anchor(anchor)
++            if report["anchored"] != "ok":
++                raise _unanchored("disk_preflight", str(report.get("reason", "unknown")))
++            return {
++                "send": {
++                    "target": {"username": target.username, "display_name": target.display_name},
++                    "sent": False,
++                    "dry_run": True,
++                    "channel": "direct",
++                    "anchor_build": anchor.wechat_version,
++                    "preflight": "ok",
++                    "validation": "disk_only",
++                    "runtime_verified": False,
++                    "adapter_ready": False,
++                    "elapsed_ms": round((now_fn() - started) * 1000),
++                }
++            }
++        if anchor.slice_sha256 in RETIRED_TEMPLATE_SLICE_SHA256:
++            raise BridgeError(
++                SEND_DIRECT_UNANCHORED,
++                "4.1.15 的 schema-3 模板直调配方已证伪，拒绝附加或执行；"
++                "当前原生适配尚未完成真实直发验收",
++                fix_hint="完成正确 Task/序列化接口适配及单次授权验收；"
++                "配置开启、修改锚表或沿用旧授权均不能恢复该配方",
++            )
+         if not dry_run and not anchor.callable_for_send():
+             missing = []
+             if anchor.send_entry is None:
+@@ -859,6 +978,7 @@
+             if anchor.svc_vtable_off is None:
+                 missing.append("svc_vtable_off")
+             raise _unanchored("anchor_incomplete", "缺 " + ",".join(missing))
++        _require_safe_live_driver()
+         pid = wechat_pid()
+         if pid is None:
+             raise BridgeError(
+@@ -1164,12 +1284,12 @@
+     validator: Callable[[], dict[str, Any]] | None = None,
+     lldb_check: Callable[[], str | None] | None = None,
+ ) -> dict[str, Any]:
+-    """doctor ``direct_channel`` 节(§3.5;恒不判错,探针失败≠通道失败)。
++    """doctor ``direct_channel`` 节；纯磁盘检查，永不默认附加进程。
+ 
+     形状:``{enabled, anchored, lldb, last_anchor_build, slice_sha256_matched}``。
+-    轻量 attach 验证仅在 enabled(豁免门开)时做——排队纪律+零扰动;缺
+-    锚定表/门关时如实呈态不 attach。anchored ∈ ok|mismatch|no_anchor_file|
+-    unknown(attach 不畅 = unknown 不判死)。
++    anchored 的 ok 仅代表磁盘哈希及锚点匹配，runtime_verified 恒 False。
++    配置开关不等于调试授权；lldb 缺失也不影响磁盘检查。validator 仅供
++    离线验证器注入，不应执行应用交互。
+     """
+     lldb_state = "ok" if (lldb_check or lldb_executable)() is not None else "missing"
+     state = anchor_file_state(data_root)
+@@ -1186,7 +1306,7 @@
+         "malformed": "unknown",
+         "ok": "unknown",
+     }[state]
+-    if state == "ok" and config.send_direct_enabled and lldb_state == "ok":
++    if state == "ok" and config.send_direct_enabled:
+         if validator is not None:
+             report = validator()
+         else:
+@@ -1201,32 +1321,16 @@
+         "lldb": lldb_state,
+         "last_anchor_build": last_build,
+         "slice_sha256_matched": slice_matched,
++        "validation": "disk_only",
++        "runtime_verified": False,
+     }
+ 
+ 
+ def _default_anchor_validator(
+     config: BridgeConfig, data_root: Path | None
+ ) -> dict[str, Any]:
+-    """默认轻量验证:跑一次 dry-run 批(无断点,attach+门+detach ≈5-8s)。
+-
+-    探针失败≠通道失败(发送时自会再验);attach 不畅 → unknown。
+-    """
+-    from . import sendtarget  # 局部 import 防环
+-
+-    probe_target = sendtarget.SendTarget(
+-        username="filehelper", alias=None, display_name="", search_term=""
+-    )
++    """默认只读磁盘，健康轮询不能通过 execute_send 隐式附加微信。"""
+     try:
+-        execute_send(
+-            config,
+-            probe_target,
+-            "",
+-            dry_run=True,
+-            data_root=data_root,
+-            timeout_s=30.0,
+-        )
+-        return {"anchored": "ok", "slice_sha256_matched": True}
+-    except BridgeError as exc:
+-        if exc.exit_code == SEND_DIRECT_UNANCHORED:
+-            return {"anchored": "mismatch", "slice_sha256_matched": False}
++        return _validate_disk_anchor(load_anchor_table(data_root))
++    except (_AnchorShapeError, OSError):
+         return {"anchored": "unknown", "slice_sha256_matched": None}
+--- installed/wechat_bridge/cli.py
++++ source/wechat_bridge/cli.py
+@@ -171,7 +171,7 @@
+         "--dry-run",
+         action="store_true",
+         default=False,
+-        help="走到版本门+目标解析+活性验即停;零占位零指纹零调用(锚定链路实测面)",
++        help="仅校验磁盘切片哈希和锚点;不附加、不取钥、不解析目标、不验证发送能力",
+     )
+ 
+     # doctor(task 10-14-wechat-send-text design §E-2):--probe 超集 + send
+@@ -822,6 +822,29 @@
+                     fix_hint="缩短正文至 23 UTF-8 字节内,或改用 send_text",
+                 )
+             dry_run = bool(getattr(args, "dry_run", False))
++            if dry_run:
++                # 纯磁盘演练不能进入 resolve_keys（可能启动外部取钥器），
++                # 也不查活进程/LLDB；传入 id 尚未完成目标解析，明确标记。
++                requested_target = sendtarget.SendTarget(
++                    username=chat_id, alias=None, display_name=None, search_term=chat_id
++                )
++                payload = senddirect.execute_send(
++                    config, requested_target, body, dry_run=True
++                )
++                payload["send"].update(chat=chat_id, target_resolution="not_checked")
++                _emit(payload)
++                return EXIT_OK
++            # 配置及驱动门必须先于取钥器、目标解析、进程查询和发送占位。
++            if not config.send_direct_enabled:
++                raise BridgeError(
++                    EXIT_GENERIC_FAILURE,
++                    "直发通道配置门关(send_direct_enabled 缺省 false):"
++                    "配置开关不构成单次活调试授权",
++                    code="send_direct_disabled",
++                    fix_hint="数据根 wechat-bridge/config.json 置 send_direct_enabled=true;"
++                    "活调试另须用户明确目标、用途和最长时限；4.1.15旧配方已停用",
++                )
++            senddirect._require_safe_live_driver()
+             branch_started = _now()
+             storage = localdb.locate_db_storage()
+             keys = localdb.resolve_keys(storage, config=config)
+@@ -859,16 +882,7 @@
+             # 前置门(§3.1 步 4):微信不在 → 10;lldb 缺 → 1;配置门 → 1。
+             if senddirect.wechat_pid() is None:
+                 raise BridgeError(WECHAT_NOT_RUNNING, "微信进程不在:直发通道前置失败")
+-            senddirect.require_lldb()
+-            if not config.send_direct_enabled:
+-                raise BridgeError(
+-                    EXIT_GENERIC_FAILURE,
+-                    "直发通道配置门关(send_direct_enabled 缺省 false):"
+-                    "调试器豁免须主人显式开启",
+-                    code="send_direct_disabled",
+-                    fix_hint="数据根 wechat-bridge/config.json 置 send_direct_enabled=true;"
+-                    "直发范围=仅 attach+只读观察+函数直调(禁写内存/禁注入/禁常驻)",
+-                )
++            # 配置及驱动门已在取钥前验证；execute_send 再独立拒绝失效配方。
+             key = sendtarget.fingerprint(target, body)
+             rate_state = SendRateState()
+             now: float | None = None
+--- installed/wechat_bridge/probe.py
++++ source/wechat_bridge/probe.py
+@@ -254,8 +254,8 @@
+       (ax_permission_trusted;False = CGEvent/keystroke 对他 app 无效
+       的实锤——发送前置)。
+     - ``direct_channel`` = 阶段3 §3.5 直发通道探针(senddirect.
+-      doctor_direct_channel;轻量 attach 验证仅 enabled 时做,探针失败
+-      ≠通道失败,anchored 三态+unknown 如实);validator/lldb 检查器
++      doctor_direct_channel;enabled 时只读磁盘哈希/锚点，永不附加，
++      磁盘匹配不等于运行时能力);validator/lldb 检查器
+       可注入 = 单测主战场。
+     - doctor 是状态查询不判错:调用方恒 exit 0(key-status 判例)。
+     """
+--- installed/wechat_bridge/__init__.py
++++ source/wechat_bridge/__init__.py
+@@ -19,6 +19,6 @@
+ 
+ from __future__ import annotations
+ 
+-__version__ = "0.9.0"
++__version__ = "0.9.1"
+ 
+ __all__ = ["__version__"]
+--- installed/pyproject.toml
++++ source/pyproject.toml
+@@ -14,7 +14,7 @@
+ 
+ [project]
+ name = "wechat-bridge"
+-version = "0.9.0"
++version = "0.9.1"
+ description = "微信本机桥:UI 自动化(像素链读取,零激活零合成点击)+ 本地库只读(sqlcipher 解密副本;brew install sqlcipher 前置)"
+ readme = "README.md"
+ requires-python = ">=3.11"
+--- installed/component.json
++++ source/component.json
+@@ -1,7 +1,7 @@
+ {
+  "id": "wechat-bridge",
+  "name": "微信本机桥(UI 自动化 + 本地库只读)",
+- "version": "0.9.0",
++ "version": "0.9.1",
+  "kind": "bridge",
+  "runtime": "native-python",
+  "entry": "wechat_bridge/__main__.py",
+@@ -50,7 +50,7 @@
+    "localdb revoke-list <chat> --since Nd --json(0.8.0,10-14-wechat-notify-revoke:会话撤回历史,--since Nd 窗口,同一恢复阶梯 newmsgid→server_id→时间近邻→replacemsg)",
+    "localdb serve --json [--host H] [--port P](0.8.0,10-14-wechat-http-api:本机 HTTP API 常驻服务,回环强制+token 三通道+纯只读端点族/SSE/ChatLab Pull,协议=docs/wechat-http-api.md)",
+    "localdb http-token generate|show|clear --json(0.8.0,10-14-wechat-http-api:HTTP token 管理;generate=secrets.token_urlsafe(32) 轮换热生效,clear=吊销)",
+-   "send_direct <id> --file - [--dry-run](0.9.0 直发通道,阶段3:LLDB 批式函数直调[attach→preflight→expr→detach,45s 硬超时 SIGINT→10s→SIGKILL];版本门=arm64 切片 sha256 主门+16B 锚字节副门+模块锁定[basename+__TEXT≥128MiB 唯一];活性验=slide 相对量[vptr−S+非指针不变字段];双长度门[正文/对端 UTF-8 字节>23 拒,长度=字节数];G6 与 send_text 同 flock 同键;armed=expr 提交前 mark pending,armed 后失败绝不 rollback[17/call_failed];配置门 send_direct_enabled 缺省关)"
++   "send_direct <id> --file - [--dry-run](0.9.1:dry-run仅校验磁盘arm64切片哈希和16B锚点，不取钥、不查目标、不附加；validation=disk_only/runtime_verified=false。4.1.15旧模板配方及无可靠清理的旧LLDB驱动已停用，真实发送在附加前exit24；send_direct_enabled不构成单次调试授权)"
+   ],
+   "exit_codes": {
+    "0": "成功",
+@@ -124,6 +124,6 @@
+   "静默后台(读通道):不抢前台焦点、不合成鼠标点击、不激活微信窗口(prd 红线 4)。写通道 send_text 例外(2026-10-13 主人热激活批令):激活+键盘 CGEvent+剪贴板,+合成鼠标点击(仅导航行与 composer 聚焦;PRD 2026-10-14 翻案,不点发送按钮,发送=回车;0.8.0)",
+   "不破解协议:禁逆向、禁 hook 注入;内存密钥搜索默认关,仅 D4 豁免(主人 2026-10-11「全部解决」令)后配置显式开启 + 提权才生效,且只读 vm_read 单遍零常驻、禁写内存/禁注入/禁调试器附加/禁重签名(prd 红线 1)",
+   "私有数据:聊天内容/密钥材料不入 git/日志/报告;证据只留形状(prd 红线 6;send_text 载荷只载形状与通路,永不载正文;截图件 0700 工作目录用后即清)",
+-  "直发通道 send_direct(0.9.0,10-14-wechat-sendmsg-direct 阶段3;主人 10-14 直调批令)=第二例调试器豁免:仅 LLDB attach+只读观察+函数直调,批式按需 spawn 零常驻;禁写微信自有代码/数据(expr 局部参数缓冲=批准范围)、禁注入(dylib/fishhook/建线程)、禁改签名/entitlement、attach 拒=降级绝不硬闯;配置门 send_direct_enabled 缺省关,主人显式开启才生效"
++  "直发通道 send_direct(0.9.1)：配置开关不授权调试；每次活附加必须由用户明确目标、用途和最长时限，且仅前台单次、到时/取消/失败均可解除并验证。禁止后台哨兵、循环重挂和自动重试。旧LLDB执行器清理未达标，产品活调试入口已停用；doctor/dry-run为纯磁盘检查。"
+  ]
+ }
+--- installed/README.md
++++ source/README.md
+@@ -109,13 +109,13 @@
+ 
+ ---
+ 
+-## send_direct 直发通道(0.9.0+,配方研制中)
++## send_direct 直发通道(0.9.1,原生配方尚未验收)
+ 
+-**能力现状(2026-10-15,如实)**:通道基础设施**完备**(锚定表门/切片哈希主门/capture_call 流程/错误码/防重/回执),但**直调配方未通**——三轮实证阴性(裸调/嵌套调均抛 C++ 异常;根因=F_exec 含协程挂起点,普通函数调用结构性不成立,任务档 design §2.7-§2.9 全证据)。调用失败=fail-closed 干净拒绝(send_direct_call_failed,never-retry 族),零误发零伤微信;配置门 `send_direct_enabled`(数据根)当前开,实际发送仍走 send_text(OCR 链)。
++**能力现状(2026-10-16)**：4.1.15 的 schema-3 模板直调路线已证伪，原生直发尚未通过真实验收。`send_direct` 的真实执行在附加前以 `24 send_direct_unanchored` 拒绝；不得把返回码、入队或 HTTP 200 当作发送成功。旧驱动无法保证取消/超时后的解除附加，底层批处理入口同样停用，不能通过改配置、锚表或环境变量恢复。
+ 
+-**架构事实(三轮逆向定案)**:微信 4.1.15 发送链=主线程 runloop 协程泵;明文 msgctx(对端+正文 inline23 三槽,可伪造)只在协程深度被消费;**唯一剩路=完整任务伪造+入队**(协程帧+任务包装+实参块+enqueue_a),缺任务→(resume/实参)字段映射。
++**离线检查**：`send_direct <id> --file - --dry-run` 只校验已安装包的完整 arm64 切片哈希和16字节锚点，不查活进程、不启动调试器、不取钥、不解析目标或发送。结果带 `validation: disk_only`、`runtime_verified: false`、`adapter_ready: false` 和 `target_resolution: not_checked`。`doctor.direct_channel` 的默认校验同样只读磁盘，`anchored: ok` 仅说明磁盘身份和字节相符。
+ 
+-**使用**:配置门开时 `send_direct <id> --file -`;失败自动干净拒绝并提示走 send_text;锚定表 `send-direct-anchors.json`(数据根,observe_bp 形态)微信换包后须重锚(doctor 可查)。
++**活调试边界**：配置开关不等于授权。任何新的 REA/LLDB/debugserver/辅助脚本附加，都须用户明确本次目标、用途和最长时限，并在前台单次执行，先建立到时/取消/失败清理及结束复验。禁止后台哨兵、循环重挂和失败自动重试。历史研究保留在 Trellis 任务内，不能直接当作运行配方。
+ 
+ ## 红线
+ 

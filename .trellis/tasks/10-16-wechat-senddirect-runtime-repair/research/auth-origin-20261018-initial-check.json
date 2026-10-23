@@ -1,0 +1,260 @@
+{
+  "passed": true,
+  "scope": "frozen 4.1.15 auth response numbered string origin and selected caller overwrite",
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "ghidra_exports": [
+    {
+      "file": "text-contract-pass323/native-fn-2fea968.asm",
+      "instructions": 666,
+      "sha256": "eff345b06218296fac589e411cef3db476810a3ecd10226db816d9054dc0552d"
+    },
+    {
+      "file": "text-contract-pass324/native-fn-2fd7104.asm",
+      "instructions": 1860,
+      "sha256": "b2f7fb6dcc9a026a776e31bddc03e7ee13b5494ae0d0dea18ef9c301af8d433a"
+    },
+    {
+      "file": "text-contract-pass327/native-fn-50e0d54.asm",
+      "instructions": 40,
+      "sha256": "535c9eee2176ef11eb102349366fadc8f8b16eda16191b935541fbf4d8c3f8df"
+    },
+    {
+      "file": "text-contract-pass328/native-fn-50e1ab4.asm",
+      "instructions": 67,
+      "sha256": "c2a261930a1e44442e9cc322e698e1f9ea483abb417f3fa850ef9ca588338fc0"
+    },
+    {
+      "file": "text-contract-pass328/native-fn-50e0fb0.asm",
+      "instructions": 426,
+      "sha256": "36ddb5d7ddb0236e71de673c69a9332cf57472fa39edc2d3d277655cf6f3ed6e"
+    },
+    {
+      "file": "text-contract-pass329/native-fn-50deef0.asm",
+      "instructions": 63,
+      "sha256": "05992e48d1b5142735f225845bced952001c5366c3d7c9da3cc7b882dc602608"
+    },
+    {
+      "file": "text-contract-pass329/native-fn-50ddaf4.asm",
+      "instructions": 60,
+      "sha256": "aef7ddca4904befdc40240de95219f4a4968a93f6d55f174cc4951f8bc6b3da4"
+    },
+    {
+      "file": "text-contract-pass333/native-fn-2fc361c.asm",
+      "instructions": 1306,
+      "sha256": "81ec39c772cda0c895643674959dea0b79ccabae8cdb9f68be717c17bcd28448"
+    },
+    {
+      "file": "text-contract-pass334/native-fn-2fec014.asm",
+      "instructions": 52,
+      "sha256": "d6a534a1d4484185e528b5dbfbaafe44b01f23bcc44f67f9406e3b28d7c3f799"
+    }
+  ],
+  "llvm_parsers": [
+    {
+      "start": "0x50ddaf4",
+      "end_exclusive": "0x50de534",
+      "instructions": 656,
+      "assembly": "parser-50ddaf4.asm",
+      "sha256": "d2b298491011519789a5d116690bfd724cd908f81e21d595821e083881a1c2a4"
+    },
+    {
+      "start": "0x50e0fb0",
+      "end_exclusive": "0x50e1670",
+      "instructions": 432,
+      "assembly": "parser-50e0fb0.asm",
+      "sha256": "1ca3c103dcb8e1afdbdffb905b0b0a4e5f64d2159cde7dd056dd85348c096102"
+    }
+  ],
+  "ghidra_instruction_rows": 4540,
+  "llvm_instruction_rows": 1088,
+  "unique_instruction_positions": 5142,
+  "instruction_checks": 186,
+  "slots": [
+    {
+      "slot": "0x9edc370",
+      "decoded": "0x50e1ab4",
+      "chain_steps": 103
+    },
+    {
+      "slot": "0x9edc380",
+      "decoded": "0x50e0ed4",
+      "chain_steps": 105
+    },
+    {
+      "slot": "0x9edc3a0",
+      "decoded": "0x50e0fb0",
+      "chain_steps": 109
+    },
+    {
+      "slot": "0x9edc208",
+      "decoded": "0x50deef0",
+      "chain_steps": 61
+    },
+    {
+      "slot": "0x9edc218",
+      "decoded": "0x50dd774",
+      "chain_steps": 63
+    },
+    {
+      "slot": "0x9edc238",
+      "decoded": "0x50ddaf4",
+      "chain_steps": 67
+    },
+    {
+      "slot": "0x9edc248",
+      "decoded": "0x50de534",
+      "chain_steps": 69
+    },
+    {
+      "slot": "0x9de0b30",
+      "decoded": "0x2fea968",
+      "chain_steps": 331
+    }
+  ],
+  "decoded_branches": [
+    {
+      "address": "0x50e10fc",
+      "target": "0x50e1330",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x50e13ec",
+      "target": "0x50ddaf4",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x50ddbdc",
+      "target": "0x5ab514c",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fd7cf8",
+      "target": "0x713f8e0",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fead28",
+      "target": "0x2fd7104",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2feade0",
+      "target": "0x713f8e0",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2feaf64",
+      "target": "0x713f8e0",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2feb0a8",
+      "target": "0x466dfb8",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fc43bc",
+      "target": "0x2fec014",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fc4464",
+      "target": "0x2fec014",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fc44ec",
+      "target": "0x2fec014",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fc4564",
+      "target": "0x2fec014",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2fec050",
+      "target": "0x18d20",
+      "immediate_bits": 26
+    },
+    {
+      "address": "0x2feaaa8",
+      "target": "0x2feaca8",
+      "immediate_bits": 19
+    },
+    {
+      "address": "0x2fd7cac",
+      "target": "0x2fd8188",
+      "immediate_bits": 14
+    },
+    {
+      "address": "0x50e107c",
+      "target": "0x50e10f4",
+      "immediate_bits": 19
+    },
+    {
+      "address": "0x50e10f8",
+      "target": "0x50e111c",
+      "immediate_bits": 19
+    },
+    {
+      "address": "0x50ddba4",
+      "target": "0x50ddd6c",
+      "immediate_bits": 19
+    },
+    {
+      "address": "0x2feae7c",
+      "target": "0x2feb138",
+      "immediate_bits": 19
+    }
+  ],
+  "type_names": [
+    {
+      "type_name": "micromsg.UnifyAuthResponse",
+      "constants": [
+        "0x86f4e70",
+        "0x8a12af8",
+        "0x8b052f8",
+        "0x88bb140",
+        "0x87e31d8",
+        "0x8545098"
+      ],
+      "reconstructed_hex": "6d6963726f6d73672e556e69667941757468526573706f6e736500"
+    },
+    {
+      "type_name": "micromsg.AcctSectResp",
+      "constants": [
+        "0x86f4e70",
+        "0x8a12af8",
+        "0x8b052d0",
+        "0x8b052d8",
+        "0x87f2390"
+      ],
+      "reconstructed_hex": "6d6963726f6d73672e41636374536563745265737000"
+    }
+  ],
+  "jump_table_hex": "00294e4a234373585d6b672046261d6064726e1a",
+  "jump_table_semantics_checked_fields": [
+    1
+  ],
+  "unwind_boundaries_recomputed": true,
+  "selected_caller_overwrite_verified": true,
+  "unconditional_auth_field_to_account_mapping_verified": false,
+  "contract_sha256": "7bbb6a387a6d989918b11a9daf20feef54d68225b1463006bc66ae8caf6a75f1",
+  "source_sha256": "0535c96cd3bc723ed56ca0330e0edeff603e7170c7a3f0625847edad4d8884f0",
+  "previous_contract_sha256": "ba25beeb4ee3cf3c7056f6be68a0eeee563295ba8c358ef5f5733b71fcc8f9b1",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "deployed": false,
+  "account_stop_unchanged": true,
+  "A7_complete": false,
+  "limitations": [
+    "capture+0x50 producer and exact business identity; selector0 route and all other overwrites",
+    "final sender/recipient direction and complete record mutation/schema mapping",
+    "actual executor/thread context, cancellation final cleanup and complete native adapter",
+    "real sending, independent receipt and deployment"
+  ]
+}

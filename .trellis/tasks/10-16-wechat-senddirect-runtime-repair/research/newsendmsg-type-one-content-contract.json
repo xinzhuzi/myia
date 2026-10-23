@@ -1,0 +1,57 @@
+{
+  "scope": "offline frozen WeChat 4.1.15 (270135) ARM64; conversion path only",
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "converter_entry": "0x4c6eff4",
+  "requested_interior_address_not_callable_entry": "0x4c6f030",
+  "converter_abi": {
+    "x0": "forwarded to common helper; unused in its body",
+    "x1": "pointer to source shared handle",
+    "hidden_x8": "16-byte nontrivial shared result storage"
+  },
+  "shared_factory": "0x4c6f204",
+  "shared_container_constructor": "0x4c6f2c4",
+  "allocation_bytes": "0x658",
+  "payload_offset_in_allocation": "0x18",
+  "payload_vtable": "0x9eb2bb8",
+  "numeric_low_type": 1,
+  "low_type_offset": "0xe4",
+  "base_constructor": "0x69a714",
+  "base_type_initialization": {
+    "0xe4": 0,
+    "0xe8": 0
+  },
+  "source_to_destination": {
+    "0x130": "0x5c8",
+    "0x148": "0x5e0",
+    "0x350": "0x178"
+  },
+  "source_offset_name_cross_reference": {
+    "0x130": "message_content in previously established record binding",
+    "0x148": "compress_content in previously established record binding",
+    "0x350": "business meaning unresolved"
+  },
+  "common_helper": "0x4c6c5d0",
+  "common_helper_effects": [
+    "copy source+0x350 string to payload+0x178",
+    "write payload+0x7c = 2; this is not the low type field"
+  ],
+  "vtable_slots": {
+    "0x9eb2bc8": "0xd6bf98 reads payload+0xe4",
+    "0x9eb2bd0": "0xd6bfa0 reads payload+0xe8",
+    "0x9eb2bd8": "0xd6bfa8 returns 1; separate slot"
+  },
+  "converter_data_reference": "0x9eacf50 resolves to 0x4c6eff4; enclosing owner and live use unresolved",
+  "normal_send_route_proven": false,
+  "source_record_identity_through_full_send_path_proven": false,
+  "target_executed": false,
+  "target_attached": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "remaining": [
+    "converter owner and complete forward dispatch to context/producer",
+    "recipient direction and source record identity through that dispatch",
+    "runtime group/config/thread and final callback drain contract",
+    "complete executable adapter and independently verified real send receipt"
+  ],
+  "safety": "Account-safety stop remains: no live WeChat/debugger/UI/send/login operations; historical authorizations consumed."
+}

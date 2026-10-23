@@ -1,0 +1,428 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass146/native-fn-667e734.asm",
+      "rows": 95,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass147/native-fn-667378c.asm",
+      "rows": 36,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass148/native-fn-667a110.asm",
+      "rows": 63,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass148/native-fn-6673990.asm",
+      "rows": 381,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass251/native-fn-667a274.asm",
+      "rows": 281,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass280/native-fn-66738d4.asm",
+      "rows": 34,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass284/native-fn-667a760.asm",
+      "rows": 297,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass423/native-fn-668e56c.asm",
+      "rows": 25,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass423/native-fn-668e658.asm",
+      "rows": 25,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass423/native-fn-6674180.asm",
+      "rows": 3,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass424/native-fn-71340b4.asm",
+      "rows": 21,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass424/native-fn-7134108.asm",
+      "rows": 20,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass424/native-fn-668dbac.asm",
+      "rows": 3,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass424/native-fn-668dad0.asm",
+      "rows": 35,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass425/native-fn-668db5c.asm",
+      "rows": 20,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass425/native-fn-668e1e4.asm",
+      "rows": 226,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass425/native-fn-668e878.asm",
+      "rows": 253,
+      "internal_gaps_half_open": [
+        [
+          "0x668eb98",
+          "0x668ebcc"
+        ],
+        [
+          "0x668ec34",
+          "0x668ecac"
+        ]
+      ],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass425/native-fn-668e5d0.asm",
+      "rows": 25,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    },
+    {
+      "file": "text-contract-pass425/native-fn-669440c.asm",
+      "rows": 40,
+      "internal_gaps_half_open": [],
+      "full_function_semantics_proven": false
+    }
+  ],
+  "native_instruction_positions_matched": 1883,
+  "checked_sites": 72,
+  "branches": [
+    {
+      "site": "0x667e79c",
+      "target": "0x667378c"
+    },
+    {
+      "site": "0x667e820",
+      "target": "0x6674180"
+    },
+    {
+      "site": "0x667e838",
+      "target": "0x66738d4"
+    },
+    {
+      "site": "0x66737c0",
+      "target": "0x667a110"
+    },
+    {
+      "site": "0x667a170",
+      "target": "0x667a274"
+    },
+    {
+      "site": "0x667a424",
+      "target": "0x667a6a8"
+    },
+    {
+      "site": "0x667a43c",
+      "target": "0x667a760"
+    },
+    {
+      "site": "0x667a444",
+      "target": "0x668dad0"
+    },
+    {
+      "site": "0x667a6b0",
+      "target": "0x71400e4"
+    },
+    {
+      "site": "0x667a6b4",
+      "target": "0x667a428"
+    },
+    {
+      "site": "0x667a6c0",
+      "target": "0x6676a4c"
+    },
+    {
+      "site": "0x667a6cc",
+      "target": "0x71400f0"
+    },
+    {
+      "site": "0x667a6d0",
+      "target": "0x667a428"
+    },
+    {
+      "site": "0x667a7c0",
+      "target": "0x713fb14"
+    },
+    {
+      "site": "0x667a7c8",
+      "target": "0x6686644"
+    },
+    {
+      "site": "0x667a7cc",
+      "target": "0x667a9b0"
+    },
+    {
+      "site": "0x667a7f8",
+      "target": "0x668688c"
+    },
+    {
+      "site": "0x667a84c",
+      "target": "0x667a81c"
+    },
+    {
+      "site": "0x667abc4",
+      "target": "0x713fb20"
+    },
+    {
+      "site": "0x6673904",
+      "target": "0x6673990"
+    },
+    {
+      "site": "0x66739cc",
+      "target": "0x668e56c"
+    },
+    {
+      "site": "0x6673b68",
+      "target": "0x668e658"
+    },
+    {
+      "site": "0x6673b70",
+      "target": "0x668dad0"
+    },
+    {
+      "site": "0x6673d70",
+      "target": "0x668e1e4"
+    },
+    {
+      "site": "0x6673d7c",
+      "target": "0x668dbb8"
+    },
+    {
+      "site": "0x668e588",
+      "target": "0x668e5c8"
+    },
+    {
+      "site": "0x668e5c8",
+      "target": "0x71340b4"
+    },
+    {
+      "site": "0x668e6b4",
+      "target": "0x7134108"
+    },
+    {
+      "site": "0x71340d8",
+      "target": "0x668e5d0"
+    },
+    {
+      "site": "0x71340ec",
+      "target": "0x66947e8"
+    },
+    {
+      "site": "0x7134128",
+      "target": "0x668e5d0"
+    },
+    {
+      "site": "0x713413c",
+      "target": "0x66947e8"
+    },
+    {
+      "site": "0x668e600",
+      "target": "0x713f898"
+    }
+  ],
+  "imports": [
+    {
+      "stub": "0x71400e4",
+      "slot": "0x9b36c00",
+      "ordinal": 1396,
+      "symbol": "___cxa_guard_acquire",
+      "chain_steps": 1409
+    },
+    {
+      "stub": "0x71400f0",
+      "slot": "0x9b36c08",
+      "ordinal": 1397,
+      "symbol": "___cxa_guard_release",
+      "chain_steps": 1410
+    },
+    {
+      "stub": "0x713f898",
+      "slot": "0x9b364c8",
+      "ordinal": 1176,
+      "symbol": "__ZNSt3__112basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm",
+      "chain_steps": 1178
+    },
+    {
+      "stub": "0x713fb14",
+      "slot": "0x9b36680",
+      "ordinal": 1231,
+      "symbol": "__ZNSt3__115recursive_mutex4lockEv",
+      "chain_steps": 1233
+    },
+    {
+      "stub": "0x713fb20",
+      "slot": "0x9b36688",
+      "ordinal": 1232,
+      "symbol": "__ZNSt3__115recursive_mutex6unlockEv",
+      "chain_steps": 1234
+    }
+  ],
+  "findings": {
+    "constructor_notifies_before_job_core_publication": true,
+    "guard_is_static_initialization_not_notification_disable": true,
+    "registered_null_executor_listener_can_be_called_inline": true,
+    "non_null_listener_executor_uses_submit_slot_0x10": true,
+    "selected_listener_set_or_effects_proven": false,
+    "tls_helper_clears_string_and_first_use_constructs_buffer": true,
+    "entire_launch_is_non_yielding_or_non_reentrant_proven": false,
+    "state_zero_cancellation_final_cleanup_proven": false,
+    "actual_native_failure_or_leak_observed": false
+  },
+  "next_action": "Treat constructor notification listeners as an unresolved external-call boundary; prove complete native parameter cleanup or concrete lifecycle coordination rather than infer non-reentry from executor identity.",
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass146/ghidra.log": "235383da69137feda1025b24d8038407ef66c864581094d33432712f586c917e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass146/headless-output.log": "583632a0d6c0fb7341189e941c8fafcd71fcfaa065bd347faee46be43b711927",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass146/native-fn-667e734.asm": "cd00b26cd0d40020fcb4bc57b81dfb4715265b3c9531410401316f04dc796562",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass146/native-fn-667e734.c": "c4cc03bd8367b958d220a6020ba458d1d6803ea35ad49236f26d3eda2ab1e0d1",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass146/native-fn-667e734.refs.tsv": "c5f7179a06d765de7228cd1d6da1d76f2192ed23c0edd697ad6a2f1fc045a547",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass146/run.json": "5a4b846deaaaad4121be94da70706fac5ad27b511aaa3e9803058a7b4ff3618f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass146/script.log": "9f2e54d9ec2ad2bc5d7f293f00aedc6bbbe31e2b3407ddaf21fdbbe5e18b9bf3",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass147/ghidra.log": "7ec4752cdbb545d693e184ef88a18b1b0e543c324c2b2f93a1b13ad646b8f65c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass147/headless-output.log": "56ad2f99444029d5ef2d68e8a1a7947cf2dccf6eee1b2a439b6bbd643881063b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass147/native-fn-667378c.asm": "0604006f9a9bbd7a4f84ee755ca589984acc7fd33e84f38d4a5f3df0088f8a7f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass147/native-fn-667378c.c": "bf48f0afbbfe68205acc22be94d079ea7ba4f25b9254a5f2d6f28b3c577d0735",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass147/native-fn-667378c.refs.tsv": "2a18c382b87b177640999f917d9d2631534199cc658792ce442b89fe17090b2d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass147/run.json": "ce2aca922048081f1cbb9b706cb1d817066f6542bbfaf8860c854b1678a4279c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass147/script.log": "a02122d7406a660dceca28844db498af215fc6d986a6388607605ec007c80af5",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/ghidra.log": "6a9eee73d98af2a600f1be48814d4a2f59b7e1a3157a551054e55a49046b2ee6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/headless-output.log": "60316b9cf00b65a5b5987e86b8d6965257f83f2db5c553f6194058e2fdb0d6bb",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/native-fn-6673990.asm": "77c12b11617537c264b4ff0e5269b07220f389ff9899ad41206690bada4650bf",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/native-fn-6673990.c": "93d1a7786532a83256ae4cb927c10eda80078edd3024e0618995fa40915c10ca",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/native-fn-6673990.refs.tsv": "e56b1c39f84157562692feffd6e8b5b11c2c10928cecb3de3ea6c1cc3ba7f96e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/native-fn-667a110.asm": "e6b7c50bac9d47a8c89c17db81040368cb466426cffa809c6044ca6a79f6e110",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/native-fn-667a110.c": "fcf860ea43ee76b16e4c0c05e4c53e11ca98b914115899284841740ae7a5dc4b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/native-fn-667a110.refs.tsv": "54a82308f1d34861c40fb046f7a352776f2a85dcbf6542282c6ea16055b68d7a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/run.json": "dd5c702e1244aab362f329aa727af84ced852efa21674084fadf669bef6207b0",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass148/script.log": "37c64c0fdcb740c9b5975e2d553b1cf8c35da4690fb203454e9894558f9ace69",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass251/ghidra.log": "a7f412cc08059eab65aa7cc09d98fdf0d723362e7788ca63518a13c2247f1f67",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass251/headless-output.log": "d3d4544697e84842bb517c24bf470d31c30d40851fbb6035c1e8a9e4d82cd007",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass251/native-fn-667a274.asm": "7adb8090ff085dd51534415ec05c6197a4a420f48f95a793f29cf54c39f17576",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass251/native-fn-667a274.c": "4e4dbc89f4de854567e040d5e9dc6406e12887ee7b2b41918fc025e92e12bdb9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass251/native-fn-667a274.refs.tsv": "036a3c48d57a38ac974640345dba485f1689fd2f11e12c03ce81627e8f466e5b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass251/run.json": "29ab187a17aedaf828ec021542b4a2265a4c6b6877d97f4dde4139ba62917001",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass251/script.log": "31ad430784c2b8d322aec0633bd593ef0b145c0a8fdb4c6ac1a4a29bbdee5549",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass280/ghidra.log": "f0d9ff09724ebf727241f07ac4cefb603d8c76c1e3eb8b063a8f8d9cedad5df1",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass280/headless-output.log": "37490b527312905d74bb9371ae8d23af2fdfb3175c33393dd92967be98fb3fb9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass280/native-fn-66738d4.asm": "1f02b5f1cf220b479161f37bbc1e8fd4cec3c3f38b6004c50b19bd79bb5dd581",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass280/native-fn-66738d4.c": "81f4fd36c8149eab90234fc1622f8a8657a9edb8c27345be9d76778f1b6657a1",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass280/native-fn-66738d4.refs.tsv": "8125df52be743bfa609a9e7a7a911322bd545720a3d05dba298be3f880b91ed6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass280/run.json": "2ac136156c466a13473abb4cc8031feb0ac55bcd9fecdf188d4687cac30666ac",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass280/script.log": "daa6c0a0d53825f657d3cbedfb66301f9b869fbfddc6bb0e2c63dc71b76ac58d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass284/ghidra.log": "f23a808c5365c13c1f04aa48cceae44edccda99997fda61baa94ab6ace3a17d1",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass284/headless-output.log": "47bd6fb8ab5c2901ef720e80a267ab9c00f762013f5467f99d32bfeb49651d39",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass284/native-fn-667a760.asm": "f5aeb6cef768d8428e4dd233ab008dbc15b4025edeea45cc22909831f86ddb24",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass284/native-fn-667a760.c": "4148dc4be0714b82b5cd8299c8ccc9578a0593f4241c0beeded3c392354664da",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass284/native-fn-667a760.refs.tsv": "275bf3b1c3e7fbb91500265fa94328f726a5385b9ff9a1a56c8777565ca4c618",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass284/run.json": "3ea83c88b120bba05832281e875c573acfb098725dcff3dc445418c743120e50",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass284/script.log": "1ca0b670aa308e375340aa495ceeaff88f6209fc21c0dc1ac5d5851b542667c8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/ghidra.log": "ad5a48ea0dbf7dfa16c71c7ca78af010af18916c34c59584647d774c241d9ebe",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/headless-output.log": "cc43ea172940426fbf00a3aee982f9dcb541acf5a8cab6c969038afbfa5c18be",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/native-fn-6674180.asm": "6b977685c3b7e4f3b76b39e8033e55ee4b1dad5275a9712a50e31e0001e67467",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/native-fn-6674180.c": "2568e4cb4e881f2e18335c204a30355ebbb0e5c5d82ddaa2aa52f2d79431ee3e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/native-fn-6674180.refs.tsv": "ad7fefe677b719594b52712718ef02dc60dab18758fc6c081722a8ba4f07051e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/native-fn-668e56c.asm": "afc80734774d4224d00b166dca190458565581ce3d683d90cb6d48776aba3981",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/native-fn-668e56c.c": "dac0cfc612a8bba8b30a34d171f7ddb2ca3a69a787d8ae38922a5136803e19f3",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/native-fn-668e56c.refs.tsv": "2703c923277c089522f9f0911f7168461bb644c72bd9cafc8b22037411147bbf",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/native-fn-668e658.asm": "ddffb0238a42827b6029d5a09d56ec47ad2f9f298074b983af0ef63029abf205",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/native-fn-668e658.c": "13faa5051a0b2f1c6ffd849cea9cacba741f4edfd72313976010ca439dddc9b5",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/native-fn-668e658.refs.tsv": "8055c08f0e44f0a0473bbef6da54b617db1082f2e9bb133136148107a9721de8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/run.json": "ec37e4f397181e34da9557684b04dde0aa32f02845ac2a7cf2ff0d501806eadf",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass423/script.log": "2fdc35c8fc165004c28adc94019621fa454f354355a3ab975c0083e55db77bb4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/ghidra.log": "8f6efc36b888a58aae902449c48f713a353fee2d7e91a2255a882280cc619bad",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/headless-output.log": "277ef21ec227bed19b2a74c106b3a9c9a8a4a2c433283e1ab57caaf3feb6489f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-668dad0.asm": "14d3ec11a7e0c7a3f4ec9b21769e32cb61f7acd2a45da7011641d2034e2a9f16",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-668dad0.c": "d4a7e14528b9c7f9d6faed70d449ea7a46d73a23dd8452441989048f972811de",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-668dad0.refs.tsv": "3622a1266e613ab316bd4834ddb725cc05c15ff2ed08018b6e70f51d5c1421b8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-668dbac.asm": "b9ec86a44da888c7b7765ef64bdaf79315b3363fc3a1732569536766aa6e041a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-668dbac.c": "8fd105f535edc861b108c473ddeacdebc6ffda2ab3ef526b0cf1d6dcb9d967da",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-668dbac.refs.tsv": "30f0d1f3d23f836021a1116abce11dcb8d5207fc0886b95659f6b54213218df9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-71340b4.asm": "dd98e4e120b6323889d3748b5be90239d62cdaa13211cbb2c6d9c49f335265eb",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-71340b4.c": "74c4ef566839e18009abba636664d6ad236c54ac0f58f3e698c927b726f981e4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-71340b4.refs.tsv": "11d4a5863003a86f3f5f445d981da12e3dbde07d635a840fe27e86727e434682",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-7134108.asm": "7183e1aad932870f62cd373f9dff04756627ad2d0679241532fc276d65736357",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-7134108.c": "5487307cfceba1ef6deca10168d646d45371805edded5e5a5b20cbb6c13d2852",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/native-fn-7134108.refs.tsv": "3420ebbc65533662aaa9a1313f36cbdf6c08c991a636eeaa2347321aba377148",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/run.json": "08333d496a8cb8b5a37a157ec75704dd5bbdbb608252226af52c7d9a09e4d7a8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass424/script.log": "241bb114534b8b136b987e0a4a0d511a500a08cbfcc7a012cdae99c38df8eb69",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/ghidra.log": "6e8b3b5970e2a79948cff0f77890c1306f96fe6c3efecdc76fa082376424582c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/headless-output.log": "9419aae28736fcd3c824ac9e3043f4a8c761ff1dfc3486d8829a127df5db460f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668db5c.asm": "faee9770a4a1ec42c6b590bb2a060053486a9e373ee6775ff42fe15e92f544d9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668db5c.c": "fff5838e74d2c20cb5edcf5b6a76d210a0890c967ef390a4d8912e5e5f6ac68f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668db5c.refs.tsv": "a5c8df9f0c36ee6dc2679ff4283af3227e9f559004f8ee128a6278db456120d4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668e1e4.asm": "0eb6554722b86d775884fb05c8d728c19ac286a2635b734f630971b7a550d9bd",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668e1e4.c": "363b868d275c463b79819ce156407b3fb4cc608fc149974e4e75ade36fba937b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668e1e4.refs.tsv": "e39fed67dc1cd9698b57ebdffcaa3430833b413a76a3a0f077ebce2df5ac88a6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668e5d0.asm": "59cffda4b46a0634bb744e22d907fa58ceb80bf08bff9de53f68324362142844",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668e5d0.c": "d0ed689c4cdade53a0008487597ed96f098ffdcb7b6eae636da18e9a4a1b5863",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668e5d0.refs.tsv": "05987f97b3035b86e670acb56e5a6b50483b51055029e48de1fd6e672e4319f7",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668e878.asm": "c90e54e33c4ccc420423c0e8832e9756cd28c6b2034b0cda95ad90780cf514ee",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668e878.c": "b90925242931ee1147dfc57b20a2ed49eb1d93c0845b0f0e0836607c4817fdef",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-668e878.refs.tsv": "3988da31929802b547a1dc0d919f0fb20072836369da5175dbe02fea391c6db2",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-669440c.asm": "8ec076a8a0da154ef7b1c111068663b25d55482938fd12583f6885410354dab8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-669440c.c": "8429e892cf6570289ee7772434e2ff4dcd714ec79704a449e84103e64c75f73f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/native-fn-669440c.refs.tsv": "69a76f3532cd59781b5ff1a910eaa782d36d6c65fe24cd32249fe5756c83df9c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/run.json": "783f61c4c3037a01810e6a21392340f669bfde6618691c2eb937f73053be26f4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass425/script.log": "25da530c936e83868c5c83e9d8d45f977e98e3a04af52a7492200c518c3febd5",
+    "Library/ai/verify_wechat_input_type_20261016.py": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+    "Library/ai/verify_wechat_launch_span_20261018.py": "4cf2214a655badc3fa8037dc6f3c7e646e5f4086d0487a6403a323304a55eec9"
+  },
+  "limits": [
+    "Only selected frozen instructions and normal-path relationships are verified.",
+    "Ghidra export gaps are retained; byte matching is not complete semantic coverage.",
+    "The listener set and mutable logging configuration were not observed.",
+    "An inline callback opportunity does not prove cancellation reentry actually occurs.",
+    "No complete adapter, native coroutine qualification, send receipt or deployment."
+  ],
+  "previous_goal_turn_classification": "no_progress_status_only",
+  "current_goal_turn_classification": "progress",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "deployed": false,
+  "full_objective_complete": false
+}

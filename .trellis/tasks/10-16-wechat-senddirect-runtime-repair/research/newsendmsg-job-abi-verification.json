@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "host": "arm64",
+  "fixture": {
+    "cases": 5,
+    "hidden_x8": true,
+    "arguments_match": true,
+    "ownership_checked": true
+  },
+  "native_instruction_sites_checked": 13,
+  "native_provenance": "text-contract-byte-verification-v14.json",
+  "command": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_job_abi_4115.cpp",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_abi_fixture_4115.S",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_job_abi_4115"
+  ],
+  "source_sha256": {
+    "newsendmsg_job_abi_4115.hpp": "646abe66de8b3859d2e158cefead1daece820365c817ed3b11a150cf78d22692",
+    "test_newsendmsg_job_abi_4115.cpp": "2b08866cb404f3f457b03873497d98e51f42e0a219cd18a20e0e7997331e88b6",
+    "job_abi_fixture_4115.S": "41109644442f176cdc608a074b8fccc94d054ee3de60ff3bc64a00f1a58f6492",
+    "text-contract-pass88/native-fn-66846b8.asm": "35d851c2970ba80af8b03d8ead7f32493b2b69ee951adca51acce4aaff5b2415",
+    "text-contract-pass86/native-fn-6684b8c.asm": "a26f4519938c0a3c0f9ce3ef4375f71c29c45f6d4a9328ee4908ea2f300dae3c"
+  },
+  "binary_sha256": "4a9ce5687cc43703cc0661c2da422f7cc3f94b95e16ccd16ba838b048914e243",
+  "wechat_loaded": false,
+  "wechat_attached": false,
+  "native_job_called": false,
+  "sent": false,
+  "callable_for_send": false,
+  "limits": [
+    "Host C++ ABI and isolated ownership only; no WeChat execution.",
+    "Opaque group/config identity, thread affinity, and native drain remain unproved.",
+    "A type declaration does not authorize or establish a callable native adapter."
+  ]
+}

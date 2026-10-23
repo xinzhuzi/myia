@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "goal_turn": "progress",
+  "normal_core_ownership_proved": true,
+  "full_native_drain_proved": false,
+  "A7_complete": false,
+  "target_operated": false,
+  "product_deployed": false,
+  "hashes": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/core-teardown-20261017/verification.json": "dd0cae66c25b82d85383ee4c71aad6b0c88b808b2188056e4dc6f773f100bfdc",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/design.md": "251b2316cab4a6592de2198a98351f9419ccb927b6486f87cd5c37ba50ac04de",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "6b36b8deddd868664d0dc292ae3c3914bf494bbfc7eedecda6c7c198b98e9e3d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task-tiers.json": "a7365095fa962653b12ec92265efc2e3769fededddda960a0363b6fdcf741e05",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/completion-gap-audit-20261017.md": "8b1ae8a67426d652b9bce198089a513f826f8f45a67e235be070c1e90f7e8d74",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-core-teardown-result.md": "fb1244d06ea833ce25e9e52fb1a62dcd978de4e8bdcc3c3a70ce7b4c6caa2df9"
+  }
+}

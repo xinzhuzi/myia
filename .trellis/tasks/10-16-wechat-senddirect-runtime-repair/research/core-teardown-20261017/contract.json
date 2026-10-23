@@ -1,0 +1,61 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "scope": "Normal core entry/return ownership",
+  "job_to_core_pair": "job+0xa8/+0xb0",
+  "core_fields": {
+    "0x250": "entry function",
+    "0x258": "argument cleanup function",
+    "0x260": "owned argument",
+    "0x268": "executor from config+0x18",
+    "0x270": "stack provider from config+0x20",
+    "0x280": "size/options from config+0x28"
+  },
+  "job_argument": {
+    "bytes": 16,
+    "object": "job pair locked from job+0x98/+0xa0",
+    "entry": "0x667f4c8",
+    "cleanup": "0x667f4d8"
+  },
+  "normal_sequence": [
+    "body invocation and body disposal",
+    "result publication and group completion notification",
+    "final user callback returns",
+    "core+0x258 cleanup releases job argument and clears cleanup pointer",
+    "core status becomes 3",
+    "outer resume performs core cleanup"
+  ],
+  "group_completion_registration": {
+    "executor": 0,
+    "dispatch": "direct when selected",
+    "member": "0x6683134",
+    "effect": "unlink matching Job node and release strong pair"
+  },
+  "executor_closure": {
+    "vtable": "0x9fb2590",
+    "owned_core_pair": "+0x28/+0x30",
+    "disposal": "inline/heap destructor releases core strong pair"
+  },
+  "queued_signal": {
+    "vtable": "0x9fb2df8",
+    "owned_receiver_pair": "+0x48/+0x50",
+    "job_argument": "raw pointer at +0x60; no additional job control pair"
+  },
+  "base_cleanup": [
+    "job+0x18 base removes recorded connections then destroys its mutex",
+    "job+0x8 signal state marks/disconnects nodes; when active dispatch count is nonzero it defers freeing the signal-state allocation"
+  ],
+  "adapter_constraints": [
+    "Keep service/request ownership independent of Job/Core scope.",
+    "Do not add a strong callback capture of its own Job.",
+    "External Job copies delay final function capture destruction after core exit.",
+    "Executor closure disposal and core return are separate from result readiness.",
+    "Do not manually run core cleanup or destructors to force the last release."
+  ],
+  "unresolved": [
+    "Abnormal/exception/cancellation paths and all external native owners",
+    "Identity, queue semantics and complete drain of the actual executor",
+    "Queued receiver effects, complete native adapter and independent receipt"
+  ],
+  "runtime_observed": false,
+  "callable_for_send": false
+}

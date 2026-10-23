@@ -1,0 +1,178 @@
+{
+  "passed": true,
+  "exports": [
+    {
+      "file": "text-contract-pass88/native-fn-66846b8.asm",
+      "instructions": 258,
+      "sha256": "35d851c2970ba80af8b03d8ead7f32493b2b69ee951adca51acce4aaff5b2415",
+      "pseudocode_sha256": "79ea4a06561857ad54ce3d472a22c1860c374a060dac1b5a32cd5926a7c61580",
+      "run_sha256": "859c6834a0c9f7180914d4d9e601d61b18274ce78edeb173cc5030183f48aa57"
+    },
+    {
+      "file": "text-contract-pass89/native-fn-6682d18.asm",
+      "instructions": 232,
+      "sha256": "60d1619e5f5f3a86efc6a1cd1b55f4dcadf3259415e433037c037aba4b9f169a",
+      "pseudocode_sha256": "130ed36f141cfcd8422c9a4a564f64e55cf14b88e6d8e0dc66d1c7c3decab58b",
+      "run_sha256": "673b7cb6fd622b619c747e43d9f92a70036944c6f00312c2b2dce39f894eb716"
+    },
+    {
+      "file": "text-contract-pass149/native-fn-667fc38.asm",
+      "instructions": 43,
+      "sha256": "2e46b6d188d566886fe98f5560dec2d0874da8f206af8f1abf97a33e8520baf4",
+      "pseudocode_sha256": "188ca04d8ece5c8a362da295fcca7833d1791136f92e7d343764c9a4bbb7f464",
+      "run_sha256": "57cd2b7cbfe9b150f566e1d13bce6073bbdec2dff5a42f1a5cbf1929fdf432f0"
+    },
+    {
+      "file": "text-contract-pass250/native-fn-667f128.asm",
+      "instructions": 231,
+      "sha256": "751ccc6ab9b90e4cb7f179003aa4bc862735ead629d39371fa2a9b81fb6a6d23",
+      "pseudocode_sha256": "fc4225f98a784b0e594ce2b471a0f9fc824eaab4ecbe1596ee67341cefefa139",
+      "run_sha256": "73d8fb36f0a2de38648b0ce42a5c13dda3e6362ad89376c27efa3e1a1bf67044"
+    },
+    {
+      "file": "text-contract-pass260/native-fn-668272c.asm",
+      "instructions": 178,
+      "sha256": "78f4a43e20d332df154f9420aecb75b52de0a615c7e9793cbf0730b15b6268db",
+      "pseudocode_sha256": "ddd1f4f77fda0a4ed5ea6f4da4dd9be5dc986ef5087788bdac72e9d7f34bffc4",
+      "run_sha256": "b65adfc2e0984b88e7067637eedc490f82b97226b7c17c03a9464c882764fea0"
+    },
+    {
+      "file": "text-contract-pass271/native-fn-66617e4.asm",
+      "instructions": 146,
+      "sha256": "1762285bd2e279b20c835045949d593aee6ea5f1466bf6b1a91801b61aeaecca",
+      "pseudocode_sha256": "5ffab92d742f6932a1f1221cd801b1bbe9f5298b47a914dd6880397f42671bec",
+      "run_sha256": "5e9dc1c496d6ef09df85fb00f6d523be1706ffc8a8815f45fe30e8c1edf93b7c"
+    },
+    {
+      "file": "text-contract-pass272/native-fn-6663008.asm",
+      "instructions": 12,
+      "sha256": "83da395f268491c79c5e1086c013998dd328bdef488e592f65820b2ef5443238",
+      "pseudocode_sha256": "dc9461589e829db12b9e679b5c91505389f7811e0a49f2827285f584abc8857c",
+      "run_sha256": "d3f9783bd1a60bc5201cb8dea6c8a968283a7a1ddd4c3b9c61695ad124a6657d"
+    },
+    {
+      "file": "text-contract-pass275/native-fn-6664994.asm",
+      "instructions": 398,
+      "sha256": "146f6587b7eec89d674f3164ecbed5b50e1346275abd42a99577a3f92445f4ed",
+      "pseudocode_sha256": "df6861db75dd4a8e7e9f27d86eaa9f6b82b63e0fd1b17307d4bb9091e866ef02",
+      "run_sha256": "988e3aa58d1c87bf2e2951a73479af0769ad67d4a227beebc13ff2f721d4381c"
+    },
+    {
+      "file": "text-contract-pass278/native-fn-453e960.asm",
+      "instructions": 208,
+      "sha256": "53c9b3c5eeb49b22150da08666cb7b61031361c27279501b9939d224387c9e90",
+      "pseudocode_sha256": "f4c477ca62d541a6ac740b0b346a12d46c4b4104b7b797b3206d637357a8c1c6",
+      "run_sha256": "6672939bd3eded8344c1322c613f2558e29ee674597a21e9dad1885b91c7efa2"
+    },
+    {
+      "file": "text-contract-pass280/native-fn-66823c4.asm",
+      "instructions": 198,
+      "sha256": "dcaaadc96a615e56c355b6eaede09f8079c35b1a41ca2462a2ca73e612e371f4",
+      "pseudocode_sha256": "fcf13e6a73fd54a3a80d757f9072c2ba731fde3a180a732937b54f9f5d833609",
+      "run_sha256": "2ac136156c466a13473abb4cc8031feb0ac55bcd9fecdf188d4687cac30666ac"
+    },
+    {
+      "file": "text-contract-pass280/native-fn-6682d08.asm",
+      "instructions": 4,
+      "sha256": "e39e228835e31ef8f52a0dc20cf47e975b8cddf7677b796c90f5afaadb61ceba",
+      "pseudocode_sha256": "587a02573d62ca6ba00c1ed9726ac9c9c1d0bdecd1227642f81b5e127da05849",
+      "run_sha256": "2ac136156c466a13473abb4cc8031feb0ac55bcd9fecdf188d4687cac30666ac"
+    },
+    {
+      "file": "text-contract-pass280/native-fn-66738d4.asm",
+      "instructions": 34,
+      "sha256": "1f02b5f1cf220b479161f37bbc1e8fd4cec3c3f38b6004c50b19bd79bb5dd581",
+      "pseudocode_sha256": "81f4fd36c8149eab90234fc1622f8a8657a9edb8c27345be9d76778f1b6657a1",
+      "run_sha256": "2ac136156c466a13473abb4cc8031feb0ac55bcd9fecdf188d4687cac30666ac"
+    },
+    {
+      "file": "text-contract-pass281/native-fn-6682a40.asm",
+      "instructions": 163,
+      "sha256": "2c6186e607705f3071b33febde8e5edc42895a16b15c3ae4d105d2cd155b7829",
+      "pseudocode_sha256": "da204d3465fee696b5f03e3b88c57e96a31570fc85f757c7b5ebd419760562b9",
+      "run_sha256": "701f8890932218c47f320c56cc02683146b24808374d0f35e1678211c5f2fa2e"
+    },
+    {
+      "file": "text-contract-pass281/native-fn-6681cd8.asm",
+      "instructions": 365,
+      "sha256": "add41475e9a4553b14d7da8e2ac8ebd2baf0cc3d4463a0cee95a963381f19e30",
+      "pseudocode_sha256": "45dc432da8d32f14569ca1df7988bbe2611a2bf3f5968a93032c26f381f259f5",
+      "run_sha256": "701f8890932218c47f320c56cc02683146b24808374d0f35e1678211c5f2fa2e"
+    },
+    {
+      "file": "text-contract-pass282/native-fn-6661da0.asm",
+      "instructions": 4,
+      "sha256": "b4c112b8ce3e4205c042d335987950f75d882dabf0a159d19e537962bab6ec54",
+      "pseudocode_sha256": "9954d25f939e0d4352f0312d870268e9cd5257f8835f301ad23d162d16f7e506",
+      "run_sha256": "ed093cf2dfe3d16e1cc5e71bbb66baad84b3b6e3aba0f32c72dbd773f07b4381"
+    },
+    {
+      "file": "text-contract-pass283/native-fn-66639c4.asm",
+      "instructions": 39,
+      "sha256": "46f8f5a70cfe899aec7ad8f264247a06fb92ee8db2bf7af22d6aa66e3c57d0f6",
+      "pseudocode_sha256": "52b3d10bd5647554fc4cca2fcdbb086382c03af504648c8d836621572840b381",
+      "run_sha256": "b5f278c394109868f6a98cd9a44a8415d3e0707605aac92adaa29e5edf3dd9ad"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9fb1a58",
+      "decoded": "0x66617e4",
+      "chain_steps": 775
+    },
+    {
+      "slot": "0x9fb1a68",
+      "decoded": "0x6661da0",
+      "chain_steps": 777
+    },
+    {
+      "slot": "0x9fb1a20",
+      "decoded": "0x66639c4",
+      "chain_steps": 769
+    },
+    {
+      "slot": "0x9fb2c38",
+      "decoded": "0x667e8cc",
+      "chain_steps": 1297
+    },
+    {
+      "slot": "0x9fb2c40",
+      "decoded": "0x667eca4",
+      "chain_steps": 1298
+    }
+  ],
+  "fixture": {
+    "scenarios": 5,
+    "host_virtual_slots": true,
+    "ticket_bits": 64,
+    "real_operation_component": true,
+    "balanced_lifetime": true,
+    "target_executed": false,
+    "sent": false
+  },
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "instructions_matched": 2513,
+  "instruction_positions_checked": 48,
+  "source_sha256": {
+    "Library/ai/verify_wechat_executor_ticket_20261017.py": "f6921c5b9a455803a4c9601989b33219e60f965c424b5e38ceef676c2f784378",
+    "Library/ai/verify_wechat_input_type_20261016.py": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_executor_ticket_4115.cpp": "6d8c576b907d9e735672121d088ab73488a09c55bd13212aeed244ed81242281",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_executor_abi_4115.hpp": "c612ac7d36d28f1180045a94427e12463469cd0c750d709afd4868943f8f68e5",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/executor_erasure_fixture_4115.S": "02e28cf0fbad1aeaaffc2cfb7bc079cbe37c62ce30b52b43e1920939af48a101",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_erasure_fixture_4115.S": "e19be46c110ae42ae0ff36004b382b59e3d28e09e130dff190a8779e592a2075",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_job_abi_4115.hpp": "646abe66de8b3859d2e158cefead1daece820365c817ed3b11a150cf78d22692",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_operation_4115.cpp": "54839f1a441768e930d296399b259e02ff90f4e385ee726e137949068cba2544",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_operation_4115.hpp": "e9d3c72dc372f3c66c10560a2e510bd0c4e3d54900722b34a33823f741e10fc9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_completion_4115.hpp": "657caf0781d8a2562fa6c35b69b64ea9569e373f5b0ebcea318e6b49e0a0c2ad",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_native_body_4115.hpp": "90d0943eca268abdebadbfe0c00e3105d7e37d23774997c35f885af8064d4eec",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_native_response_4115.hpp": "687f66733ed1a97e2fb5443ebdeabf771de9d38a47cf240f821d1ee5cb8c9f6c"
+  },
+  "fixture_binary_sha256": "439a7b0a5c2bbfaa35dd602b8fe5890000001221978de2b205d9cbaa71597320",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "limitations": "Owned ticket ABI and static queue paths; no thread identity or full drain proof."
+}

@@ -1,0 +1,37 @@
+{
+  "source": "managed",
+  "module": "/Users/zhengbingjin/Library/Application Support/MYIA/python/lib/python3.14/site-packages/wechat_bridge/__init__.py",
+  "version": "0.9.1",
+  "doctor_checks": 3,
+  "doctor": {
+    "enabled": true,
+    "anchored": "ok",
+    "lldb": "missing",
+    "last_anchor_build": "4.1.15",
+    "slice_sha256_matched": true,
+    "validation": "disk_only",
+    "runtime_verified": false
+  },
+  "dry_run": {
+    "target": {
+      "username": "filehelper",
+      "display_name": null
+    },
+    "sent": false,
+    "dry_run": true,
+    "channel": "direct",
+    "anchor_build": "4.1.15",
+    "preflight": "ok",
+    "validation": "disk_only",
+    "runtime_verified": false,
+    "adapter_ready": false,
+    "elapsed_ms": 62,
+    "chat": "filehelper",
+    "target_resolution": "not_checked"
+  },
+  "live_cli_exit": 24,
+  "raw_batch_exit": 24,
+  "runtime_calls": 0,
+  "send_state_created": false,
+  "actual_message_sent": false
+}

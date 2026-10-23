@@ -1,0 +1,31 @@
+{
+  "interception_source_hashes_rechecked": 258,
+  "statement_dependency_hashes_rechecked": 174,
+  "open_implementation_ids": [
+    11,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    55,
+    67,
+    88
+  ],
+  "A7_complete": false,
+  "full_goal_complete": false,
+  "runtime_check_performed": false,
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/interception-20261018/verification.json": "a381308b0ca59372ee26f06fcd1aaf92c186ec7a0e8a72b6164a76a9b89505ae",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/statement-binding-20261018/verification.json": "aaa8e00aa40df1bf09c9348d4cae0dac1f4e2c69dcfd3abed87eb35a3a4d7e34",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "778196bfb5e4da5aa6d6d153465794c36320a7b87a8d744d3d0d4dc52ff682b6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/prd.md": "d42502f8857a8d5263206a61f9abf44d338630031c65867081793c14e5ff397a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/design.md": "3490cc62ea078277b9da36197dc05baeaa35800e88630e5b21904cdb2a20c17c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task-tiers.json": "e05060c76dba533270ca04fdeb30c16f2fdebb7674fc5bd58fad9335bf09c9b4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task.json": "5a27767910ce9b4758ba1ace4b98ffac97b5857cc35cd9342912e27e8598998a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-interception-result.md": "974334b2b7f47527e97ca115d71f2b79ff10950a57304ad7317a70cd8e1a3149",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-interception-working-note.md": "5d6370a1cbaa4a3e22b9dca7cc9602a4f152c4fdab9795544315f9d6ece5a746"
+  }
+}

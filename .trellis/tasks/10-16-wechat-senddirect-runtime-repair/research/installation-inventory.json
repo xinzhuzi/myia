@@ -1,0 +1,68 @@
+{
+  "standalone_changes": [
+    {
+      "file": "wechat_bridge/senddirect.py",
+      "old_sha256": "40fb5a8d7da138d5f52357fea70fb3cd86b5765680f970b91000b2137132cd39",
+      "new_sha256": "4d57af02b890a7d48b4a3c77b385a40a9c7c7db9e7b4165126472fed814c2250",
+      "changed_definitions": [
+        "_arm64_file_span",
+        "_default_anchor_validator",
+        "_disk_anchor_bytes",
+        "_require_safe_live_driver",
+        "_unanchored",
+        "_validate_disk_anchor",
+        "doctor_direct_channel",
+        "execute_send",
+        "run_lldb_batch",
+        "slice_arm64_sha256"
+      ]
+    },
+    {
+      "file": "wechat_bridge/cli.py",
+      "old_sha256": "d69247998a7f86c896983045549d168f463c1eb6ddd0748805ccc4ec27e2acff",
+      "new_sha256": "9b4ab89a431ef0996697d306ab57779cb3f6a5e6bce1c9a4816aa0d0f7a3d9fa",
+      "changed_definitions": [
+        "build_parser",
+        "main"
+      ]
+    },
+    {
+      "file": "wechat_bridge/probe.py",
+      "old_sha256": "b1a1bc7f392088089a8694a72daae5e19710d5276ddfaf7ae0334f5d116576d1",
+      "new_sha256": "940087d4f27e16feb9e7abc2867440d752238f7a7f92f2001f30a9d199b7d94c",
+      "changed_definitions": [
+        "run_doctor"
+      ]
+    },
+    {
+      "file": "wechat_bridge/__init__.py",
+      "old_sha256": "eb914f7cf1df165b4b10d0e9d657db4a10fb4d101798c168433c0b766e04d5bf",
+      "new_sha256": "042486d192489be8fd024eeb500494e2d016ce87a5539b016097064222101fd4",
+      "changed_definitions": []
+    },
+    {
+      "file": "pyproject.toml",
+      "old_sha256": "0a952a09400398f3a0d56753bcaae3c2474c8461a56c7bd448a02772e7b2bda7",
+      "new_sha256": "b17bc19079e258db98b9215ed897a6773159570110c1f382c724938dee7e5f7a"
+    },
+    {
+      "file": "component.json",
+      "old_sha256": "a6bad8c20c11330c00fd8d1747a7f30a93c39fed2f143debcee432acd613f297",
+      "new_sha256": "83525feb1bb28379497c6fbd7c5caad4af2765f867ce5456df14f7e12e39af7d"
+    },
+    {
+      "file": "README.md",
+      "old_sha256": "82c94f3f4bcdd59a2f1618f04125783e8354fd73139c8e3475b3c5aaf1f1ddb4",
+      "new_sha256": "ef9805d3b1daa26b9bb4620ddc021aca98beaf42196c28fd53156be08049cff9"
+    }
+  ],
+  "standalone_package_differences": [
+    "__init__.py",
+    "cli.py",
+    "probe.py",
+    "senddirect.py"
+  ],
+  "managed_record_drift": [],
+  "managed_version": "0.8.4",
+  "managed_dist_info": "/Users/zhengbingjin/Library/Application Support/MYIA/python/lib/python3.14/site-packages/wechat_bridge-0.8.4.dist-info"
+}

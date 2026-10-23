@@ -1,0 +1,148 @@
+// Ghidra inferred pseudocode; requested=0x4dd67a0
+// entry=04dd67a0 end=04dd68af
+
+void FUN_04dd67a0(void)
+
+{
+  undefined8 *puVar1;
+  undefined8 uVar2;
+  undefined1 *local_210;
+  undefined1 *puStack_208;
+  undefined1 *local_200;
+  undefined1 *puStack_1f8;
+  undefined1 *puStack_1f0;
+  undefined1 *puStack_1e8;
+  undefined1 *local_1e0;
+  undefined1 *puStack_1d8;
+  undefined1 *puStack_1d0;
+  undefined1 *puStack_1c8;
+  undefined1 *local_1c0;
+  undefined1 *puStack_1b8;
+  undefined1 *puStack_1b0;
+  undefined1 *puStack_1a8;
+  undefined1 *local_1a0;
+  undefined1 *puStack_198;
+  undefined1 *puStack_190;
+  undefined1 *puStack_188;
+  undefined1 *local_180;
+  undefined1 *puStack_178;
+  undefined1 *puStack_170;
+  undefined1 *puStack_168;
+  undefined1 *local_160;
+  undefined1 *puStack_158;
+  undefined1 *puStack_150;
+  undefined1 *puStack_148;
+  undefined1 *local_140;
+  undefined1 *puStack_138;
+  undefined1 *puStack_130;
+  undefined1 *puStack_128;
+  undefined1 *local_120;
+  undefined1 *puStack_118;
+  undefined1 *puStack_110;
+  undefined1 *puStack_108;
+  undefined1 *local_100;
+  undefined1 *puStack_f8;
+  undefined1 *puStack_f0;
+  undefined1 *puStack_e8;
+  undefined1 *local_e0;
+  undefined1 *puStack_d8;
+  undefined1 *puStack_d0;
+  undefined1 *puStack_c8;
+  undefined1 *local_c0;
+  undefined1 *puStack_b8;
+  undefined1 *puStack_b0;
+  undefined1 *puStack_a8;
+  undefined1 *local_a0;
+  undefined1 *puStack_98;
+  undefined1 *puStack_90;
+  undefined1 *puStack_88;
+  undefined1 *local_80;
+  undefined1 *puStack_78;
+  undefined1 *puStack_70;
+  undefined1 *puStack_68;
+  undefined1 *local_60;
+  undefined1 *puStack_58;
+  undefined1 *puStack_50;
+  undefined1 *puStack_48;
+  long local_38;
+  
+  uVar2 = DAT_0a4b6d38;
+  local_38 = *(long *)PTR____stack_chk_guard_09b36c98;
+  FUN_05631128(&local_210,"user_name");
+  puVar1 = (undefined8 *)__Znwm(0x10);
+  FUN_056f99c4();
+  *puVar1 = &PTR_thunk_FUN_0001accc_09ebe0b0;
+  puVar1[1] = 0;
+  FUN_056f9b9c(uVar2,0,&local_210,puVar1);
+  FUN_0562fd84(&local_210);
+  puStack_58 = &SUB_aaaaaaaaaaaaaaaa;
+  local_60 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_48 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_50 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_78 = &SUB_aaaaaaaaaaaaaaaa;
+  local_80 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_68 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_70 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_98 = &SUB_aaaaaaaaaaaaaaaa;
+  local_a0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_88 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_90 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_b8 = &SUB_aaaaaaaaaaaaaaaa;
+  local_c0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_a8 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_b0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_d8 = &SUB_aaaaaaaaaaaaaaaa;
+  local_e0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_c8 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_d0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_f8 = &SUB_aaaaaaaaaaaaaaaa;
+  local_100 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_e8 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_f0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_118 = &SUB_aaaaaaaaaaaaaaaa;
+  local_120 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_108 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_110 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_138 = &SUB_aaaaaaaaaaaaaaaa;
+  local_140 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_128 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_130 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_158 = &SUB_aaaaaaaaaaaaaaaa;
+  local_160 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_148 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_150 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_178 = &SUB_aaaaaaaaaaaaaaaa;
+  local_180 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_168 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_170 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_198 = &SUB_aaaaaaaaaaaaaaaa;
+  local_1a0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_188 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_190 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_1b8 = &SUB_aaaaaaaaaaaaaaaa;
+  local_1c0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_1a8 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_1b0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_1d8 = &SUB_aaaaaaaaaaaaaaaa;
+  local_1e0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_1c8 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_1d0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_1f8 = &SUB_aaaaaaaaaaaaaaaa;
+  local_200 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_1e8 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_1f0 = &SUB_aaaaaaaaaaaaaaaa;
+  puStack_208 = &SUB_aaaaaaaaaaaaaaaa;
+  local_210 = &SUB_aaaaaaaaaaaaaaaa;
+  FUN_056cc9c8(&local_210);
+  FUN_056ccae0(&local_210);
+  uVar2 = FUN_056f9f6c(DAT_0a4b6d38,0);
+  FUN_056cd35c(uVar2,&local_210);
+  FUN_056cca78(&local_210);
+  if (*(long *)PTR____stack_chk_guard_09b36c98 == local_38) {
+    return;
+  }
+                    /* WARNING: Subroutine does not return */
+  ___stack_chk_fail();
+}
+
+

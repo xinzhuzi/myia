@@ -1,0 +1,16 @@
+{
+  "wechat": [
+    {
+      "pid": 33589,
+      "probe_exit": 0,
+      "state": 2,
+      "traced": false
+    }
+  ],
+  "debugger_pids": {
+    "lldb": [],
+    "debugserver": []
+  },
+  "attached_this_turn": false,
+  "sent_this_turn": false
+}

@@ -357,6 +357,8 @@ function fillUploadX1AndStart(idAddr, pathAddr, x1Buffer, receiver, md5, filePat
 var blrX8Addr;
 var autoBufferWriteFunc;
 var triggerArmed = false;
+var tbzPatchAddr = null;
+var tbzOrigBytes = null;
 var INJECT_MODE = false;  // 4.1.15 观察模式先行, 拿到 blr 位点寄存器语义后置 true
 var textCgiAddr = ptr(0);
 var sendTextMessageAddr = ptr(0);
@@ -675,22 +677,21 @@ function attachBlrX8Hook() {
                 return;
             }
 
-            if (!INJECT_MODE) {
-                console.log("[4115-OBS] blr site regs: x0=" + this.context.x0 + " x1=" + this.context.x1 + " x19=" + this.context.x19 + " x22=" + this.context.x22);
-                try { console.log("[4115-OBS] x1 deref: " + hexdump(this.context.x1, {length: 48})); } catch (e) {}
-                try { console.log("[4115-OBS] x0 deref: " + hexdump(this.context.x0, {length: 48})); } catch (e) {}
-                triggerArmed = false;
-                return;
-            }
+            // 4.1.15-v4: 此位=Req2Buf「跳过序列化」分支入口(0x5980ca4 sub x0,x29,#0xb8)
+            // 注入=把栈 AutoBuffer(x29-0xb8, mars {pbuf,len,cap,units} 布局)直接指向我们的 protobuf
+            var ab = this.context.x29.sub(0xb8);
+            console.log("[4115-V4] hit skip-branch, x29=" + this.context.x29 + " ab=" + ab);
+            try { console.log("[4115-V4] ab before: " + hexdump(ab, {length: 32})); } catch (e) {}
             var finalPayload = hexToByteArray(protoHex);
             textProtoDataAddr.writeByteArray(finalPayload);
-
-            // 调用 autoBufferWrite(autoBuffer, data, len) 填充 v133
-            nativeAutoBufferWrite(autoBuffer, textProtoDataAddr, finalPayload.length);
-            console.log("[+] autoBufferWrite 调用完成, protobuf长度: " + finalPayload.length);
-
-            // 将 X8 指向 retOneStub，这样 BLR X8 只会返回1，不执行原始逻辑
-            this.context.x8 = retOneStub;
+            // mars AutoBuffer 布局写栈: {pbuf, length, capacity, malloc_units}
+            ab.writePointer(textProtoDataAddr);
+            ab.add(0x8).writeU64(finalPayload.length);
+            ab.add(0x10).writeU64(finalPayload.length);
+            ab.add(0x18).writeU64(1);
+            console.log("[+] 4.1.15-v4: 栈 AutoBuffer 已指向注入 protobuf, len=" + finalPayload.length);
+            triggerArmed = false;
+            return;
         }
     });
 }
@@ -787,6 +788,17 @@ function attachReq2buf() {
             }
 
             triggerArmed = true;
+            // 4.1.15-v2: 条件 NOP tbz(0x5980c30) 强制走序列化分支(社区 text.js patchCode 先例)
+            if (!tbzOrigBytes) {
+                tbzPatchAddr = baseAddr.add(0x5980c30);
+                tbzOrigBytes = tbzPatchAddr.readByteArray(4);
+                console.log("[+] 4.1.15: saved tbz bytes=" + Array.from(new Uint8Array(tbzOrigBytes)).map(b=>b.toString(16)).join(' '));
+            }
+            Memory.patchCode(tbzPatchAddr, 4, code => {
+                const w = new Arm64Writer(code, {pc: tbzPatchAddr});
+                w.putNop(); w.flush();
+            });
+            console.log("[+] 4.1.15: tbz NOPped for this task");
             const x24_base = this.context.x4;  // 4.1.15: task 指针在 x4
             insertMsgAddr = x24_base.add(0x60);
             // 保存hook前的原始消息指针(校验过可读), 超时兜底时复原,
@@ -834,6 +846,16 @@ function attachReq2buf() {
         onEnter: function (args) {
             if (!triggerArmed) {
                 return;
+            }
+            // 4.1.15-v2: 恢复 tbz 原字节
+            if (tbzOrigBytes) {
+                try {
+                    Memory.patchCode(tbzPatchAddr, 4, code => {
+                        const w = new Arm64Writer(code, {pc: tbzPatchAddr});
+                        w.putBytes(new Uint8Array(tbzOrigBytes)); w.flush();
+                    });
+                    console.log("[+] 4.1.15: tbz restored");
+                } catch (e) { console.log("[-] tbz restore fail: " + e); }
             }
             // 不立即清除insertMsgAddr，让mars能路由buf2resp回调
             // 用fakeVtable保护结构体，防止中间被访问时崩溃
@@ -947,8 +969,8 @@ function triggerSendMediaMessage(taskId, sender, receiver, protoHex, payloadHex,
         return "fail";
     }
 
-    if (!triggerX0 || !triggerX1Payload) {
-        console.error("[!] triggerX0 或 triggerX1Payload 尚未初始化，请等待 hook 捕获");
+    if (!triggerX1Payload) {
+        console.error("[!] triggerX1Payload 尚未初始化");
         return "fail";
     }
 
@@ -986,10 +1008,11 @@ function triggerSendMediaMessage(taskId, sender, receiver, protoHex, payloadHex,
     triggerX1Payload.add(0x190).writePointer(triggerX1Payload.add(0x198));
     sendMsgType = msgType;
 
-    const MMStartTask = new NativeFunction(sendFuncAddr, 'int64', ['pointer', 'pointer']);
+    // 4.1.15-v3: 调 logic 层单参版(内部自取 MMStnManager 单例,不依赖 hook 捕获流量)
+    const MMStartTaskLogic = new NativeFunction(baseAddr.add(0x5973938), 'int64', ['pointer']);
 
     try {
-        MMStartTask(triggerX0, triggerX1Payload);
+        MMStartTaskLogic(triggerX1Payload);
         return "1";
     } catch (e) {
         console.error("[!] Error trigger " + msgType + " MMStartTask: " + e);

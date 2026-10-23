@@ -1,0 +1,5 @@
+0x5daa3b0	c81b02d0	adrp x8,0xa124000
+0x5daa3b4	08212e91	add x8,x8,#0xb88
+0x5daa3b8	29008052	mov w9,#0x1
+0x5daa3bc	0101e9b8	ldaddal w9,w1,[x8]
+0x5daa3c0	97ffff17	b 0x05daa21c

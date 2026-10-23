@@ -1,0 +1,24 @@
+{
+  "window_id": 12490,
+  "window_pid": 33589,
+  "read_only": true,
+  "attached": false,
+  "sent": false,
+  "title": {
+    "matches_declared": false,
+    "declared_line_seen": false,
+    "line_count": 7,
+    "minimum_confidence": 0.3,
+    "ocr_seconds": 0.234,
+    "engine": "vision"
+  },
+  "input": {
+    "matches_declared": false,
+    "declared_line_seen": false,
+    "line_count": 9,
+    "minimum_confidence": 0.3,
+    "ocr_seconds": 0.091,
+    "engine": "vision"
+  },
+  "seconds": 0.984
+}

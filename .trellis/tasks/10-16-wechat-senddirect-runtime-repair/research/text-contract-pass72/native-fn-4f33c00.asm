@@ -1,0 +1,7 @@
+0x4f33c00	88af02b0	adrp x8,0xa524000
+0x4f33c04	08412b91	add x8,x8,#0xad0
+0x4f33c08	a97c02f0	adrp x9,0x9eca000
+0x4f33c0c	29410e91	add x9,x9,#0x390
+0x4f33c10	092000a9	stp x9,x8,[x0]
+0x4f33c14	1f0800f9	str xzr,[x0, #0x10]
+0x4f33c18	c0035fd6	ret

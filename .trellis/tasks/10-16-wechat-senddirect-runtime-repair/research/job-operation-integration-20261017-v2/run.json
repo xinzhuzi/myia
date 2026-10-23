@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\"cases\":10,\"job_completion_is_not_request_drain\":true,\"job_cancel_is_not_request_cancel\":true,\"late_callback_preserves_terminal_state\":true,\"owned_wire_matches_factory_copy\":true,\"balanced_lifetime\":true,\"wechat_loaded\":false,\"sent\":false}\n",
+  "stderr": ""
+}

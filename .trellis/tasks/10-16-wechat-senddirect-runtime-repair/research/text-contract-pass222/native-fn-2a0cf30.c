@@ -1,0 +1,191 @@
+// Ghidra inferred pseudocode; requested=0x2a0cf30
+// entry=02a0cf30 end=02a0d1c3
+
+undefined8 * FUN_02a0cf30(undefined8 *param_1,long param_2)
+
+{
+  ulong uVar1;
+  undefined8 uVar2;
+  long lVar3;
+  long lVar4;
+  ulong uVar5;
+  long lVar6;
+  ulong uVar7;
+  undefined8 uVar8;
+  undefined8 uVar9;
+  undefined8 uVar10;
+  undefined8 uVar11;
+  undefined8 uVar12;
+  undefined8 uVar13;
+  
+  *param_1 = &PTR_thunk_FUN_00ac6290_09eb04f0;
+  uVar2 = *(undefined8 *)(param_2 + 8);
+  *(undefined4 *)(param_1 + 2) = *(undefined4 *)(param_2 + 0x10);
+  param_1[1] = uVar2;
+  uVar8 = *(undefined8 *)(param_2 + 0x20);
+  uVar2 = *(undefined8 *)(param_2 + 0x18);
+  param_1[5] = *(undefined8 *)(param_2 + 0x28);
+  param_1[4] = uVar8;
+  param_1[3] = uVar2;
+  *(undefined8 *)(param_2 + 0x20) = 0;
+  *(undefined8 *)(param_2 + 0x28) = 0;
+  *(undefined8 *)(param_2 + 0x18) = 0;
+  uVar8 = *(undefined8 *)(param_2 + 0x38);
+  uVar2 = *(undefined8 *)(param_2 + 0x30);
+  param_1[8] = *(undefined8 *)(param_2 + 0x40);
+  param_1[7] = uVar8;
+  param_1[6] = uVar2;
+  *(undefined8 *)(param_2 + 0x38) = 0;
+  *(undefined8 *)(param_2 + 0x40) = 0;
+  *(undefined8 *)(param_2 + 0x30) = 0;
+  uVar8 = *(undefined8 *)(param_2 + 0x50);
+  uVar2 = *(undefined8 *)(param_2 + 0x48);
+  param_1[0xb] = *(undefined8 *)(param_2 + 0x58);
+  param_1[10] = uVar8;
+  param_1[9] = uVar2;
+  *(undefined8 *)(param_2 + 0x48) = 0;
+  *(undefined8 *)(param_2 + 0x50) = 0;
+  *(undefined8 *)(param_2 + 0x58) = 0;
+  uVar8 = *(undefined8 *)(param_2 + 0x68);
+  uVar2 = *(undefined8 *)(param_2 + 0x60);
+  param_1[0xe] = *(undefined8 *)(param_2 + 0x70);
+  param_1[0xd] = uVar8;
+  param_1[0xc] = uVar2;
+  *(undefined8 *)(param_2 + 0x60) = 0;
+  *(undefined8 *)(param_2 + 0x68) = 0;
+  *(undefined8 *)(param_2 + 0x70) = 0;
+  uVar8 = *(undefined8 *)(param_2 + 0x80);
+  uVar2 = *(undefined8 *)(param_2 + 0x78);
+  param_1[0x11] = *(undefined8 *)(param_2 + 0x88);
+  param_1[0x10] = uVar8;
+  param_1[0xf] = uVar2;
+  *(undefined8 *)(param_2 + 0x78) = 0;
+  *(undefined8 *)(param_2 + 0x80) = 0;
+  *(undefined8 *)(param_2 + 0x88) = 0;
+  *(undefined2 *)(param_1 + 0x12) = *(undefined2 *)(param_2 + 0x90);
+  lVar3 = *(long *)(param_2 + 0x98);
+  *(undefined8 *)(param_2 + 0x98) = 0;
+  param_1[0x13] = lVar3;
+  param_1[0x14] = *(undefined8 *)(param_2 + 0xa0);
+  *(undefined8 *)(param_2 + 0xa0) = 0;
+  lVar4 = *(long *)(param_2 + 0xa8);
+  param_1[0x15] = lVar4;
+  lVar6 = *(long *)(param_2 + 0xb0);
+  param_1[0x16] = lVar6;
+  *(undefined4 *)(param_1 + 0x17) = *(undefined4 *)(param_2 + 0xb8);
+  if (lVar6 != 0) {
+    uVar5 = *(ulong *)(lVar4 + 8);
+    uVar7 = param_1[0x14];
+    if ((uVar7 & uVar7 - 1) == 0) {
+      uVar5 = uVar7 - 1 & uVar5;
+    }
+    else if (uVar7 <= uVar5) {
+      uVar1 = 0;
+      if (uVar7 != 0) {
+        uVar1 = uVar5 / uVar7;
+      }
+      uVar5 = uVar5 - uVar1 * uVar7;
+    }
+    *(undefined8 **)(lVar3 + uVar5 * 8) = param_1 + 0x15;
+    *(long *)(param_2 + 0xa8) = 0;
+    *(undefined8 *)(param_2 + 0xb0) = 0;
+  }
+  uVar8 = *(undefined8 *)(param_2 + 200);
+  uVar2 = *(undefined8 *)(param_2 + 0xc0);
+  param_1[0x1a] = *(undefined8 *)(param_2 + 0xd0);
+  param_1[0x19] = uVar8;
+  param_1[0x18] = uVar2;
+  *(undefined8 *)(param_2 + 200) = 0;
+  *(undefined8 *)(param_2 + 0xd0) = 0;
+  *(undefined8 *)(param_2 + 0xc0) = 0;
+  uVar8 = *(undefined8 *)(param_2 + 0xe0);
+  uVar2 = *(undefined8 *)(param_2 + 0xd8);
+  param_1[0x1d] = *(undefined8 *)(param_2 + 0xe8);
+  param_1[0x1c] = uVar8;
+  param_1[0x1b] = uVar2;
+  *(undefined8 *)(param_2 + 0xe0) = 0;
+  *(undefined8 *)(param_2 + 0xe8) = 0;
+  *(undefined8 *)(param_2 + 0xd8) = 0;
+  uVar8 = *(undefined8 *)(param_2 + 0xf8);
+  uVar2 = *(undefined8 *)(param_2 + 0xf0);
+  uVar10 = *(undefined8 *)(param_2 + 0x108);
+  uVar9 = *(undefined8 *)(param_2 + 0x100);
+  uVar12 = *(undefined8 *)(param_2 + 0x118);
+  uVar11 = *(undefined8 *)(param_2 + 0x110);
+  uVar13 = *(undefined8 *)(param_2 + 0x11c);
+  *(undefined8 *)((long)param_1 + 0x124) = *(undefined8 *)(param_2 + 0x124);
+  *(undefined8 *)((long)param_1 + 0x11c) = uVar13;
+  param_1[0x21] = uVar10;
+  param_1[0x20] = uVar9;
+  param_1[0x23] = uVar12;
+  param_1[0x22] = uVar11;
+  param_1[0x1f] = uVar8;
+  param_1[0x1e] = uVar2;
+  uVar8 = *(undefined8 *)(param_2 + 0x138);
+  uVar2 = *(undefined8 *)(param_2 + 0x130);
+  param_1[0x28] = *(undefined8 *)(param_2 + 0x140);
+  param_1[0x27] = uVar8;
+  param_1[0x26] = uVar2;
+  *(undefined8 *)(param_2 + 0x130) = 0;
+  *(undefined8 *)(param_2 + 0x138) = 0;
+  *(undefined8 *)(param_2 + 0x140) = 0;
+  uVar8 = *(undefined8 *)(param_2 + 0x150);
+  uVar2 = *(undefined8 *)(param_2 + 0x148);
+  param_1[0x2b] = *(undefined8 *)(param_2 + 0x158);
+  param_1[0x2a] = uVar8;
+  param_1[0x29] = uVar2;
+  *(undefined8 *)(param_2 + 0x148) = 0;
+  *(undefined8 *)(param_2 + 0x150) = 0;
+  *(undefined8 *)(param_2 + 0x158) = 0;
+  uVar8 = *(undefined8 *)(param_2 + 0x168);
+  uVar2 = *(undefined8 *)(param_2 + 0x160);
+  param_1[0x2e] = *(undefined8 *)(param_2 + 0x170);
+  param_1[0x2d] = uVar8;
+  param_1[0x2c] = uVar2;
+  *(undefined8 *)(param_2 + 0x160) = 0;
+  *(undefined8 *)(param_2 + 0x168) = 0;
+  *(undefined8 *)(param_2 + 0x170) = 0;
+  param_1[0x2f] = 0;
+  param_1[0x30] = 0;
+  param_1[0x31] = 0;
+  uVar2 = *(undefined8 *)(param_2 + 0x178);
+  param_1[0x30] = *(undefined8 *)(param_2 + 0x180);
+  param_1[0x2f] = uVar2;
+  param_1[0x31] = *(undefined8 *)(param_2 + 0x188);
+  *(undefined8 *)(param_2 + 0x178) = 0;
+  *(undefined8 *)(param_2 + 0x180) = 0;
+  *(undefined8 *)(param_2 + 0x188) = 0;
+  FUN_04eae868(param_1 + 0x32,param_2 + 400);
+  param_1[0x41] = *(undefined8 *)(param_2 + 0x208);
+  param_1[0x42] = *(undefined8 *)(param_2 + 0x210);
+  *(undefined8 *)(param_2 + 0x210) = 0;
+  *(undefined8 *)(param_2 + 0x208) = 0;
+  *(undefined1 *)(param_1 + 0x43) = *(undefined1 *)(param_2 + 0x218);
+  uVar2 = *(undefined8 *)(param_2 + 0x220);
+  param_1[0x45] = *(undefined8 *)(param_2 + 0x228);
+  param_1[0x44] = uVar2;
+  *(undefined8 *)(param_2 + 0x228) = 0;
+  *(undefined8 *)(param_2 + 0x220) = 0;
+  uVar2 = *(undefined8 *)(param_2 + 0x230);
+  param_1[0x47] = *(undefined8 *)(param_2 + 0x238);
+  param_1[0x46] = uVar2;
+  *(undefined8 *)(param_2 + 0x238) = 0;
+  *(undefined8 *)(param_2 + 0x230) = 0;
+  *(undefined1 *)(param_1 + 0x48) = *(undefined1 *)(param_2 + 0x240);
+  param_1[0x49] = *(undefined8 *)(param_2 + 0x248);
+  param_1[0x4a] = *(undefined8 *)(param_2 + 0x250);
+  *(undefined8 *)(param_2 + 0x250) = 0;
+  *(undefined8 *)(param_2 + 0x248) = 0;
+  *(undefined1 *)(param_1 + 0x4b) = *(undefined1 *)(param_2 + 600);
+  uVar8 = *(undefined8 *)(param_2 + 0x268);
+  uVar2 = *(undefined8 *)(param_2 + 0x260);
+  param_1[0x4e] = *(undefined8 *)(param_2 + 0x270);
+  param_1[0x4d] = uVar8;
+  param_1[0x4c] = uVar2;
+  *(undefined8 *)(param_2 + 0x270) = 0;
+  *(undefined8 *)(param_2 + 0x268) = 0;
+  *(undefined8 *)(param_2 + 0x260) = 0;
+  return param_1;
+}
+
+

@@ -1,0 +1,17 @@
+{
+  "args": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "-pthread",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_operation_thread_4115.cpp",
+    "-o",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/operation-thread-20261018-green/operation_thread"
+  ],
+  "returncode": 0,
+  "stdout": "",
+  "stderr": ""
+}

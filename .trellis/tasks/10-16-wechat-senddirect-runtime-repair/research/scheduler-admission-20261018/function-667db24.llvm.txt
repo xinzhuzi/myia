@@ -1,0 +1,59 @@
+
+/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+0000000004de73fc <_SetWeixinCallbackFunc>:
+ 667db24: a9bd57f6     	stp	x22, x21, [sp, #-0x30]!
+ 667db28: a9014ff4     	stp	x20, x19, [sp, #0x10]
+ 667db2c: a9027bfd     	stp	x29, x30, [sp, #0x20]
+ 667db30: 910083fd     	add	x29, sp, #0x20
+ 667db34: f9400413     	ldr	x19, [x0, #0x8]
+ 667db38: b9428a68     	ldr	w8, [x19, #0x288]
+ 667db3c: 71000d1f     	cmp	w8, #0x3
+ 667db40: 54000440     	b.eq	0x667dbc8 <_SetWeixinCallbackFunc+0x18967cc>
+ 667db44: f9400c15     	ldr	x21, [x0, #0x18]
+ 667db48: 52800400     	mov	w0, #0x20               ; =32
+ 667db4c: 942b0939     	bl	0x7140030 <_wxam_enc_uninit_10+0x7140030>
+ 667db50: aa0003f4     	mov	x20, x0
+ 667db54: 9001bbe8     	adrp	x8, 0x9df9000 <_wxam_enc_uninit_10+0x9df9000>
+ 667db58: 9114e108     	add	x8, x8, #0x538
+ 667db5c: aa0003e9     	mov	x9, x0
+ 667db60: f8008d35     	str	x21, [x9, #0x8]!
+ 667db64: f9000008     	str	x8, [x0]
+ 667db68: b001a5c8     	adrp	x8, 0x9b36000 <_wxam_enc_uninit_10+0x9b36000>
+ 667db6c: f9456508     	ldr	x8, [x8, #0xac8]
+ 667db70: a9012408     	stp	x8, x9, [x0, #0x10]
+ 667db74: f941ce68     	ldr	x8, [x19, #0x398]
+ 667db78: b4000128     	cbz	x8, 0x667db9c <_SetWeixinCallbackFunc+0x18967a0>
+ 667db7c: f9400100     	ldr	x0, [x8]
+ 667db80: f9000114     	str	x20, [x8]
+ 667db84: b4000080     	cbz	x0, 0x667db94 <_SetWeixinCallbackFunc+0x1896798>
+ 667db88: f9400008     	ldr	x8, [x0]
+ 667db8c: f9400508     	ldr	x8, [x8, #0x8]
+ 667db90: d63f0100     	blr	x8
+ 667db94: d2800014     	mov	x20, #0x0               ; =0
+ 667db98: f901ce7f     	str	xzr, [x19, #0x398]
+ 667db9c: f901ca7f     	str	xzr, [x19, #0x390]
+ 667dba0: aa1303e0     	mov	x0, x19
+ 667dba4: 97ffe89e     	bl	0x6677e1c <_SetWeixinCallbackFunc+0x1890a20>
+ 667dba8: b4000114     	cbz	x20, 0x667dbc8 <_SetWeixinCallbackFunc+0x18967cc>
+ 667dbac: f9400288     	ldr	x8, [x20]
+ 667dbb0: f9400501     	ldr	x1, [x8, #0x8]
+ 667dbb4: aa1403e0     	mov	x0, x20
+ 667dbb8: a9427bfd     	ldp	x29, x30, [sp, #0x20]
+ 667dbbc: a9414ff4     	ldp	x20, x19, [sp, #0x10]
+ 667dbc0: a8c357f6     	ldp	x22, x21, [sp], #0x30
+ 667dbc4: d61f0020     	br	x1
+ 667dbc8: a9427bfd     	ldp	x29, x30, [sp, #0x20]
+ 667dbcc: a9414ff4     	ldp	x20, x19, [sp, #0x10]
+ 667dbd0: a8c357f6     	ldp	x22, x21, [sp], #0x30
+ 667dbd4: d65f03c0     	ret
+ 667dbd8: aa0003f3     	mov	x19, x0
+ 667dbdc: b40000b4     	cbz	x20, 0x667dbf0 <_SetWeixinCallbackFunc+0x18967f4>
+ 667dbe0: f9400288     	ldr	x8, [x20]
+ 667dbe4: f9400508     	ldr	x8, [x8, #0x8]
+ 667dbe8: aa1403e0     	mov	x0, x20
+ 667dbec: d63f0100     	blr	x8
+ 667dbf0: aa1303e0     	mov	x0, x19
+ 667dbf4: 942b0579     	bl	0x713f1d8 <_wxam_enc_uninit_10+0x713f1d8>

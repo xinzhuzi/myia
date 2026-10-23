@@ -1,0 +1,30 @@
+{
+  "args": [
+    "/Users/zhengbingjin/ghidra_12.1.4_PUBLIC/support/analyzeHeadless",
+    "/Users/zhengbingjin/Downloads/\u5fae\u4fe1\u53cd\u7f16\u8bd1/ghidra-wxhunt/ghidra-wxui",
+    "wxui",
+    "-process",
+    "wechat_arm64.dylib",
+    "-noanalysis",
+    "-readOnly",
+    "-log",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass288/ghidra.log",
+    "-scriptlog",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass288/script.log",
+    "-scriptPath",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research",
+    "-postScript",
+    "OfflineNativeContracts.java",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass288",
+    "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+    "0x571111c",
+    "0x571d610",
+    "0x8a8b8",
+    "0x4af2fcc",
+    "0x5720378",
+    "0x571fc9c"
+  ],
+  "returncode": 0,
+  "seconds": 4.291,
+  "target_attached": false
+}

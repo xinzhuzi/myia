@@ -1,0 +1,84 @@
+{
+  "mode": "fixture",
+  "case": "observe",
+  "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-observe-up2_eyfm",
+  "deadline_seconds": 6.0,
+  "lldb_exit": 0,
+  "server_exit": 0,
+  "before": {
+    "pid": 23972,
+    "flags": 18436,
+    "state": 4,
+    "start_sec": 1792136366,
+    "start_usec": 441416,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/factory_snapshot_fixture_4115"
+  },
+  "after": {
+    "pid": 23972,
+    "flags": 16388,
+    "state": 2,
+    "start_sec": 1792136366,
+    "start_usec": 441416,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/factory_snapshot_fixture_4115"
+  },
+  "elapsed_seconds": 1.741,
+  "target_recovered": true,
+  "helpers_remaining": 0,
+  "cleanup_ok": true,
+  "observer": {
+    "outcome": "observed",
+    "detach_ack": true,
+    "attach_calls": 0,
+    "launch_calls": 1,
+    "detached": true,
+    "hit": true,
+    "hardware_breakpoint": true,
+    "factory_snapshot": {
+      "item_count": 1,
+      "presence_mask": 31,
+      "nested_presence_mask": 1,
+      "fields": {
+        "1": {
+          "bytes": 10,
+          "sha256": "7f7d698d0ae00b0dd3386f46bd49c974733cee90d1e95e032f8ac468caa6662f"
+        },
+        "2": {
+          "bytes": 25,
+          "sha256": "6407ff847c07a966bfa3c5417d3e9957e02119ec14bb142597aa7ca531720a9e"
+        },
+        "3": 1,
+        "4": 1700000000,
+        "5": 12345,
+        "6": null,
+        "7": null
+      },
+      "factory_string": {
+        "bytes": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "reads": 8,
+      "bytes_read": 233,
+      "plaintext_retained": false,
+      "native_called": false,
+      "sent_by_observer": false
+    },
+    "thread_id": 6552464,
+    "thread_name": null,
+    "stack": [
+      {
+        "pc": "0x1043a84f8",
+        "function": "::fixture_factory(void *, Body *, const std::__1::string *)"
+      },
+      {
+        "pc": "0x1043a8654",
+        "function": "main"
+      },
+      {
+        "pc": "0x183427da4",
+        "function": "start"
+      }
+    ],
+    "detach_error": "success",
+    "finished_monotonic": 119580.621095
+  }
+}

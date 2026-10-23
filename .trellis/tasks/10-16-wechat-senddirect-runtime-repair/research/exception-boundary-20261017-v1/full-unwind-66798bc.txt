@@ -1,0 +1,219 @@
+
+/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+0000000004de73fc <_SetWeixinCallbackFunc>:
+ 66798bc: d10583ff     	sub	sp, sp, #0x160
+ 66798c0: a9116ffc     	stp	x28, x27, [sp, #0x110]
+ 66798c4: a9125ff8     	stp	x24, x23, [sp, #0x120]
+ 66798c8: a91357f6     	stp	x22, x21, [sp, #0x130]
+ 66798cc: a9144ff4     	stp	x20, x19, [sp, #0x140]
+ 66798d0: a9157bfd     	stp	x29, x30, [sp, #0x150]
+ 66798d4: 910543fd     	add	x29, sp, #0x150
+ 66798d8: aa0003f3     	mov	x19, x0
+ 66798dc: d101e3b5     	sub	x21, x29, #0x78
+ 66798e0: b001a5e8     	adrp	x8, 0x9b36000 <_wxam_enc_uninit_10+0x9b36000>
+ 66798e4: f9464d08     	ldr	x8, [x8, #0xc98]
+ 66798e8: f9400108     	ldr	x8, [x8]
+ 66798ec: f81b83a8     	stur	x8, [x29, #-0x48]
+ 66798f0: f001d596     	adrp	x22, 0xa12c000 <_wxam_enc_uninit_10+0xa12c000>
+ 66798f4: 913fe2d6     	add	x22, x22, #0xff8
+ 66798f8: 52800a57     	mov	w23, #0x52              ; =82
+ 66798fc: f001d594     	adrp	x20, 0xa12c000 <_wxam_enc_uninit_10+0xa12c000>
+ 6679900: 913ec294     	add	x20, x20, #0xfb0
+ 6679904: 14000005     	b	0x6679918 <_SetWeixinCallbackFunc+0x189251c>
+ 6679908: 910006f7     	add	x23, x23, #0x1
+ 667990c: 910022d6     	add	x22, x22, #0x8
+ 6679910: f101caff     	cmp	x23, #0x72
+ 6679914: 54000180     	b.eq	0x6679944 <_SetWeixinCallbackFunc+0x1892548>
+ 6679918: aa1403e0     	mov	x0, x20
+ 667991c: 942b18f6     	bl	0x713fcf4 <_wxam_enc_uninit_10+0x713fcf4>
+ 6679920: f94002d8     	ldr	x24, [x22]
+ 6679924: aa1403e0     	mov	x0, x20
+ 6679928: 942b18f6     	bl	0x713fd00 <_wxam_enc_uninit_10+0x713fd00>
+ 667992c: b4fffef8     	cbz	x24, 0x6679908 <_SetWeixinCallbackFunc+0x189250c>
+ 6679930: f8777a60     	ldr	x0, [x19, x23, lsl #3]
+ 6679934: b4fffea0     	cbz	x0, 0x6679908 <_SetWeixinCallbackFunc+0x189250c>
+ 6679938: d63f0300     	blr	x24
+ 667993c: f8377a7f     	str	xzr, [x19, x23, lsl #3]
+ 6679940: 17fffff2     	b	0x6679908 <_SetWeixinCallbackFunc+0x189250c>
+ 6679944: f9412e68     	ldr	x8, [x19, #0x258]
+ 6679948: b4000088     	cbz	x8, 0x6679958 <_SetWeixinCallbackFunc+0x189255c>
+ 667994c: f9413260     	ldr	x0, [x19, #0x260]
+ 6679950: d63f0100     	blr	x8
+ 6679954: f9012e7f     	str	xzr, [x19, #0x258]
+ 6679958: f9413a60     	ldr	x0, [x19, #0x270]
+ 667995c: b40000c0     	cbz	x0, 0x6679974 <_SetWeixinCallbackFunc+0x1892578>
+ 6679960: f9413e61     	ldr	x1, [x19, #0x278]
+ 6679964: f9414262     	ldr	x2, [x19, #0x280]
+ 6679968: f9400008     	ldr	x8, [x0]
+ 667996c: f9400d08     	ldr	x8, [x8, #0x18]
+ 6679970: d63f0100     	blr	x8
+ 6679974: 9001dea0     	adrp	x0, 0xa24d000 <_wxam_enc_uninit_10+0xa24d000>
+ 6679978: 913b2000     	add	x0, x0, #0xec8
+ 667997c: f9400008     	ldr	x8, [x0]
+ 6679980: d63f0100     	blr	x8
+ 6679984: 39400008     	ldrb	w8, [x0]
+ 6679988: 360012a8     	tbz	w8, #0x0, 0x6679bdc <_SetWeixinCallbackFunc+0x18927e0>
+ 667998c: 9001dea0     	adrp	x0, 0xa24d000 <_wxam_enc_uninit_10+0xa24d000>
+ 6679990: 913ac000     	add	x0, x0, #0xeb0
+ 6679994: f9400008     	ldr	x8, [x0]
+ 6679998: d63f0100     	blr	x8
+ 667999c: f9413a61     	ldr	x1, [x19, #0x270]
+ 66799a0: 910023e8     	add	x8, sp, #0x8
+ 66799a4: 97fff391     	bl	0x66767e8 <_SetWeixinCallbackFunc+0x188f3ec>
+ 66799a8: f94007e0     	ldr	x0, [sp, #0x8]
+ 66799ac: aa1303e1     	mov	x1, x19
+ 66799b0: 97fff359     	bl	0x6676714 <_SetWeixinCallbackFunc+0x188f318>
+ 66799b4: f9400bf4     	ldr	x20, [sp, #0x10]
+ 66799b8: b4000174     	cbz	x20, 0x66799e4 <_SetWeixinCallbackFunc+0x18925e8>
+ 66799bc: 91002288     	add	x8, x20, #0x8
+ 66799c0: 92800009     	mov	x9, #-0x1               ; =-1
+ 66799c4: f8e90108     	ldaddal	x9, x8, [x8]
+ 66799c8: b50000e8     	cbnz	x8, 0x66799e4 <_SetWeixinCallbackFunc+0x18925e8>
+ 66799cc: f9400288     	ldr	x8, [x20]
+ 66799d0: f9400908     	ldr	x8, [x8, #0x10]
+ 66799d4: aa1403e0     	mov	x0, x20
+ 66799d8: d63f0100     	blr	x8
+ 66799dc: aa1403e0     	mov	x0, x20
+ 66799e0: 942b188f     	bl	0x713fc1c <_wxam_enc_uninit_10+0x713fc1c>
+ 66799e4: 52800020     	mov	w0, #0x1                ; =1
+ 66799e8: 9400503a     	bl	0x668dad0 <_SetWeixinCallbackFunc+0x18a66d4>
+ 66799ec: 34000de0     	cbz	w0, 0x6679ba8 <_SetWeixinCallbackFunc+0x18927ac>
+ 66799f0: d001f4e8     	adrp	x8, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 66799f4: 396b7509     	ldrb	w9, [x8, #0xadd]
+ 66799f8: 37000129     	tbnz	w9, #0x0, 0x6679a1c <_SetWeixinCallbackFunc+0x1892620>
+ 66799fc: b0010849     	adrp	x9, 0x8782000 <_wxam_enc_uninit_10+0x8782000>
+ 6679a00: fd448d20     	ldr	d0, [x9, #0x918]
+ 6679a04: d001f4e9     	adrp	x9, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679a08: 912b6129     	add	x9, x9, #0xad8
+ 6679a0c: bd000120     	str	s0, [x9]
+ 6679a10: 3900113f     	strb	wzr, [x9, #0x4]
+ 6679a14: 52800029     	mov	w9, #0x1                ; =1
+ 6679a18: 392b7509     	strb	w9, [x8, #0xadd]
+ 6679a1c: d001f4e8     	adrp	x8, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679a20: 397e6109     	ldrb	w9, [x8, #0xf98]
+ 6679a24: 370000e9     	tbnz	w9, #0x0, 0x6679a40 <_SetWeixinCallbackFunc+0x1892644>
+ 6679a28: f0018049     	adrp	x9, 0x9684000 <_wxam_enc_uninit_10+0x9684000>
+ 6679a2c: fd464d20     	ldr	d0, [x9, #0xc98]
+ 6679a30: d001f4e9     	adrp	x9, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679a34: fd07c920     	str	d0, [x9, #0xf90]
+ 6679a38: 52800029     	mov	w9, #0x1                ; =1
+ 6679a3c: 393e6109     	strb	w9, [x8, #0xf98]
+ 6679a40: d001f4e8     	adrp	x8, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679a44: 396bb109     	ldrb	w9, [x8, #0xaec]
+ 6679a48: 37000169     	tbnz	w9, #0x0, 0x6679a74 <_SetWeixinCallbackFunc+0x1892678>
+ 6679a4c: f0018049     	adrp	x9, 0x9684000 <_wxam_enc_uninit_10+0x9684000>
+ 6679a50: fd45d920     	ldr	d0, [x9, #0xbb0]
+ 6679a54: d001f4e9     	adrp	x9, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679a58: 912b8129     	add	x9, x9, #0xae0
+ 6679a5c: fd000120     	str	d0, [x9]
+ 6679a60: b000f7ca     	adrp	x10, 0x8572000 <_wxam_enc_uninit_10+0x8572000>
+ 6679a64: fd415940     	ldr	d0, [x10, #0x2b0]
+ 6679a68: bd000920     	str	s0, [x9, #0x8]
+ 6679a6c: 52800029     	mov	w9, #0x1                ; =1
+ 6679a70: 392bb109     	strb	w9, [x8, #0xaec]
+ 6679a74: d001f4e1     	adrp	x1, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679a78: 912b6021     	add	x1, x1, #0xad8
+ 6679a7c: d001f4e2     	adrp	x2, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679a80: 913e4042     	add	x2, x2, #0xf90
+ 6679a84: d001f4e3     	adrp	x3, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679a88: 912b8063     	add	x3, x3, #0xae0
+ 6679a8c: 910023e0     	add	x0, sp, #0x8
+ 6679a90: d2850004     	mov	x4, #0x2800             ; =10240
+ 6679a94: f2c02724     	movk	x4, #0x139, lsl #32
+ 6679a98: 94005031     	bl	0x668db5c <_SetWeixinCallbackFunc+0x18a6760>
+ 6679a9c: f94007e8     	ldr	x8, [sp, #0x8]
+ 6679aa0: d001f4e9     	adrp	x9, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679aa4: 397f012a     	ldrb	w10, [x9, #0xfc0]
+ 6679aa8: 370003ea     	tbnz	w10, #0x0, 0x6679b24 <_SetWeixinCallbackFunc+0x1892728>
+ 6679aac: b001146a     	adrp	x10, 0x8906000 <_wxam_enc_uninit_10+0x8906000>
+ 6679ab0: fd44ed40     	ldr	d0, [x10, #0x9d8]
+ 6679ab4: f0010b8a     	adrp	x10, 0x87ec000 <_wxam_enc_uninit_10+0x87ec000>
+ 6679ab8: fd43b141     	ldr	d1, [x10, #0x760]
+ 6679abc: 6e0c0420     	mov.s	v0[1], v1[0]
+ 6679ac0: d000f8ca     	adrp	x10, 0x8593000 <_wxam_enc_uninit_10+0x8593000>
+ 6679ac4: fd476541     	ldr	d1, [x10, #0xec8]
+ 6679ac8: 6e140420     	mov.s	v0[2], v1[0]
+ 6679acc: d000f74a     	adrp	x10, 0x8563000 <_wxam_enc_uninit_10+0x8563000>
+ 6679ad0: fd420941     	ldr	d1, [x10, #0x410]
+ 6679ad4: 6e1c0420     	mov.s	v0[3], v1[0]
+ 6679ad8: f001804a     	adrp	x10, 0x9684000 <_wxam_enc_uninit_10+0x9684000>
+ 6679adc: fd465141     	ldr	d1, [x10, #0xca0]
+ 6679ae0: b000f32a     	adrp	x10, 0x84de000 <_wxam_enc_uninit_10+0x84de000>
+ 6679ae4: fd434542     	ldr	d2, [x10, #0x688]
+ 6679ae8: 6e0c0441     	mov.s	v1[1], v2[0]
+ 6679aec: f001080a     	adrp	x10, 0x877c000 <_wxam_enc_uninit_10+0x877c000>
+ 6679af0: fd405942     	ldr	d2, [x10, #0xb0]
+ 6679af4: 6e140441     	mov.s	v1[2], v2[0]
+ 6679af8: 9001278a     	adrp	x10, 0x8b69000 <_wxam_enc_uninit_10+0x8b69000>
+ 6679afc: fd45e542     	ldr	d2, [x10, #0xbc8]
+ 6679b00: 6e1c0441     	mov.s	v1[3], v2[0]
+ 6679b04: d001f4ea     	adrp	x10, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679b08: 913e714a     	add	x10, x10, #0xf9c
+ 6679b0c: ad000540     	stp	q0, q1, [x10]
+ 6679b10: f001804b     	adrp	x11, 0x9684000 <_wxam_enc_uninit_10+0x9684000>
+ 6679b14: fd464560     	ldr	d0, [x11, #0xc88]
+ 6679b18: bd002140     	str	s0, [x10, #0x20]
+ 6679b1c: 5280002a     	mov	w10, #0x1               ; =1
+ 6679b20: 393f012a     	strb	w10, [x9, #0xfc0]
+ 6679b24: 910ea269     	add	x9, x19, #0x3a8
+ 6679b28: 9101a102     	add	x2, x8, #0x68
+ 6679b2c: 39c1fd0a     	ldrsb	w10, [x8, #0x7f]
+ 6679b30: 36f8004a     	tbz	w10, #0x1f, 0x6679b38 <_SetWeixinCallbackFunc+0x189273c>
+ 6679b34: f9400042     	ldr	x2, [x2]
+ 6679b38: 4f05e540     	movi.16b	v0, #0xaa
+ 6679b3c: 3c8082a0     	stur	q0, [x21, #0x8]
+ 6679b40: 3c8182a0     	stur	q0, [x21, #0x18]
+ 6679b44: b201f3ea     	mov	x10, #-0x5555555555555556 ; =-6148914691236517206
+ 6679b48: f81b03aa     	stur	x10, [x29, #-0x50]
+ 6679b4c: f941d26a     	ldr	x10, [x19, #0x3a0]
+ 6679b50: 5280016b     	mov	w11, #0xb               ; =11
+ 6679b54: b81903ab     	stur	w11, [x29, #-0x70]
+ 6679b58: f81883aa     	stur	x10, [x29, #-0x78]
+ 6679b5c: 5280020a     	mov	w10, #0x10              ; =16
+ 6679b60: 39cefe6b     	ldrsb	w11, [x19, #0x3bf]
+ 6679b64: f941d66c     	ldr	x12, [x19, #0x3a8]
+ 6679b68: 7100017f     	cmp	w11, #0x0
+ 6679b6c: 9a89b189     	csel	x9, x12, x9, lt
+ 6679b70: f81983a9     	stur	x9, [x29, #-0x68]
+ 6679b74: 528000c9     	mov	w9, #0x6                ; =6
+ 6679b78: b81b03a9     	stur	w9, [x29, #-0x50]
+ 6679b7c: b81a03aa     	stur	w10, [x29, #-0x60]
+ 6679b80: b81a83bf     	stur	wzr, [x29, #-0x58]
+ 6679b84: d001f4e1     	adrp	x1, 0xa517000 <_wxam_enc_uninit_10+0xa517000>
+ 6679b88: 913e7021     	add	x1, x1, #0xf9c
+ 6679b8c: 9100e100     	add	x0, x8, #0x38
+ 6679b90: d101e3a3     	sub	x3, x29, #0x78
+ 6679b94: 52800044     	mov	w4, #0x2                ; =2
+ 6679b98: 94005193     	bl	0x668e1e4 <_SetWeixinCallbackFunc+0x18a6de8>
+ 6679b9c: 94005004     	bl	0x668dbac <_SetWeixinCallbackFunc+0x18a67b0>
+ 6679ba0: 910023e0     	add	x0, sp, #0x8
+ 6679ba4: 94005005     	bl	0x668dbb8 <_SetWeixinCallbackFunc+0x18a67bc>
+ 6679ba8: f85b83a8     	ldur	x8, [x29, #-0x48]
+ 6679bac: b001a5e9     	adrp	x9, 0x9b36000 <_wxam_enc_uninit_10+0x9b36000>
+ 6679bb0: f9464d29     	ldr	x9, [x9, #0xc98]
+ 6679bb4: f9400129     	ldr	x9, [x9]
+ 6679bb8: eb08013f     	cmp	x9, x8
+ 6679bbc: 54000141     	b.ne	0x6679be4 <_SetWeixinCallbackFunc+0x18927e8>
+ 6679bc0: a9557bfd     	ldp	x29, x30, [sp, #0x150]
+ 6679bc4: a9544ff4     	ldp	x20, x19, [sp, #0x140]
+ 6679bc8: a95357f6     	ldp	x22, x21, [sp, #0x130]
+ 6679bcc: a9525ff8     	ldp	x24, x23, [sp, #0x120]
+ 6679bd0: a9516ffc     	ldp	x28, x27, [sp, #0x110]
+ 6679bd4: 910583ff     	add	sp, sp, #0x160
+ 6679bd8: d65f03c0     	ret
+ 6679bdc: 942ae909     	bl	0x7134000 <_SetWeixinCallbackFunc+0x234cc04>
+ 6679be0: 17ffff6b     	b	0x667998c <_SetWeixinCallbackFunc+0x1892590>
+ 6679be4: 942b1970     	bl	0x71401a4 <_wxam_enc_uninit_10+0x71401a4>
+ 6679be8: aa0003f3     	mov	x19, x0
+ 6679bec: 910023e0     	add	x0, sp, #0x8
+ 6679bf0: 94004ff2     	bl	0x668dbb8 <_SetWeixinCallbackFunc+0x18a67bc>
+ 6679bf4: aa1303e0     	mov	x0, x19
+ 6679bf8: 942b1578     	bl	0x713f1d8 <_wxam_enc_uninit_10+0x713f1d8>
+ 6679bfc: aa0003f3     	mov	x19, x0
+ 6679c00: 910023e0     	add	x0, sp, #0x8
+ 6679c04: 966ac0d9     	bl	0x129f68 <_WeChatMain+0x1106fc>
+ 6679c08: aa1303e0     	mov	x0, x19
+ 6679c0c: 942b1573     	bl	0x713f1d8 <_wxam_enc_uninit_10+0x713f1d8>

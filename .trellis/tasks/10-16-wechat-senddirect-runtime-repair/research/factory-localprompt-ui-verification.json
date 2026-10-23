@@ -1,0 +1,34 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "case": "timely",
+      "ready_delay_seconds": 0.0396,
+      "expired_ready_cleared": true,
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/prompt-check-timely-myqyxp6o",
+      "prompt_exit": 0,
+      "focus_preserved": true
+    },
+    {
+      "case": "stale",
+      "stale_ready_never_shown": true,
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/prompt-check-stale-z_xmc29v",
+      "prompt_exit": 0,
+      "focus_preserved": true
+    },
+    {
+      "case": "stop_before_ready",
+      "ready_never_shown": true,
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/prompt-check-stop_before_ready-jkzzcifp",
+      "prompt_exit": 0,
+      "focus_preserved": true
+    }
+  ],
+  "debugger_started": false,
+  "wechat_attached": false,
+  "automatic_send": false,
+  "hashes": {
+    "factory_window_prompt_4115": "4cee36c61786c19b5a600b694ccadb41d7aa5a57f7a041c0e66a76be5a522d7d",
+    "factory_window_prompt_4115.swift": "f64826392645861f3b761b97f38b9fd25061ffb1b21637aa22e19c5e36f90ac4"
+  }
+}

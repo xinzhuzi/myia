@@ -1,0 +1,10 @@
+{
+  "passed": false,
+  "stage": "dyld RTTI name slot expectation",
+  "slot": "0x9e877f0",
+  "expected_initially": "0x89fff95",
+  "decoded_from_frozen_chain": "0x80000000089fff95",
+  "correction": "Retain high bit in slot assertion and contract; map low 63 bits only to read frozen name bytes. Function-pointer slots unchanged.",
+  "target_executed": false,
+  "target_attached": false
+}

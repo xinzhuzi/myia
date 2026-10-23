@@ -1,0 +1,75 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "native-fn-594c390.asm",
+      "instructions": 24,
+      "bytes": 96
+    },
+    {
+      "file": "native-fn-597d418.asm",
+      "instructions": 24,
+      "bytes": 96
+    },
+    {
+      "file": "native-fn-597eda0.asm",
+      "instructions": 45,
+      "bytes": 180
+    },
+    {
+      "file": "native-fn-5a6c374.asm",
+      "instructions": 16,
+      "bytes": 64
+    },
+    {
+      "file": "native-fn-5cc1d14.asm",
+      "instructions": 8,
+      "bytes": 32
+    },
+    {
+      "file": "native-fn-5ded3c4.asm",
+      "instructions": 74,
+      "bytes": 296
+    },
+    {
+      "file": "callback-pass2/native-fn-5973938.asm",
+      "instructions": 82,
+      "bytes": 328
+    },
+    {
+      "file": "callback-pass2/native-fn-597ffb0.asm",
+      "instructions": 660,
+      "bytes": 2640
+    },
+    {
+      "file": "callback-pass2/native-fn-59b73b0.asm",
+      "instructions": 53,
+      "bytes": 212
+    },
+    {
+      "file": "callback-pass2/native-fn-5cc4468.asm",
+      "instructions": 3019,
+      "bytes": 12076
+    },
+    {
+      "file": "ownership-pass3/native-fn-46364ec.asm",
+      "instructions": 192,
+      "bytes": 768
+    },
+    {
+      "file": "ownership-pass3/native-fn-5d5d3bc.asm",
+      "instructions": 209,
+      "bytes": 836
+    },
+    {
+      "file": "ownership-pass3/native-fn-5daa3c8.asm",
+      "instructions": 205,
+      "bytes": 820
+    }
+  ],
+  "total_instructions": 4611,
+  "total_bytes": 18444,
+  "all_matched": true,
+  "runtime_observed": false,
+  "limitation": "Byte equality validates provenance; inferred signatures and Task ownership still require separate proof."
+}

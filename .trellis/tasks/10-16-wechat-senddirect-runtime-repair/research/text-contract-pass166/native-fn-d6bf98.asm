@@ -1,0 +1,2 @@
+0xd6bf98	00e440b9	ldr w0,[x0, #0xe4]
+0xd6bf9c	c0035fd6	ret

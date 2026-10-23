@@ -1,0 +1,28 @@
+{
+ "schema": 3,
+ "wechat_version": "4.1.15",
+ "dylib_arm64_slice_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+ "anchor_offset": "0x490fb20",
+ "anchor_bytes_hex": "ffc305d1fc6f14a9f44f15a9fd7b16a9",
+ "note": "r4/cap5 终版模型(design-阶段3 §2.7):F_exec(ctx,msgctx) 模板直调;observe 断点=send_entry 本身,x0=ctx(queue_selector 无关紧要,queue_delta=0);msgctx 三串槽 +8/+0x48/+0x130,+0x228 置 NULL 跳 retain",
+ "offsets": {
+  "send_entry": "0x83e394",
+  "pump_resume": null,
+  "enqueue_a": "0x83e394",
+  "enqueue_b": "0xa5ed0",
+  "service_ptr_mode": "observe_bp",
+  "service_global_off": null,
+  "queue_selector": "enqueue_a",
+  "queue_delta": "0x0",
+  "svc_vtable_off": "0x9c516b8",
+  "svc_invariants_hex": "009647a3080000002800000000000000183c91a308000000",
+  "arg_abi": {
+   "peer_slot": "msgctx+0x08",
+   "body_slot": "msgctx+0x48",
+   "display_slot": "msgctx+0x130",
+   "string_form": "inline23_rawlen",
+   "by_value": false,
+   "buffer_mode": "template_capture_same_session"
+  }
+ }
+}

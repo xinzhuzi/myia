@@ -1,0 +1,63 @@
+0x305cdec	ff8301d1	sub sp,sp,#0x60
+0x305cdf0	f65703a9	stp x22,x21,[sp, #0x30]
+0x305cdf4	f44f04a9	stp x20,x19,[sp, #0x40]
+0x305cdf8	fd7b05a9	stp x29,x30,[sp, #0x50]
+0x305cdfc	fd430191	add x29,sp,#0x50
+0x305ce00	f30300aa	mov x19,x0
+0x305ce04	f4030091	mov x20,sp
+0x305ce08	e8030091	mov x8,sp
+0x305ce0c	00800091	add x0,x0,#0x20
+0x305ce10	3b000094	bl 0x0305cefc
+0x305ce14	750240f9	ldr x21,[x19]
+0x305ce18	e80340f9	ldr x8,[sp]
+0x305ce1c	e00315aa	mov x0,x21
+0x305ce20	088400f8	str x8,[x0], #0x8
+0x305ce24	81220091	add x1,x20,#0x8
+0x305ce28	ae8a0395	bl 0x0713f8e0
+0x305ce2c	e92342a9	ldp x9,x8,[sp, #0x20]
+0x305ce30	880000b4	cbz x8,0x0305ce40
+0x305ce34	0a210091	add x10,x8,#0x8
+0x305ce38	2b008052	mov w11,#0x1
+0x305ce3c	4a012bf8	ldadd x11,x10,[x10]
+0x305ce40	b41640f9	ldr x20,[x21, #0x28]
+0x305ce44	a92202a9	stp x9,x8,[x21, #0x20]
+0x305ce48	740100b4	cbz x20,0x0305ce74
+0x305ce4c	88220091	add x8,x20,#0x8
+0x305ce50	09008092	mov x9,#-0x1
+0x305ce54	0801e9f8	ldaddal x9,x8,[x8]
+0x305ce58	e80000b5	cbnz x8,0x0305ce74
+0x305ce5c	880240f9	ldr x8,[x20]
+0x305ce60	080940f9	ldr x8,[x8, #0x10]
+0x305ce64	e00314aa	mov x0,x20
+0x305ce68	00013fd6	blr x8
+0x305ce6c	e00314aa	mov x0,x20
+0x305ce70	6b8b0395	bl 0x0713fc1c
+0x305ce74	f41740f9	ldr x20,[sp, #0x28]
+0x305ce78	b40000b4	cbz x20,0x0305ce8c
+0x305ce7c	88220091	add x8,x20,#0x8
+0x305ce80	09008092	mov x9,#-0x1
+0x305ce84	0801e9f8	ldaddal x9,x8,[x8]
+0x305ce88	e80100b4	cbz x8,0x0305cec4
+0x305ce8c	e87fc039	ldrsb w8,[sp, #0x1f]
+0x305ce90	a800f836	tbz w8,#0x1f,0x0305cea4
+0x305ce94	e00740f9	ldr x0,[sp, #0x8]
+0x305ce98	e80f40f9	ldr x8,[sp, #0x18]
+0x305ce9c	01f94092	and x1,x8,#0x7fffffffffffffff
+0x305cea0	5b8c0395	bl 0x0714000c
+0x305cea4	680a40f9	ldr x8,[x19, #0x10]
+0x305cea8	29008052	mov w9,#0x1
+0x305ceac	090100b9	str w9,[x8]
+0x305ceb0	fd7b45a9	ldp x29,x30,[sp, #0x50]
+0x305ceb4	f44f44a9	ldp x20,x19,[sp, #0x40]
+0x305ceb8	f65743a9	ldp x22,x21,[sp, #0x30]
+0x305cebc	ff830191	add sp,sp,#0x60
+0x305cec0	c0035fd6	ret
+0x305cec4	880240f9	ldr x8,[x20]
+0x305cec8	080940f9	ldr x8,[x8, #0x10]
+0x305cecc	e00314aa	mov x0,x20
+0x305ced0	00013fd6	blr x8
+0x305ced4	e00314aa	mov x0,x20
+0x305ced8	518b0395	bl 0x0713fc1c
+0x305cedc	e87fc039	ldrsb w8,[sp, #0x1f]
+0x305cee0	28feff36	tbz w8,#0x1f,0x0305cea4
+0x305cee4	ecffff17	b 0x0305ce94

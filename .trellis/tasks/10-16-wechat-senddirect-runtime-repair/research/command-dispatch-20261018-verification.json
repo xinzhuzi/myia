@@ -1,0 +1,290 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass72/native-fn-4669774.asm",
+      "instructions": 3,
+      "sha256": "b2ce98a056de8c6d77fd4141687ad0ca5c834c73ad77daeaf9b0d138a4c431f4"
+    },
+    {
+      "file": "text-contract-pass242/native-fn-291d53c.asm",
+      "instructions": 315,
+      "sha256": "31a4ada901f182a0345971e5e5b85a3c5c00610375f9c16759a054bbb9c47f69"
+    },
+    {
+      "file": "text-contract-pass243/native-fn-286fbac.asm",
+      "instructions": 188,
+      "sha256": "78d86d5028df882625925225fbe39b08867bfe43dc71458d212918dae5bea672"
+    },
+    {
+      "file": "text-contract-pass261/native-fn-453cce8.asm",
+      "instructions": 176,
+      "sha256": "8104070db6399d873ee35e5dfd74341792ca6fab0273180ac591962c25510238"
+    },
+    {
+      "file": "text-contract-pass261/native-fn-466ad74.asm",
+      "instructions": 8,
+      "sha256": "0dae8548cdbd7ead7042b34df335d2724aaf55aa8761b9745b73ab5a0b766cc8"
+    },
+    {
+      "file": "text-contract-pass363/native-fn-286fb58.asm",
+      "instructions": 16,
+      "sha256": "05e36dbedf09356d85ae62183731ee34cd360d3bfebe4fb6cc43d5ebae23917b"
+    },
+    {
+      "file": "text-contract-pass365/native-fn-286f9c8.asm",
+      "instructions": 83,
+      "sha256": "d7bf17605da542827f09f2f7d78f9cbf258322fda244d2c662d2c68914c1ee8d"
+    },
+    {
+      "file": "text-contract-pass366/native-fn-28569a4.asm",
+      "instructions": 450,
+      "sha256": "e1e60d104f80be5fb0c8a64503a9c71cf468017e9ceb45ab922ecbf91fb264e8"
+    },
+    {
+      "file": "text-contract-pass366/native-fn-33c40.asm",
+      "instructions": 7,
+      "sha256": "0aab619025920d5b8b747b701b98115f9902b5734a62f0e38a12b92448d4519d"
+    },
+    {
+      "file": "text-contract-pass368/native-fn-28544e4.asm",
+      "instructions": 140,
+      "sha256": "d9d1c6ae23d42754a9b9c8513ef5162ce03f2f29416eeccfb09b733e4ec87f22"
+    },
+    {
+      "file": "text-contract-pass368/native-fn-33c7c.asm",
+      "instructions": 20,
+      "sha256": "1febcc05464efd64108d734e6f74f95f94b205b09ddd8313c2437a7b1a0b53e2"
+    },
+    {
+      "file": "text-contract-pass379/native-fn-2857ca4.asm",
+      "instructions": 399,
+      "sha256": "8c98bd20aaab36f49c9c5ea9e7cc27fadae732af5dea47bd164c929a5daf645c"
+    },
+    {
+      "file": "text-contract-pass380/native-fn-2877d34.asm",
+      "instructions": 99,
+      "sha256": "6a63e4c834ec53d8e98453db97f7ceb602655d8d3ddcbc28bfcb446e0cc96bc8"
+    },
+    {
+      "file": "text-contract-pass380/native-fn-2769c.asm",
+      "instructions": 92,
+      "sha256": "d19b55c59a84e3207f31894ad9bd36a513995e94ec8bd7b808de50ca2a08e70e"
+    },
+    {
+      "file": "text-contract-pass380/native-fn-33c38.asm",
+      "instructions": 2,
+      "sha256": "6cbf88bbc39a6c482e1fff276f8da89e08b430e3fe6083b6f5053e052d465fb2"
+    },
+    {
+      "file": "text-contract-pass382/native-fn-2686020.asm",
+      "instructions": 276,
+      "sha256": "8c4f9ef62575cc9461cb61fa79e9d3f30c976cacef6c77574bb77fe4bbbedb36"
+    },
+    {
+      "file": "text-contract-pass383/native-fn-559f2a0.asm",
+      "instructions": 14,
+      "sha256": "f2c1e8e70ee6459b3b349927a370cc2611003ea40c903877414743640e92a6eb"
+    },
+    {
+      "file": "text-contract-pass383/native-fn-26870f0.asm",
+      "instructions": 88,
+      "sha256": "f99f1b72a011babb2170eec34369e87ae9ef86f24693a23c9203dcf4e3f38857"
+    },
+    {
+      "file": "text-contract-pass384/native-fn-2684bf0.asm",
+      "instructions": 674,
+      "sha256": "1f9d07f7637b12e0c251b2ea537c5bfa2cdf6c26292a4155948aeb0de4c31092"
+    },
+    {
+      "file": "text-contract-pass386/native-fn-55bf164.asm",
+      "instructions": 51,
+      "sha256": "0e15577805629a7965d354b77ac9af35172fb64ce82466b9f72b4675d2025a20"
+    },
+    {
+      "file": "text-contract-pass386/native-fn-55bedc4.asm",
+      "instructions": 226,
+      "sha256": "fe64795129d92929367314d14a49240b59c7a04218994442e7974402c34a5782"
+    },
+    {
+      "file": "text-contract-pass386/native-fn-55bf46c.asm",
+      "instructions": 67,
+      "sha256": "14ac715432e8610a6bf0969da52691c9f6a8c95be3d2f3c4168aad374b84455a"
+    },
+    {
+      "file": "text-contract-pass388/native-fn-2661260.asm",
+      "instructions": 801,
+      "sha256": "d4de728e315b3c286b09ed6afc53044ef90db60d308c33b0ee3df377bb8e140a"
+    },
+    {
+      "file": "text-contract-pass390/native-fn-2660d9c.asm",
+      "instructions": 148,
+      "sha256": "59e87253baa64f6ad2a3f3930ec2b474b19b0f417a4231c834aed812e461a9c5"
+    }
+  ],
+  "instruction_rows": 4343,
+  "instruction_checks": 132,
+  "independent_branch_decodes": [
+    {
+      "address": "0x2854694",
+      "target": "0x286f9c8"
+    },
+    {
+      "address": "0x286fa0c",
+      "target": "0x33c40"
+    },
+    {
+      "address": "0x286fa38",
+      "target": "0x28569a4"
+    },
+    {
+      "address": "0x2856cb4",
+      "target": "0x2877ec4"
+    },
+    {
+      "address": "0x2856cf4",
+      "target": "0x33c7c"
+    },
+    {
+      "address": "0x2857d20",
+      "target": "0x2877d34"
+    },
+    {
+      "address": "0x2857d24",
+      "target": "0x2857d44"
+    },
+    {
+      "address": "0x2858258",
+      "target": "0x2769c"
+    },
+    {
+      "address": "0x2858294",
+      "target": "0x33c38"
+    },
+    {
+      "address": "0x285829c",
+      "target": "0x33d2c"
+    },
+    {
+      "address": "0x286fb7c",
+      "target": "0x286fbac"
+    },
+    {
+      "address": "0x286fc3c",
+      "target": "0x74916c"
+    },
+    {
+      "address": "0x286fd9c",
+      "target": "0x291d53c"
+    },
+    {
+      "address": "0x55bef80",
+      "target": "0x5ab514c"
+    },
+    {
+      "address": "0x55befdc",
+      "target": "0x5ab514c"
+    },
+    {
+      "address": "0x55bf1c4",
+      "target": "0x5ab4f58"
+    },
+    {
+      "address": "0x55bf1dc",
+      "target": "0x5ab4f58"
+    },
+    {
+      "address": "0x55bf1f4",
+      "target": "0x5ab4f58"
+    },
+    {
+      "address": "0x2660df0",
+      "target": "0x4669774"
+    },
+    {
+      "address": "0x2660df8",
+      "target": "0x466ad74"
+    },
+    {
+      "address": "0x2660f00",
+      "target": "0x453cce8"
+    },
+    {
+      "address": "0x453cf44",
+      "target": "0x453c20c"
+    },
+    {
+      "address": "0x26612bc",
+      "target": "0x5607970"
+    },
+    {
+      "address": "0x26612e0",
+      "target": "0x5ab3ab8"
+    },
+    {
+      "address": "0x2661310",
+      "target": "0x2684bf0"
+    },
+    {
+      "address": "0x2685194",
+      "target": "0x2686020"
+    },
+    {
+      "address": "0x2686060",
+      "target": "0x559f2a0"
+    },
+    {
+      "address": "0x2686084",
+      "target": "0x5ab3ab8"
+    },
+    {
+      "address": "0x2686088",
+      "target": "0x2686150"
+    },
+    {
+      "address": "0x26860a8",
+      "target": "0x26870f0"
+    },
+    {
+      "address": "0x26860b8",
+      "target": "0x2857ca4"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9d9fa90",
+      "decoded": "0x2661260",
+      "chain_steps": 1719
+    },
+    {
+      "slot": "0x9f11548",
+      "decoded": "0x55bf46c",
+      "chain_steps": 638
+    },
+    {
+      "slot": "0x9f11578",
+      "decoded": "0x55bedc4",
+      "chain_steps": 644
+    },
+    {
+      "slot": "0x9f11588",
+      "decoded": "0x55bf164",
+      "chain_steps": 646
+    }
+  ],
+  "command": "message::send_message",
+  "request_type": "chatbot.WxFunctionCallInput",
+  "contract_sha256": "09f256c9a7fae2750dc05d46f32ed762faf69fd09a6238113841cf28911d5bfa",
+  "verifier_sha256": "ea7fd8ec42c1863b8aaf68f8001e33fed5722953e9a06f2d04753822c3a171a1",
+  "account_stop_sha256": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+  "limitations": [
+    "one selected conditional native route, not all preconditions or all threads",
+    "forwarded string business name and downstream uses remain open",
+    "native state0 cancellation, exception cleanup and complete queue/request drain remain open",
+    "no real sending, independent receipt or deployment"
+  ],
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false
+}

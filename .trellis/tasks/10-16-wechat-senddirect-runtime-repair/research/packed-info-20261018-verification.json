@@ -1,0 +1,360 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass126/native-fn-ac6038.asm",
+      "instructions": 67,
+      "sha256": "c7ed0201f723cbf197b88609a507125075b4142af2021db584631fc8eec32456",
+      "pseudocode_sha256": "91e91f1fe2b0cf13e03bafa7a68d3fa063b81d75e2133244d7e56a1eb1fb6891"
+    },
+    {
+      "file": "text-contract-pass302/native-fn-4ea6ba0.asm",
+      "instructions": 12,
+      "sha256": "cc2842aa1ee0ebdffff9d38f67383118f61307045dceda6c63ea4483e795f108",
+      "pseudocode_sha256": "cc864e83869e37f8e70d065a435fd5367b2aed7853ea7d8cd1a52894c582e2a1"
+    },
+    {
+      "file": "text-contract-pass303/native-fn-4eb03b0.asm",
+      "instructions": 67,
+      "sha256": "c8c9ba890102ad7810222ef0bcda46def4ac1828dbdeb13fe21160a03921672d",
+      "pseudocode_sha256": "5ce05cab2e64572f7a58dcffbdd75ee57309687632f9c270e73a45996ac43896"
+    },
+    {
+      "file": "text-contract-pass303/native-fn-4eaea88.asm",
+      "instructions": 268,
+      "sha256": "f325f36d44be9a4b8ff56b030b3e714236bef212ac68abab34c7f9d343ccf38b",
+      "pseudocode_sha256": "d75d10c40528fe74fe0c17fd021fbc2542b335a8b103a67bbc793cbf3961798a"
+    },
+    {
+      "file": "text-contract-pass303/native-fn-4eb03a8.asm",
+      "instructions": 2,
+      "sha256": "dd7588fc1e2762076e6d19abdcfb0e1180f25d6427da30ca51c8e7c260f9175c",
+      "pseudocode_sha256": "58f08c5a564d14cc9b8b84ed03ecd0489789ad73eeae33b4938b74465fe4d38b"
+    },
+    {
+      "file": "text-contract-pass303/native-fn-4eaeeb8.asm",
+      "instructions": 62,
+      "sha256": "5d9b6efaa87a323552669c06bd1eb64d2fa4e8b04a6907904c72b4cfd8e22752",
+      "pseudocode_sha256": "40120dd19e30fd02855fd58ce75ae4a2fe2df5a95b44e49e1832c92f92869fe7"
+    },
+    {
+      "file": "text-contract-pass87/native-fn-5ab3ab8.asm",
+      "instructions": 66,
+      "sha256": "786caf9b38a053cdfabcd48511fcb42db1e9cf685f93b29544bb07328b7bf28b",
+      "pseudocode_sha256": "cf90f30d0bbac66b9244e0efba26bf09c85181f7238010986afa1f49688df38c"
+    },
+    {
+      "file": "text-contract-pass125/native-fn-4cbfafc.asm",
+      "instructions": 23,
+      "sha256": "7fee301677a4a5d5a40992c11c7348e53b8d754c0abeca39cf8c643314854d1a",
+      "pseudocode_sha256": "51d56e6d6ddd1547ace683981bf4d79d02886763bc93b26bda8c5e0ef33a8c4e"
+    },
+    {
+      "file": "text-contract-pass296/native-fn-3280514.asm",
+      "instructions": 398,
+      "sha256": "8a1b0f1694d3a92105b392456bc9ecd07a72faf962591fac6527e3dd1dfd32a6",
+      "pseudocode_sha256": "f989ad9ad645cd15d1b179737f95ee0e0ec157648ca1e0cf6a7b5c7522e07c9a"
+    },
+    {
+      "file": "text-contract-pass229/native-fn-32961a4.asm",
+      "instructions": 503,
+      "sha256": "c21db6d5e3a08789df4276c2e58376bbcb0bbee1ba5dc141489ff9666de25e84",
+      "pseudocode_sha256": "2b4ecb18c1b18d192abc995bc54c119bf5e2508b7bcca1186bf3fc6a5ebb2add"
+    },
+    {
+      "file": "text-contract-pass230/native-fn-4cbfb58.asm",
+      "instructions": 25,
+      "sha256": "45f0249854f3ced8b813f0a0c04c3a573ded58176bba6b35fc82507f430d46e8",
+      "pseudocode_sha256": "c2b27b55ca6075a3882154dcbe0699a8bbc6c3b7ccc5b188923a4bdfa49ac833"
+    },
+    {
+      "file": "text-contract-pass305/native-fn-4eafbbc.asm",
+      "instructions": 151,
+      "sha256": "466a295b522eaa692d479c5d5881fcd1a12a7d855c3ea8e190fd57c25ba9f8c5",
+      "pseudocode_sha256": "1d09b5e853f99f8406271f57892b13fc26b69dc8b39c5ee81322d42dcf8c819d"
+    },
+    {
+      "file": "text-contract-pass305/native-fn-5ab3f9c.asm",
+      "instructions": 35,
+      "sha256": "202755dee50312b57b40cfd0cc942354f08d04f1aed1404256dcd414d6cca2b5",
+      "pseudocode_sha256": "cc75c4470eecaf87291a83343ecbd0a6dfc5965c9d703d024e5b0989b63c602a"
+    },
+    {
+      "file": "text-contract-pass306/native-fn-5ab3bc0.asm",
+      "instructions": 52,
+      "sha256": "e6b47fd0b1b931bc3b39578bc17df1b081338e93b794bdb094f1ffcedfe66e0e",
+      "pseudocode_sha256": "d8e1b350080cab1b93b2e4d0d75644d4b8ff58139dc25ffec78cf2d10a006683"
+    },
+    {
+      "file": "text-contract-pass306/native-fn-5ab4e34.asm",
+      "instructions": 13,
+      "sha256": "52cff603b8769af96e9ce5af506d3dbe4e349f0cbc234b06698acbf75893ad22",
+      "pseudocode_sha256": "a5a4f9bd7d7ed1847b8559a24242d5c974783fc439b79d414ebc76902806853b"
+    },
+    {
+      "file": "text-contract-pass301/native-fn-4cbd8fc.asm",
+      "instructions": 330,
+      "sha256": "258e7e829c7109d95aa63364ecbde5d85ad7a3d1ac2200cec8079c8f6ff34b11",
+      "pseudocode_sha256": "9891912631870beb47e404281d5c69fe61c46f77cd0816a0169c9d7a004e0d0f"
+    },
+    {
+      "file": "text-contract-pass158/native-fn-4cbbc88.asm",
+      "instructions": 38,
+      "sha256": "906170635cf3f61d576c49c96204e51726d77f993311152d180a67edd7bdfe12",
+      "pseudocode_sha256": "afe8b2ae468dcf7971c5a822beb538767141c0120dda713a9b3e874d68cdad1b"
+    }
+  ],
+  "ghidra_instructions_matched": 2112,
+  "ghidra_parser_gaps": [
+    {
+      "file": "text-contract-pass303/native-fn-4eaeeb8.asm",
+      "start": "0x4eaef6c",
+      "end_exclusive": "0x4eaf044"
+    },
+    {
+      "file": "text-contract-pass303/native-fn-4eaeeb8.asm",
+      "start": "0x4eaf05c",
+      "end_exclusive": "0x4eafb90"
+    }
+  ],
+  "llvm_parser_instructions_matched": 833,
+  "unique_instruction_positions_matched": 2883,
+  "instruction_checks": 261,
+  "independently_decoded_branches": [
+    {
+      "address": "0xac60d4",
+      "kind": "B/BL",
+      "target": "0x4ea6ba0"
+    },
+    {
+      "address": "0x5ab3b2c",
+      "kind": "CBZ/CBNZ",
+      "target": "0x5ab3ba4"
+    },
+    {
+      "address": "0x5ab3b40",
+      "kind": "TBZ/TBNZ",
+      "target": "0x5ab3b4c"
+    },
+    {
+      "address": "0x4eaef6c",
+      "kind": "CBZ/CBNZ",
+      "target": "0x4eaf044"
+    },
+    {
+      "address": "0x4eaef90",
+      "kind": "B/BL",
+      "target": "0x4eaf070"
+    },
+    {
+      "address": "0x4eaeffc",
+      "kind": "B.cond",
+      "target": "0x4eaf0a0"
+    },
+    {
+      "address": "0x4eaf000",
+      "kind": "B/BL",
+      "target": "0x4eaf0b8"
+    },
+    {
+      "address": "0x4eaf064",
+      "kind": "B/BL",
+      "target": "0x5ab2ea0"
+    },
+    {
+      "address": "0x4eaf068",
+      "kind": "CBZ/CBNZ",
+      "target": "0x4eafb9c"
+    },
+    {
+      "address": "0x4eaf080",
+      "kind": "B.cond",
+      "target": "0x4eaef0c"
+    },
+    {
+      "address": "0x4eaf08c",
+      "kind": "B.cond",
+      "target": "0x4eaef0c"
+    },
+    {
+      "address": "0x4eaf0a4",
+      "kind": "TBZ/TBNZ",
+      "target": "0x4eaf0b8"
+    },
+    {
+      "address": "0x4eaf0c0",
+      "kind": "B/BL",
+      "target": "0x5ab2ea0"
+    },
+    {
+      "address": "0x4eaf0c4",
+      "kind": "CBZ/CBNZ",
+      "target": "0x4eafb9c"
+    },
+    {
+      "address": "0x4eaf0dc",
+      "kind": "B.cond",
+      "target": "0x4eaef0c"
+    },
+    {
+      "address": "0x4eaf0e8",
+      "kind": "B.cond",
+      "target": "0x4eaef0c"
+    },
+    {
+      "address": "0x4eaf058",
+      "kind": "B/BL",
+      "target": "0x4eafb90"
+    },
+    {
+      "address": "0x4cbfb20",
+      "kind": "B/BL",
+      "target": "0x5ab3ab8"
+    },
+    {
+      "address": "0x4cbfb24",
+      "kind": "CBZ/CBNZ",
+      "target": "0x4cbfb4c"
+    },
+    {
+      "address": "0x328066c",
+      "kind": "B/BL",
+      "target": "0x4cbfafc"
+    },
+    {
+      "address": "0x4cbfb6c",
+      "kind": "B/BL",
+      "target": "0x4eafe18"
+    },
+    {
+      "address": "0x4cbfbb8",
+      "kind": "B/BL",
+      "target": "0x5ab3f98"
+    },
+    {
+      "address": "0x5ab3f98",
+      "kind": "B/BL",
+      "target": "0x5ab3f9c"
+    },
+    {
+      "address": "0x4eafbd4",
+      "kind": "TBZ/TBNZ",
+      "target": "0x4eafc18"
+    },
+    {
+      "address": "0x4eafbd8",
+      "kind": "TBZ/TBNZ",
+      "target": "0x4eafc30"
+    },
+    {
+      "address": "0x4eafc24",
+      "kind": "B/BL",
+      "target": "0x5ab4e34"
+    },
+    {
+      "address": "0x4eafc3c",
+      "kind": "B/BL",
+      "target": "0x5ab4e34"
+    },
+    {
+      "address": "0x5ab4e50",
+      "kind": "B/BL",
+      "target": "0x5ab33f0"
+    },
+    {
+      "address": "0x5ab4e64",
+      "kind": "B/BL",
+      "target": "0x5ab33f0"
+    },
+    {
+      "address": "0x4cbd960",
+      "kind": "TBZ/TBNZ",
+      "target": "0x4cbd974"
+    },
+    {
+      "address": "0x4cbd970",
+      "kind": "B.cond",
+      "target": "0x4cbd97c"
+    },
+    {
+      "address": "0x4cbd978",
+      "kind": "B/BL",
+      "target": "0x4cbdddc"
+    },
+    {
+      "address": "0x4cbda0c",
+      "kind": "B.cond",
+      "target": "0x4cbdb34"
+    },
+    {
+      "address": "0x4cbda18",
+      "kind": "B.cond",
+      "target": "0x4cbdb34"
+    },
+    {
+      "address": "0x4cbdb38",
+      "kind": "B.cond",
+      "target": "0x4cbdb70"
+    }
+  ],
+  "dyld_slots": [
+    {
+      "slot": "0x9ec4238",
+      "decoded": "0x4eb03b0",
+      "chain_steps": 67
+    },
+    {
+      "slot": "0x9ec4248",
+      "decoded": "0x4eaea88",
+      "chain_steps": 69
+    },
+    {
+      "slot": "0x9ec4250",
+      "decoded": "0x4eb03a8",
+      "chain_steps": 70
+    },
+    {
+      "slot": "0x9ec4268",
+      "decoded": "0x4eaeeb8",
+      "chain_steps": 73
+    },
+    {
+      "slot": "0x9ec4270",
+      "decoded": "0x4eafe18",
+      "chain_steps": 74
+    },
+    {
+      "slot": "0x9ec4278",
+      "decoded": "0x4eafbbc",
+      "chain_steps": 75
+    },
+    {
+      "slot": "0x9ec4280",
+      "decoded": "0x5ab3bc0",
+      "chain_steps": 76
+    }
+  ],
+  "literal_fragments_checked": 7,
+  "contract_sha256": "9941930a0a454d9c236caf45bedf29ac03981e44918a1483e7102297b391cf96",
+  "verifier_sha256": "79ce1ba4585bde91aa3ee6fd864e7b225cfd426d0398ef105856b141e93c7165",
+  "reader_sha256": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+  "llvm_sha256": "c430800f2c8afda65238459c77f37c0f3ae3d3bf4c230d844b7969698ee47fc2",
+  "prior_sha256": {
+    "account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    "newsendmsg-name-map-contract.json": "7c29b063732e72c231962283914edd89f47d8b53cab04559cbe8453d4030ce0a",
+    "name-map-20261018-verification.json": "7f4b11e0b1e1916bb2d80092fe472b772f3795c7acd6dab1d7dfc2cdcea1ac85",
+    "newsendmsg-record-database-contract.json": "c84f989aa14884e480902b2b528e1615c46da583c2e15c999bac557b2bd1c2c1"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "deployed": false,
+  "limits": [
+    "Numeric field business direction/account identity and all input/result production",
+    "Nested metadata schemas and full service update effects",
+    "Real thread/group/executor identity, cancellation final release and drain",
+    "Complete native adapter, genuine sending and independent receipt, then deployment; account stop remains"
+  ]
+}

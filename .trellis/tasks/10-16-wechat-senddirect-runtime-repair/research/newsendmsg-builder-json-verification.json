@@ -1,0 +1,72 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass171/native-fn-2920b74.asm",
+      "instructions": 1861,
+      "sha256": "80005f2517c1627f0be958214ef457afe16ff9f8d3b96cf97241de331ad26f72",
+      "pseudocode_sha256": "ac0ccec4f5490e9a6eb9947c9dbf24651a669d6eca9e6064b0e650bb05b38da0"
+    },
+    {
+      "file": "text-contract-pass158/native-fn-30ef9e0.asm",
+      "instructions": 148,
+      "sha256": "6e341b70a050b49f8341ec28fac16c150fab9b08a38efac75bf140f57b53aa7d",
+      "pseudocode_sha256": "b0b953cdfd9deb0edecb0226000364a1ceb45847b05003a79af11401e656b958"
+    },
+    {
+      "file": "text-contract-pass242/native-fn-291d53c.asm",
+      "instructions": 315,
+      "sha256": "31a4ada901f182a0345971e5e5b85a3c5c00610375f9c16759a054bbb9c47f69",
+      "pseudocode_sha256": "56c1bfa3877bf85a63f57a49fe3bbf40a6da393f68eff1c7dc6b256189f22705"
+    },
+    {
+      "file": "text-contract-pass242/native-fn-2ab6388.asm",
+      "instructions": 747,
+      "sha256": "67436b6332090e512207b45a5414a6716b9a64acf60f5946f2718e6881a6415a",
+      "pseudocode_sha256": "4f5f6f813e60fd063701f223b5fb473dc35b50471bdce676188dd3b771ae36dd"
+    },
+    {
+      "file": "text-contract-pass243/native-fn-286fbac.asm",
+      "instructions": 188,
+      "sha256": "78d86d5028df882625925225fbe39b08867bfe43dc71458d212918dae5bea672",
+      "pseudocode_sha256": "2cc23fd44a8f0be150c77b46d7a6de255733094f2f4bd6d7a120cf3e6378d0c7"
+    },
+    {
+      "file": "text-contract-pass243/native-fn-291dab8.asm",
+      "instructions": 1953,
+      "sha256": "91a310ac600ecf96d4f91b1b8bacdc1b29ed473c2142a4363eb5c690052eac8b",
+      "pseudocode_sha256": "3b685a8c013189f58caa34eb158a42a53cb449af87b2102d115d3cc3f545ebba"
+    },
+    {
+      "file": "text-contract-pass244/native-fn-206bc.asm",
+      "instructions": 67,
+      "sha256": "0db8c3266d4715338b33313e1c315ac4642165d50eae221d5312aea4f5280344",
+      "pseudocode_sha256": "09e5522e4a0c287b75d49e08afb7a7dedf3605d624212c56e71d8b453d4401e2"
+    },
+    {
+      "file": "text-contract-pass244/native-fn-74a99c.asm",
+      "instructions": 41,
+      "sha256": "727f7ff3a3d94e32a8ecdc674ac0bb4b83bd07a4357b701b6249ec647479e871",
+      "pseudocode_sha256": "36952ecbb54ebc51df4805f323963b4c53e1c722d8efec7f625db127f3532fdf"
+    }
+  ],
+  "instructions_matched": 5320,
+  "instruction_positions_checked": 65,
+  "literals": {
+    "chat_id": "636861745f696400",
+    "message_type": "6d6573736167655f74797065",
+    "content_xml_base64": "636f6e74656e745f786d6c5f62617365363400",
+    "content_xml": "636f6e74656e745f786d6c00"
+  },
+  "contract_sha256": "c80a88b0bc623f80ee09984c9a39e1399bd89ebef60610507c0dffe720b32c5d",
+  "verifier_sha256": "bfb37fd873b2a2d97448543acbd772007e39b2a8c541766e72affd65e65c9c63",
+  "prior_contract_sha256": {
+    "newsendmsg-text-input-path-contract.json": "ffa7abe710f241e7a70d655db85c0bc0e52e632c0b2482cbac5a9b1831ff1941",
+    "account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "One reviewed JSON-to-text-input path; other routes, optional/subtype semantics, final recipient direction, runtime context/drain and delivery remain unproved."
+}

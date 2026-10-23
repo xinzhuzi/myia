@@ -1,0 +1,8 @@
+{
+  "failed_check_site": "0x453e1a8",
+  "expected": "bl 0x066823c4",
+  "observed": "ldr x0,[x19, #0x10]",
+  "verified_wait_callsite": "0x453e1a4",
+  "source_sha256": "fc1fdbf277675eda6189c81397a296eca3c0eaaba71132c314ec5dd0e847eae7",
+  "target_attached": false
+}

@@ -1,0 +1,47 @@
+
+/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+0000000004de73fc <_SetWeixinCallbackFunc>:
+ 667dcac: a9bc5ff8     	stp	x24, x23, [sp, #-0x40]!
+ 667dcb0: a90157f6     	stp	x22, x21, [sp, #0x10]
+ 667dcb4: a9024ff4     	stp	x20, x19, [sp, #0x20]
+ 667dcb8: a9037bfd     	stp	x29, x30, [sp, #0x30]
+ 667dcbc: 9100c3fd     	add	x29, sp, #0x30
+ 667dcc0: aa0003f3     	mov	x19, x0
+ 667dcc4: f9401c15     	ldr	x21, [x0, #0x38]
+ 667dcc8: b4000375     	cbz	x21, 0x667dd34 <_SetWeixinCallbackFunc+0x1896938>
+ 667dccc: f9402276     	ldr	x22, [x19, #0x40]
+ 667dcd0: aa1503e0     	mov	x0, x21
+ 667dcd4: eb1502df     	cmp	x22, x21
+ 667dcd8: 54000260     	b.eq	0x667dd24 <_SetWeixinCallbackFunc+0x1896928>
+ 667dcdc: 92800017     	mov	x23, #-0x1              ; =-1
+ 667dce0: 14000004     	b	0x667dcf0 <_SetWeixinCallbackFunc+0x18968f4>
+ 667dce4: d10082d6     	sub	x22, x22, #0x20
+ 667dce8: eb1502df     	cmp	x22, x21
+ 667dcec: 540001a0     	b.eq	0x667dd20 <_SetWeixinCallbackFunc+0x1896924>
+ 667dcf0: f85e82d4     	ldur	x20, [x22, #-0x18]
+ 667dcf4: b4ffff94     	cbz	x20, 0x667dce4 <_SetWeixinCallbackFunc+0x18968e8>
+ 667dcf8: 91002288     	add	x8, x20, #0x8
+ 667dcfc: f8f70108     	ldaddal	x23, x8, [x8]
+ 667dd00: b5ffff28     	cbnz	x8, 0x667dce4 <_SetWeixinCallbackFunc+0x18968e8>
+ 667dd04: f9400288     	ldr	x8, [x20]
+ 667dd08: f9400908     	ldr	x8, [x8, #0x10]
+ 667dd0c: aa1403e0     	mov	x0, x20
+ 667dd10: d63f0100     	blr	x8
+ 667dd14: aa1403e0     	mov	x0, x20
+ 667dd18: 942b07c1     	bl	0x713fc1c <_wxam_enc_uninit_10+0x713fc1c>
+ 667dd1c: 17fffff2     	b	0x667dce4 <_SetWeixinCallbackFunc+0x18968e8>
+ 667dd20: f9401e60     	ldr	x0, [x19, #0x38]
+ 667dd24: f9002275     	str	x21, [x19, #0x40]
+ 667dd28: f9402668     	ldr	x8, [x19, #0x48]
+ 667dd2c: cb000101     	sub	x1, x8, x0
+ 667dd30: 942b08b7     	bl	0x714000c <_wxam_enc_uninit_10+0x714000c>
+ 667dd34: f9401661     	ldr	x1, [x19, #0x28]
+ 667dd38: 91008260     	add	x0, x19, #0x20
+ 667dd3c: a9437bfd     	ldp	x29, x30, [sp, #0x30]
+ 667dd40: a9424ff4     	ldp	x20, x19, [sp, #0x20]
+ 667dd44: a94157f6     	ldp	x22, x21, [sp, #0x10]
+ 667dd48: a8c45ff8     	ldp	x24, x23, [sp], #0x40
+ 667dd4c: 1667498c     	b	0x5037c <_WeChatMain+0x36b10>

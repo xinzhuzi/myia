@@ -1,0 +1,86 @@
+{
+  "verified_at": "2026-10-16T06:06:04.256464+00:00",
+  "passed": true,
+  "checks": [
+    {
+      "command": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_wire_4115.py"
+      ],
+      "returncode": 0,
+      "log": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-slice-validation-0.log"
+    },
+    {
+      "command": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_identity_4115.py"
+      ],
+      "returncode": 0,
+      "log": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-slice-validation-1.log"
+    },
+    {
+      "command": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_mmreq_base_4115.py"
+      ],
+      "returncode": 0,
+      "log": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-slice-validation-2.log"
+    },
+    {
+      "command": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/wechat-bridge/test_send_direct_passive.py"
+      ],
+      "returncode": 0,
+      "log": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-slice-validation-3.log"
+    },
+    {
+      "command": [
+        "/Users/zhengbingjin/.local/bin/ruff",
+        "check",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_wire_4115.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_wire_4115.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_identity_4115.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_identity_4115.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/identity_observer_4115.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/run_identity_observer_4115.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_client_hash_4115.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/prepare_wechat_identity_observer_20261016.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/qualify_wechat_identity_observer_20261016.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/verify_wechat_client_hash_20261016.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/verify_wechat_newsendmsg_lifecycle_20261016.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/update_wechat_newsendmsg_contract_20261016.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/validate_wechat_newsendmsg_slice_20261016.py"
+      ],
+      "returncode": 0,
+      "log": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-slice-validation-4.log"
+    }
+  ],
+  "source_sha256": {
+    "newsendmsg_wire_4115.py": "1d766a528d2d3b1946564b15987763901de160fb325658b9643019dbca867605",
+    "newsendmsg_identity_4115.py": "4dda4d75492d37e757755a47e76b4091321d417999d9d653a796f2b854d09d13",
+    "newsendmsg_client_hash_4115.py": "e7a0b720809b88ca9b3c7be4fae0e409a143e46622069a3da3515a17139a6c04",
+    "newsendmsg-4115-static-contract.json": "faab0d41dd5dfae300c778bae717cc5d0daa43eb03281f153eb465e8105718d1",
+    "newsendmsg-next-runtime-window.md": "b531f511fd587957476abc92be9dd882e6ce9e3f573ccdb3353b326070925b00"
+  },
+  "qualification_cases": 10,
+  "unauthorized_profile_rejected": "new explicit identity-snapshot authorization is missing",
+  "wechat_health": {
+    "pid": 33589,
+    "flags": 16452,
+    "state": 2,
+    "start_sec": 1792085027,
+    "start_usec": 181673,
+    "executable": "/Applications/WeChat.app/Contents/MacOS/WeChat"
+  },
+  "debugger_processes": 0,
+  "wechat_attached": false,
+  "sent": false,
+  "product_json_modified": false,
+  "live_ready": false,
+  "native_hash_verification": "client-hash-native-verification.json",
+  "dyld_verification": "newsendmsg-lifecycle-slot-verification.json"
+}

@@ -1,0 +1,42 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "sdk_format": "mach-o/compact_unwind_encoding.h",
+  "personalities": [
+    "0x9b36c48",
+    "0x9b36138",
+    "0x9b36c78"
+  ],
+  "records": [
+    {
+      "pc": "0x2ab6388",
+      "start": "0x2ab6388",
+      "end_exclusive": "0x2ab7154",
+      "encoding": "0x54000017",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x73a0568",
+      "lsda_first_64_hex": "ffff019c03006800006808b81b007408a81b0080010c981b008c01240000b00108801b00bc0108e81a00c8010cc81a00d40198010000ec0208ec1a0088030cd8"
+    },
+    {
+      "pc": "0x2b4b150",
+      "start": "0x2b4b150",
+      "end_exclusive": "0x2b4b4b8",
+      "encoding": "0x54000003",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x73a9aac",
+      "lsda_first_64_hex": "ffff013e540ce405006010a8060070109806008c0210cc06009c02540000f00208e0050088030ccc050094030cbc0500b8030c880600c4030ce80500d0039803"
+    },
+    {
+      "pc": "0x2ab9104",
+      "start": "0x2ab9104",
+      "end_exclusive": "0x2ab9208",
+      "encoding": "0x54000007",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x73a0968",
+      "lsda_first_64_hex": "ffff011000a4010000a4010ce80100b001540000ffff0153004800004810c4050058400000980114bc0500b801088c0500d8010c840500e401540000b802089c"
+    }
+  ],
+  "target_executed": false
+}

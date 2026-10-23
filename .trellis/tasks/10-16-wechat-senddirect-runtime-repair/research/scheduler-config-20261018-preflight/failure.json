@@ -1,0 +1,16 @@
+{
+  "check": "Ghidra body contiguous positions",
+  "passed": false,
+  "records": [
+    {
+      "file": "text-contract-pass266/native-fn-453b674.asm",
+      "holes": [
+        "0x453ba44",
+        "0x453ba50"
+      ]
+    }
+  ],
+  "source_sha256": "effa1ed609d5fc71a987b52eee276b8d592483b800cbbfac85f3871e8ff3c528",
+  "target_executed": false,
+  "target_attached": false
+}

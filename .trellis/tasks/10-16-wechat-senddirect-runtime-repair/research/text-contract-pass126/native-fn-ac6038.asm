@@ -1,0 +1,67 @@
+0xac6038	f657bda9	stp x22,x21,[sp, #-0x30]!
+0xac603c	f44f01a9	stp x20,x19,[sp, #0x10]
+0xac6040	fd7b02a9	stp x29,x30,[sp, #0x20]
+0xac6044	fd830091	add x29,sp,#0x20
+0xac6048	f30300aa	mov x19,x0
+0xac604c	489f04d0	adrp x8,0x9eb0000
+0xac6050	08811391	add x8,x8,#0x4e0
+0xac6054	08410091	add x8,x8,#0x10
+0xac6058	087c00a9	stp x8,xzr,[x0]
+0xac605c	00e4006f	movi v0.2D,#0x0
+0xac6060	f50300aa	mov x21,x0
+0xac6064	a08e893c	str q0,[x21, #0x98]!
+0xac6068	1f1000b9	str wzr,[x0, #0x10]
+0xac606c	00808a3c	stur q0,[x0, #0xa8]
+0xac6070	0080813c	stur q0,[x0, #0x18]
+0xac6074	0080823c	stur q0,[x0, #0x28]
+0xac6078	0080833c	stur q0,[x0, #0x38]
+0xac607c	0080843c	stur q0,[x0, #0x48]
+0xac6080	0080853c	stur q0,[x0, #0x58]
+0xac6084	0080863c	stur q0,[x0, #0x68]
+0xac6088	0080873c	stur q0,[x0, #0x78]
+0xac608c	0020883c	stur q0,[x0, #0x82]
+0xac6090	08f0a752	mov w8,#0x3f800000
+0xac6094	08b800b9	str w8,[x0, #0xb8]
+0xac6098	f60300aa	mov x22,x0
+0xac609c	c00e8c3c	str q0,[x22, #0xc0]!
+0xac60a0	008006ad	stp q0,q0,[x0, #0xd0]
+0xac60a4	1fe00179	strh wzr,[x0, #0xf0]
+0xac60a8	f40300aa	mov x20,x0
+0xac60ac	804e8f3c	str q0,[x20, #0xf4]!
+0xac60b0	9f1a00f9	str xzr,[x20, #0x30]
+0xac60b4	808200ad	stp q0,q0,[x20, #0x10]
+0xac60b8	80c2833c	stur q0,[x20, #0x3c]
+0xac60bc	80c2843c	stur q0,[x20, #0x4c]
+0xac60c0	80c2853c	stur q0,[x20, #0x5c]
+0xac60c4	80c2863c	stur q0,[x20, #0x6c]
+0xac60c8	80c2873c	stur q0,[x20, #0x7c]
+0xac60cc	80c2883c	stur q0,[x20, #0x8c]
+0xac60d0	80720291	add x0,x20,#0x9c
+0xac60d4	b3820f95	bl 0x04ea6ba0
+0xac60d8	00048052	mov w0,#0x20
+0xac60dc	d5e79995	bl 0x07140030
+0xac60e0	00e4006f	movi v0.2D,#0x0
+0xac60e4	0080803c	stur q0,[x0, #0x8]
+0xac60e8	088a04d0	adrp x8,0x9c08000
+0xac60ec	08611091	add x8,x8,#0x418
+0xac60f0	08410091	add x8,x8,#0x10
+0xac60f4	080000f9	str x8,[x0]
+0xac60f8	e80300aa	mov x8,x0
+0xac60fc	1f8d01f8	str xzr,[x8, #0x18]!
+0xac6100	680601f9	str x8,[x19, #0x208]
+0xac6104	600a01f9	str x0,[x19, #0x210]
+0xac6108	7f620839	strb wzr,[x19, #0x218]
+0xac610c	600211ad	stp q0,q0,[x19, #0x220]
+0xac6110	28008052	mov w8,#0x1
+0xac6114	68020939	strb w8,[x19, #0x240]
+0xac6118	68220991	add x8,x19,#0x248
+0xac611c	69820991	add x9,x19,#0x260
+0xac6120	7f3201f9	str xzr,[x19, #0x260]
+0xac6124	2081803c	stur q0,[x9, #0x8]
+0xac6128	7f620939	strb wzr,[x19, #0x258]
+0xac612c	0001803d	str q0,[x8]
+0xac6130	e00313aa	mov x0,x19
+0xac6134	fd7b42a9	ldp x29,x30,[sp, #0x20]
+0xac6138	f44f41a9	ldp x20,x19,[sp, #0x10]
+0xac613c	f657c3a8	ldp x22,x21,[sp], #0x30
+0xac6140	c0035fd6	ret

@@ -1,0 +1,17 @@
+{
+  "passed": true,
+  "source_and_binary_hashes_match": true,
+  "A7_complete": false,
+  "product_enabled": false,
+  "target_operated": false,
+  "preceding_status_turn": "no progress; current turn produced new frozen ordering and destruction evidence",
+  "hashes": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-join-boundary-result.md": "2dc430c07987c0bfa56d088aec0fb6e6a59893c41715790c63e424139a7c2c33",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/join-boundary-20261017/verification.json": "18b4fed0cabe5f73b6d34be2acd33037e4b9ca0af6eb6d2e8c89ec7ad94bf963",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job-destruction-20261017/verification.json": "a2095ef2a3c5e8e9dd673f33631bcc321f4e13d331468c43524a7db4cc597757",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/design.md": "75d53bc6181eee9d1bb08804098cfc21509b8f79ee94ebf4681a42527110bdb2",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "de274ad68cfad855c11d1fa45376a0f3bb2489096c7401035ac5b14a760c8af7",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task-tiers.json": "b001cc28559bdb3ec73858c61bcc76225039560a55f5d7905032b3315e99e2a9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/completion-gap-audit-20261017.md": "e3c35832849c0c6efba0c1d787c2ecc0d6bc26a6a73046c397997248d1972a5f"
+  }
+}

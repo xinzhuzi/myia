@@ -1,0 +1,19 @@
+0x30d9d38	f44fbea9	stp x20,x19,[sp, #-0x20]!
+0x30d9d3c	fd7b01a9	stp x29,x30,[sp, #0x10]
+0x30d9d40	fd430091	add x29,sp,#0x10
+0x30d9d44	f30308aa	mov x19,x8
+0x30d9d48	00e4006f	movi v0.2D,#0x0
+0x30d9d4c	f40308aa	mov x20,x8
+0x30d9d50	800e823c	str q0,[x20, #0x20]!
+0x30d9d54	000100ad	stp q0,q0,[x8]
+0x30d9d58	00048052	mov w0,#0x20
+0x30d9d5c	b5980195	bl 0x07140030
+0x30d9d60	68680390	adrp x8,0x9de5000
+0x30d9d64	08610091	add x8,x8,#0x18
+0x30d9d68	1ffc00a9	stp xzr,xzr,[x0, #0x8]
+0x30d9d6c	080000f9	str x8,[x0]
+0x30d9d70	08600091	add x8,x0,#0x18
+0x30d9d74	680202a9	stp x8,x0,[x19, #0x20]
+0x30d9d78	fd7b41a9	ldp x29,x30,[sp, #0x10]
+0x30d9d7c	f44fc2a8	ldp x20,x19,[sp], #0x20
+0x30d9d80	c0035fd6	ret

@@ -1,0 +1,7 @@
+{
+  "args": [
+    "clang++",
+    "--version"
+  ],
+  "stdout": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.4.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n"
+}

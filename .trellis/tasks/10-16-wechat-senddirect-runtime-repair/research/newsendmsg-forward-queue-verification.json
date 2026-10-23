@@ -1,0 +1,136 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass158/native-fn-30ef9e0.asm",
+      "instructions": 148,
+      "sha256": "6e341b70a050b49f8341ec28fac16c150fab9b08a38efac75bf140f57b53aa7d"
+    },
+    {
+      "file": "text-contract-pass161/native-fn-317df64.asm",
+      "instructions": 112,
+      "sha256": "266399337b806e9525c52ad6c59f760c11543f0dc7cf34033a1dd3474c94dab7"
+    },
+    {
+      "file": "text-contract-pass162/native-fn-3181628.asm",
+      "instructions": 611,
+      "sha256": "db6e2190c86ac429aea235ec50fe5ab342f54c9ec2d9c43fa6e17314cb8dba02"
+    },
+    {
+      "file": "text-contract-pass183/native-fn-3182084.asm",
+      "instructions": 1577,
+      "sha256": "32f53ae49a44fa915eb67a093d2f6e440c9d26453b18de98c01b1411a2855d9c"
+    },
+    {
+      "file": "text-contract-pass183/native-fn-3189980.asm",
+      "instructions": 53,
+      "sha256": "713c7cf8843a0f4fcb6c8909146045f9d69c565e92fe944240892b09e89c0e18"
+    },
+    {
+      "file": "text-contract-pass184/native-fn-30f320c.asm",
+      "instructions": 2,
+      "sha256": "7ff6bf4986004f613b01114c11fef4eca29038ba34ea713925e55b6aabdf7d4e"
+    },
+    {
+      "file": "text-contract-pass184/native-fn-30f3214.asm",
+      "instructions": 2,
+      "sha256": "dc574901281c8004f346f33fc6839d8447c10a397ffffc15b1aeff24671aa522"
+    },
+    {
+      "file": "text-contract-pass184/native-fn-30f321c.asm",
+      "instructions": 2,
+      "sha256": "651fea2ceccebc69f52b846ba330dfe9a58abbeba04e4df301b382059da1e7b4"
+    },
+    {
+      "file": "text-contract-pass184/native-fn-31cae30.asm",
+      "instructions": 727,
+      "sha256": "ed0d84e26110a46ebf53d564d5dbb6f411e26a4f34c421f1e2ad972c79bdb272"
+    },
+    {
+      "file": "text-contract-pass184/native-fn-31ce06c.asm",
+      "instructions": 1091,
+      "sha256": "a979456e344d92d7f6d59eb1a9e6421bc42e5f2bff2aa23f41f6200cc1297946"
+    },
+    {
+      "file": "text-contract-pass186/native-fn-322274c.asm",
+      "instructions": 280,
+      "sha256": "b34f70b85638ae5b29722ab627f47c22550aba7c5e2acf98d07f09bf2f7b479e"
+    },
+    {
+      "file": "text-contract-pass186/native-fn-3222ea4.asm",
+      "instructions": 138,
+      "sha256": "3905f1e5099b8e0116bbe6639fd2bb90e6c71ee2b830d32d6617b05757bb22cf"
+    },
+    {
+      "file": "text-contract-pass186/native-fn-453d344.asm",
+      "instructions": 206,
+      "sha256": "edc7af8af268fbb30628753f35c21ac5cc70269788fe8708cc0a7b35532d0084"
+    },
+    {
+      "file": "text-contract-pass187/native-fn-31d15fc.asm",
+      "instructions": 769,
+      "sha256": "c0d871ce83af77398b17b4a2c5eb1a50a7052d0e034771c7070ecb4b40c43c35"
+    },
+    {
+      "file": "text-contract-pass188/native-fn-30d58e0.asm",
+      "instructions": 777,
+      "sha256": "9498962033f4469d19ceaed458fb1a4aff3361465cf447715519491779a19707"
+    },
+    {
+      "file": "text-contract-pass188/native-fn-318d680.asm",
+      "instructions": 394,
+      "sha256": "be0958bca33b74ec4a75b9718af2d1c9368dca3fa0fb8313108b85e0009dc6ac"
+    },
+    {
+      "file": "text-contract-pass189/native-fn-319a6a8.asm",
+      "instructions": 499,
+      "sha256": "02fd03b35393996609bc4d385d1ad4bf77ea704b201a2e83c4ebf6c0b337bc86"
+    },
+    {
+      "file": "text-contract-pass190/native-fn-30d82d8.asm",
+      "instructions": 139,
+      "sha256": "2881762f03208a4c8d0b8843b793b3632607136692efd3fdbe39eac11855701d"
+    },
+    {
+      "file": "text-contract-pass191/native-fn-31cf3a4.asm",
+      "instructions": 1776,
+      "sha256": "165f98e3a2878cdc1379c6c0061eb35e0356642768b7e984906eb252dc885a99"
+    },
+    {
+      "file": "text-contract-pass192/native-fn-30d8538.asm",
+      "instructions": 147,
+      "sha256": "815ec494b41482b7e8b8da61255ef0e1e00bf7e2337a97fec5be46b854fde006"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9def2a0",
+      "decoded": "0x322274c",
+      "chain_steps": 1438
+    },
+    {
+      "slot": "0x9def320",
+      "decoded": "0x3222ea4",
+      "chain_steps": 1453
+    },
+    {
+      "slot": "0x9de7ff8",
+      "decoded": "0x30d8538",
+      "chain_steps": 1880
+    },
+    {
+      "slot": "0x9de8040",
+      "decoded": "0x30bda14",
+      "chain_steps": 9
+    }
+  ],
+  "instructions_matched": 9450,
+  "instruction_positions_checked": 54,
+  "constructor_thunk_checked": true,
+  "contract_sha256": "ed693e5b498e2c44862d7906d30cd20694277dc520109eaec4ab0952d748734f",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "Only cited semantic slices; full exports byte-matched, not fully interpreted. Actual selected handler, producer dispatch and runtime thread/drain remain unproved."
+}

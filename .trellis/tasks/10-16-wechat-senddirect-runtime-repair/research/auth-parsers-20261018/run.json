@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "parsers": [
+    {
+      "start": "0x50ddaf4",
+      "end_exclusive": "0x50de534",
+      "instructions": 656,
+      "assembly": "parser-50ddaf4.asm",
+      "sha256": "d2b298491011519789a5d116690bfd724cd908f81e21d595821e083881a1c2a4"
+    },
+    {
+      "start": "0x50e0fb0",
+      "end_exclusive": "0x50e1670",
+      "instructions": 432,
+      "assembly": "parser-50e0fb0.asm",
+      "sha256": "1ca3c103dcb8e1afdbdffb905b0b0a4e5f64d2159cde7dd056dd85348c096102"
+    }
+  ],
+  "target_executed": false,
+  "target_attached": false,
+  "source_sha256": "cdf00a2aa9c1ad9c7bbe108e1c050eec37447186e16d17da480f56b23eb8b736"
+}

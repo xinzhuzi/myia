@@ -1,0 +1,69 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "service_source": {
+    "global": "0xa45df38",
+    "coroutine_pair": [
+      "+0x290",
+      "+0x298"
+    ],
+    "pair_getter": "0x466ad74",
+    "construction": "0x4666b54"
+  },
+  "interface": {
+    "executor": "+0x0",
+    "default_group": "+0x8",
+    "active_group": "+0x10",
+    "default_construction": "0x453b674",
+    "active_construction": "0x453df64",
+    "both_group_config_0x18": "*interface",
+    "group_config": "group+0x108",
+    "group_executor": "group+0x120",
+    "active_parent": "group+0x100"
+  },
+  "executor": {
+    "construction": "0x6666840",
+    "vtable": "0x9fb1a48",
+    "submit_slot": "+0x10",
+    "submit": "0x66617e4",
+    "looper_vtable": "0x9fb19e8",
+    "enqueue": "0x6663274",
+    "worker": "0x6666628",
+    "loop": "0x6665880",
+    "ordinary_dispatch": "0x6664994",
+    "task_invoke": "0x6661f20",
+    "task_dispose": "0x6661eb4",
+    "input_body_invoked_inline": false
+  },
+  "queue": {
+    "deadline_clock": "steady_clock milliseconds (0x66874a4)",
+    "order": [
+      "deadline at heap element+0x10",
+      "sequence at element+0x8"
+    ],
+    "sequence_allocation": "looper+0x108 before mutex acquisition",
+    "ordinary_submission": {
+      "type": 0,
+      "delay_ms": 0
+    },
+    "parameter_release": "ordinary task invoke returns, then deleting destructor",
+    "concurrent_producers_global_fifo_proved": false
+  },
+  "start_cancel_boundary": {
+    "job_start": "0x667e734",
+    "first_start_flag": "job+0x140 precedes core construction and first resume submit",
+    "entry_guard": "owned JobBody admission, not job+0x140 or submit return",
+    "before_body": "record cancellation; skip owned body by normal return; no job cancel",
+    "during_body": "at most one job cancel on bound executor; request cancel independent",
+    "after_body": "no job cancel; retain independent request control/state",
+    "scope": "Only explicit coordinator calls; native/external group cancellation excluded"
+  },
+  "unresolved": [
+    "All native caller and group-cancel ordering; state-0 final cleanup",
+    "Executor exception paths, complete queue/weak-reference drain",
+    "Complete business mapping and executable adapter",
+    "Real sending and independent delivery receipt"
+  ],
+  "runtime_observed": false,
+  "target_executed": false,
+  "callable_for_send": false
+}

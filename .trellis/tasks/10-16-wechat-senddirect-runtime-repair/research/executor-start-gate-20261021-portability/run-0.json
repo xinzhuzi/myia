@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\"scenarios\":11,\"foreign_threads\":32,\"thread_id_reused\":true,\"host_erased_abi\":true,\"target_executed\":false,\"native_send_called\":false,\"sent\":false}\n",
+  "stderr": ""
+}

@@ -1,0 +1,21 @@
+{
+  "passed": true,
+  "scope": "current evidence integrity and task gate audit only",
+  "contract_sha256": "9941930a0a454d9c236caf45bedf29ac03981e44918a1483e7102297b391cf96",
+  "verification_sha256": "f6bbcafd8d8016134434cbf2900bbe61204e4d016cc77171a60e66519a80e7e2",
+  "report_sha256": "859f16d64c4ca7d59e2e9fba2136b1c2daf0df452fe3ac01808c737a36e278ef",
+  "open_implementation_gates": [
+    11,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    55
+  ],
+  "A7_complete": false,
+  "account_stop_unchanged": true,
+  "send_verified": false,
+  "deployed": false
+}

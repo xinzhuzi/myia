@@ -1,0 +1,70 @@
+{
+  "scope": "frozen 4.1.15 selected login input structure, callback copies and selector-specific account result origin",
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "input_structure": {
+    "copy": "0x2fec014",
+    "members": [
+      {"offset": "0x0", "kind": "uint32 selector"},
+      {"offset": "0x8", "kind": "std::string"},
+      {"offset": "0x20", "kind": "raw 64-bit value"},
+      {"offset": "0x28", "kind": "std::string"},
+      {"offset": "0x40", "kind": "std::string"},
+      {"offset": "0x58", "kind": "std::string"}
+    ],
+    "copied_extent": "0x70",
+    "business_member_names_verified": false
+  },
+  "selector_1_builder": {
+    "function": "0x4101688",
+    "abi": "x0 opaque owner, x1 first string, x2 raw value, x3 third string, x4 fourth string, hidden x8 result",
+    "selector": 1,
+    "first_string_source": "x1",
+    "member_20_source": "x2",
+    "member_28": "empty string",
+    "member_40_source": "x3",
+    "member_58_source": "x4",
+    "submit": "0x4101898 -> 0x4100c94"
+  },
+  "selector_0_builder": {
+    "function": "0x41009a0",
+    "abi": "x0 opaque owner, x1 first string, x2 second string, hidden x8 result",
+    "selector": 0,
+    "first_string_source": "x1",
+    "member_20": "zero",
+    "member_28_source": "x2",
+    "member_40": "empty string",
+    "member_58": "empty string",
+    "submit": "0x4100b7c -> 0x4100c94"
+  },
+  "callback_chain": [
+    "0x4100c94 copies input twice and installs vtable 0x9e5b218; +0x30 -> 0x410d33c",
+    "0x410d33c copies first capture+0x8 twice and installs vtable 0x9e5b298; +0x30 -> 0x410dbcc",
+    "0x410dbcc passes capture+0x8 to 0x410dc54",
+    "0x410dc54 passes original x0 as x1 into 0x2fc361c on selected normal route",
+    "0x2fc361c passes original x1 to copies constructing final capture+0x48; vtable 0x9de0b00 -> 0x2fea968"
+  ],
+  "normal_register_flow": {
+    "report": "login-input-flow-20261018-v3.json",
+    "scope": "normal direct control flow; AAPCS64 x19/x21 preservation; no exception edges or memory-alias proof",
+    "first": "0x410de34 x19 originates at 0x410dc74 mov x19,x0",
+    "second": "0x2fc43b8 x21 originates at 0x2fc363c mov x21,x1"
+  },
+  "selector_specific_results": {
+    "1": "input first string overwrites common auth result+0x70 before selected successful account installation; exact business identity remains unproved",
+    "0": "0x2fea968 calls 0x2fd02c8; its readiness bit0 success branch forwards hidden result to 0x2fd0768, whose selected tail calls common auth consumer 0x2fd7104 with same result area",
+    "zero_route_final_value_preservation_verified": false,
+    "all_account_installation_routes_verified": false
+  },
+  "previous_contract": "newsendmsg-auth-origin-contract.json",
+  "remaining": [
+    "business identity of first login string and its callers; other capture construction/clone routes and aliases",
+    "selector0 full result preservation, complete sender/recipient/record mutation and nested schema mapping",
+    "actual executor/thread identity, cancellation final cleanup, complete native adapter integration",
+    "real sending, independent receipt and deployment"
+  ],
+  "runtime_observed": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "deployed": false,
+  "account_safety_stop": true
+}

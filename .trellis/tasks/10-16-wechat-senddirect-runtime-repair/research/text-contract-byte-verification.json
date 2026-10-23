@@ -1,0 +1,288 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "all_exported_instructions_match": true,
+  "functions_exported": 53,
+  "instructions": 10651,
+  "bytes": 42604,
+  "exports": [
+    {
+      "file": "text-contract-pass11/native-fn-5974418.asm",
+      "instructions": 133,
+      "bytes": 532
+    },
+    {
+      "file": "text-contract-pass11/native-fn-5980a6c.asm",
+      "instructions": 194,
+      "bytes": 776
+    },
+    {
+      "file": "text-contract-pass11/native-fn-5cc4468.asm",
+      "instructions": 3019,
+      "bytes": 12076
+    },
+    {
+      "file": "text-contract-pass14/native-fn-31ab38c.asm",
+      "instructions": 850,
+      "bytes": 3400
+    },
+    {
+      "file": "text-contract-pass14/native-fn-48a9a38.asm",
+      "instructions": 47,
+      "bytes": 188
+    },
+    {
+      "file": "text-contract-pass14/native-fn-83e394.asm",
+      "instructions": 382,
+      "bytes": 1528
+    },
+    {
+      "file": "text-contract-pass14/native-fn-8a65d0.asm",
+      "instructions": 178,
+      "bytes": 712
+    },
+    {
+      "file": "text-contract-pass15/native-fn-4634710.asm",
+      "instructions": 602,
+      "bytes": 2408
+    },
+    {
+      "file": "text-contract-pass16/native-fn-5563108.asm",
+      "instructions": 12,
+      "bytes": 48
+    },
+    {
+      "file": "text-contract-pass16/native-fn-5daa3b0.asm",
+      "instructions": 5,
+      "bytes": 20
+    },
+    {
+      "file": "text-contract-pass17/native-fn-46353a0.asm",
+      "instructions": 2,
+      "bytes": 8
+    },
+    {
+      "file": "text-contract-pass17/native-fn-4656fc4.asm",
+      "instructions": 4,
+      "bytes": 16
+    },
+    {
+      "file": "text-contract-pass19/native-fn-5ce425c.asm",
+      "instructions": 12,
+      "bytes": 48
+    },
+    {
+      "file": "text-contract-pass19/native-fn-5daa21c.asm",
+      "instructions": 101,
+      "bytes": 404
+    },
+    {
+      "file": "text-contract-pass20/native-fn-46345cc.asm",
+      "instructions": 63,
+      "bytes": 252
+    },
+    {
+      "file": "text-contract-pass20/native-fn-46346f0.asm",
+      "instructions": 4,
+      "bytes": 16
+    },
+    {
+      "file": "text-contract-pass20/native-fn-46353a8.asm",
+      "instructions": 238,
+      "bytes": 952
+    },
+    {
+      "file": "text-contract-pass22/native-fn-46345bc.asm",
+      "instructions": 2,
+      "bytes": 8
+    },
+    {
+      "file": "text-contract-pass22/native-fn-4635b7c.asm",
+      "instructions": 4,
+      "bytes": 16
+    },
+    {
+      "file": "text-contract-pass24/native-fn-5564bd8.asm",
+      "instructions": 60,
+      "bytes": 240
+    },
+    {
+      "file": "text-contract-pass24/native-fn-556555c.asm",
+      "instructions": 148,
+      "bytes": 592
+    },
+    {
+      "file": "text-contract-pass24/native-fn-5ce5494.asm",
+      "instructions": 48,
+      "bytes": 192
+    },
+    {
+      "file": "text-contract-pass25/native-fn-266dca4.asm",
+      "instructions": 2541,
+      "bytes": 10164
+    },
+    {
+      "file": "text-contract-pass28/native-fn-55653ac.asm",
+      "instructions": 108,
+      "bytes": 432
+    },
+    {
+      "file": "text-contract-pass28/native-fn-5ce5654.asm",
+      "instructions": 57,
+      "bytes": 228
+    },
+    {
+      "file": "text-contract-pass29/native-fn-2671f68.asm",
+      "instructions": 521,
+      "bytes": 2084
+    },
+    {
+      "file": "text-contract-pass29/native-fn-2672934.asm",
+      "instructions": 209,
+      "bytes": 836
+    },
+    {
+      "file": "text-contract-pass31/native-fn-265e9b8.asm",
+      "instructions": 607,
+      "bytes": 2428
+    },
+    {
+      "file": "text-contract-pass31/native-fn-2673854.asm",
+      "instructions": 124,
+      "bytes": 496
+    },
+    {
+      "file": "text-contract-pass31/native-fn-2673a80.asm",
+      "instructions": 71,
+      "bytes": 284
+    },
+    {
+      "file": "text-contract-pass31/native-fn-559f0e8.asm",
+      "instructions": 30,
+      "bytes": 120
+    },
+    {
+      "file": "text-contract-pass33/native-fn-46570a4.asm",
+      "instructions": 22,
+      "bytes": 88
+    },
+    {
+      "file": "text-contract-pass33/native-fn-46570fc.asm",
+      "instructions": 2,
+      "bytes": 8
+    },
+    {
+      "file": "text-contract-pass33/native-fn-4657104.asm",
+      "instructions": 1,
+      "bytes": 4
+    },
+    {
+      "file": "text-contract-pass33/native-fn-4657108.asm",
+      "instructions": 33,
+      "bytes": 132
+    },
+    {
+      "file": "text-contract-pass33/native-fn-46571dc.asm",
+      "instructions": 1,
+      "bytes": 4
+    },
+    {
+      "file": "text-contract-pass34/native-fn-4656d94.asm",
+      "instructions": 4,
+      "bytes": 16
+    },
+    {
+      "file": "text-contract-pass35/native-fn-55657b0.asm",
+      "instructions": 36,
+      "bytes": 144
+    },
+    {
+      "file": "text-contract-pass35/native-fn-5ce61ec.asm",
+      "instructions": 35,
+      "bytes": 140
+    },
+    {
+      "file": "text-contract-pass37/native-fn-4656db0.asm",
+      "instructions": 6,
+      "bytes": 24
+    },
+    {
+      "file": "text-contract-pass37/native-fn-4656dc8.asm",
+      "instructions": 3,
+      "bytes": 12
+    },
+    {
+      "file": "text-contract-pass37/native-fn-4656dd4.asm",
+      "instructions": 4,
+      "bytes": 16
+    },
+    {
+      "file": "text-contract-pass37/native-fn-4656df8.asm",
+      "instructions": 1,
+      "bytes": 4
+    },
+    {
+      "file": "text-contract-pass37/native-fn-4656eac.asm",
+      "instructions": 2,
+      "bytes": 8
+    },
+    {
+      "file": "text-contract-pass37/native-fn-4656eb4.asm",
+      "instructions": 2,
+      "bytes": 8
+    },
+    {
+      "file": "text-contract-pass37/native-fn-4656ebc.asm",
+      "instructions": 1,
+      "bytes": 4
+    },
+    {
+      "file": "text-contract-pass38/native-fn-462d86c.asm",
+      "instructions": 4,
+      "bytes": 16
+    },
+    {
+      "file": "text-contract-pass38/native-fn-5cc1c54.asm",
+      "instructions": 34,
+      "bytes": 136
+    },
+    {
+      "file": "text-contract-pass40/native-fn-462d888.asm",
+      "instructions": 54,
+      "bytes": 216
+    },
+    {
+      "file": "text-contract-pass40/native-fn-462d97c.asm",
+      "instructions": 2,
+      "bytes": 8
+    },
+    {
+      "file": "text-contract-pass40/native-fn-462d984.asm",
+      "instructions": 2,
+      "bytes": 8
+    },
+    {
+      "file": "text-contract-pass40/native-fn-462d98c.asm",
+      "instructions": 4,
+      "bytes": 16
+    },
+    {
+      "file": "text-contract-pass40/native-fn-462d99c.asm",
+      "instructions": 22,
+      "bytes": 88
+    }
+  ],
+  "complete_consumer_span": {
+    "start": "0x5ce5654",
+    "end_exclusive": "0x5ce5df0",
+    "instructions": 487,
+    "all_matched": true
+  },
+  "limitations": [
+    "Instruction provenance only; inferred native names and runtime routing remain separate.",
+    "Ghidra switch functions can omit case blocks from function-body instruction exports.",
+    "pass26 failed with project lock, no binary modification; later pass27 serialized after release.",
+    "pass24 request 0x5ce5494 had no established seed; exclude it from semantic conclusions.",
+    "pass28 two malformed request addresses have no function and supply no evidence.",
+    "AI SDK text route passes25/29/31/32 is excluded from WeChat chat routing."
+  ]
+}

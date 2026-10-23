@@ -1,0 +1,8 @@
+{
+  "args": [
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/operation-thread-20261018-verified/operation_thread"
+  ],
+  "returncode": 0,
+  "stdout": "{\"cases\":4,\"wrong_thread_rejections\":69,\"thread_id_reused\":true,\"passed\":true,\"wechat_loaded\":false,\"sent\":false}\n",
+  "stderr": ""
+}

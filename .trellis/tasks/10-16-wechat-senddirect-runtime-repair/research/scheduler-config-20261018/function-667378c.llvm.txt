@@ -1,0 +1,42 @@
+
+/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+0000000004de73fc <_SetWeixinCallbackFunc>:
+ 667378c: d10143ff     	sub	sp, sp, #0x50
+ 6673790: a9034ff4     	stp	x20, x19, [sp, #0x30]
+ 6673794: a9047bfd     	stp	x29, x30, [sp, #0x40]
+ 6673798: 910103fd     	add	x29, sp, #0x40
+ 667379c: aa0303e4     	mov	x4, x3
+ 66737a0: aa0803f3     	mov	x19, x8
+ 66737a4: a90183e1     	stp	x1, x0, [sp, #0x18]
+ 66737a8: f9000be2     	str	x2, [sp, #0x10]
+ 66737ac: 910003e8     	mov	x8, sp
+ 66737b0: d10047a0     	sub	x0, x29, #0x11
+ 66737b4: 910083e1     	add	x1, sp, #0x20
+ 66737b8: 910063e2     	add	x2, sp, #0x18
+ 66737bc: 910043e3     	add	x3, sp, #0x10
+ 66737c0: 94001a54     	bl	0x667a110 <_SetWeixinCallbackFunc+0x1892d14>
+ 66737c4: a94023e9     	ldp	x9, x8, [sp]
+ 66737c8: a9002269     	stp	x9, x8, [x19]
+ 66737cc: b4000208     	cbz	x8, 0x667380c <_SetWeixinCallbackFunc+0x188c410>
+ 66737d0: 91002108     	add	x8, x8, #0x8
+ 66737d4: 52800029     	mov	w9, #0x1                ; =1
+ 66737d8: f8290108     	ldadd	x9, x8, [x8]
+ 66737dc: f94007f3     	ldr	x19, [sp, #0x8]
+ 66737e0: b4000173     	cbz	x19, 0x667380c <_SetWeixinCallbackFunc+0x188c410>
+ 66737e4: 91002268     	add	x8, x19, #0x8
+ 66737e8: 92800009     	mov	x9, #-0x1               ; =-1
+ 66737ec: f8e90108     	ldaddal	x9, x8, [x8]
+ 66737f0: b50000e8     	cbnz	x8, 0x667380c <_SetWeixinCallbackFunc+0x188c410>
+ 66737f4: f9400268     	ldr	x8, [x19]
+ 66737f8: f9400908     	ldr	x8, [x8, #0x10]
+ 66737fc: aa1303e0     	mov	x0, x19
+ 6673800: d63f0100     	blr	x8
+ 6673804: aa1303e0     	mov	x0, x19
+ 6673808: 942b3105     	bl	0x713fc1c <_wxam_enc_uninit_10+0x713fc1c>
+ 667380c: a9447bfd     	ldp	x29, x30, [sp, #0x40]
+ 6673810: a9434ff4     	ldp	x20, x19, [sp, #0x30]
+ 6673814: 910143ff     	add	sp, sp, #0x50
+ 6673818: d65f03c0     	ret

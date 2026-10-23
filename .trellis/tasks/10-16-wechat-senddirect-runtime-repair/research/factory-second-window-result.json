@@ -1,0 +1,13 @@
+{
+  "authorization_consumed": true,
+  "evidence": "research/live-observe-htk7670m/supervisor.json",
+  "elapsed_seconds": 21.048,
+  "factory_hit": false,
+  "cleanup_ok": true,
+  "native_called_by_observer": false,
+  "sent_by_observer": false,
+  "send_prompt_delivered_while_open": false,
+  "factory_route_inference_valid": false,
+  "remaining_issue": "No valid coordinated send; model-side readiness check mixed two Darwin clocks. Use the foreground local prompt with CLOCK_MONOTONIC before another separately authorized window.",
+  "readiness_clock_mismatch_recorded": true
+}

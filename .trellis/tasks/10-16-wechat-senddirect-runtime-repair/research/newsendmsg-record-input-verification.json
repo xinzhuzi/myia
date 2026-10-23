@@ -1,0 +1,78 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass71/native-fn-30bda14.asm",
+      "instructions": 1165,
+      "sha256": "6734dc9bcf7adceb118b206eadcc5fcc1495c9cb59195162b520cf92ef4acc2b"
+    },
+    {
+      "file": "text-contract-pass126/native-fn-ac6038.asm",
+      "instructions": 67,
+      "sha256": "c7ed0201f723cbf197b88609a507125075b4142af2021db584631fc8eec32456"
+    },
+    {
+      "file": "text-contract-pass132/native-fn-4cbbd20.asm",
+      "instructions": 390,
+      "sha256": "d0290ee79ef6bd217dccfff183866655053bb67c6c2ff6f400565e66908dc7e7"
+    },
+    {
+      "file": "text-contract-pass156/native-fn-4cbcad4.asm",
+      "instructions": 1,
+      "sha256": "792194dbf6525d47f7c8ea6d8aa6d5547e83e1cbd5599a800fdcc7e658cc553f"
+    },
+    {
+      "file": "text-contract-pass156/native-fn-4cbd018.asm",
+      "instructions": 1,
+      "sha256": "d23301d855af18e44a1861cdb04a96e45dab5e265752497032cb67c135748dde"
+    },
+    {
+      "file": "text-contract-pass157/native-fn-30efce4.asm",
+      "instructions": 1809,
+      "sha256": "323f286ba360bbef946bc2e77e3c0022ba1a4eda70261d4d3c047a4aca5bc240"
+    },
+    {
+      "file": "text-contract-pass157/native-fn-3107930.asm",
+      "instructions": 68,
+      "sha256": "b6a9cab5120f8df1fedfbd3b2e00705c482e75a6e264da4599d05adc7e354941"
+    },
+    {
+      "file": "text-contract-pass157/native-fn-4cbd01c.asm",
+      "instructions": 252,
+      "sha256": "8e06d95d30f144c046fbf5f8756806fa1f2d16d97fe9770cf58e960d4bd6a1b5"
+    },
+    {
+      "file": "text-contract-pass158/native-fn-30ef9e0.asm",
+      "instructions": 148,
+      "sha256": "6e341b70a050b49f8341ec28fac16c150fab9b08a38efac75bf140f57b53aa7d"
+    },
+    {
+      "file": "text-contract-pass158/native-fn-30f27e4.asm",
+      "instructions": 618,
+      "sha256": "3f26eec85d105866728d80dca50f850f89bace7c3410234a63616b72b592c905"
+    },
+    {
+      "file": "text-contract-pass158/native-fn-4cbb728.asm",
+      "instructions": 329,
+      "sha256": "ead64f9fb70e9f7c702c8b247672914355a8f30fc781ab974142da8dff1c0ebe"
+    },
+    {
+      "file": "text-contract-pass158/native-fn-4cbbc88.asm",
+      "instructions": 38,
+      "sha256": "906170635cf3f61d576c49c96204e51726d77f993311152d180a67edd7bdfe12"
+    },
+    {
+      "file": "text-contract-pass159/native-fn-4cbcfd4.asm",
+      "instructions": 17,
+      "sha256": "1bf127ac760e5d3ccd2aeb24f87c1631872c5a6238c8e223d67bb45b7b0101b0"
+    }
+  ],
+  "instructions_matched": 4903,
+  "instruction_positions_checked": 21,
+  "contract_sha256": "2451f0634210355fa75f348fb918c1f25c04020818b7509f712da3e4a81da783",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "Static construction/storage proof; no complete dispatch, text-type or delivery proof."
+}

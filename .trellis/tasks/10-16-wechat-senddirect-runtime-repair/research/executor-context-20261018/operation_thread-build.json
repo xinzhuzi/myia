@@ -1,0 +1,17 @@
+{
+  "args": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "-pthread",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_operation_thread_4115.cpp",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/executor-context-20261018/operation_thread"
+  ],
+  "returncode": 0,
+  "stdout": "",
+  "stderr": ""
+}

@@ -1,0 +1,16 @@
+0x286fb58	ffc300d1	sub sp,sp,#0x30
+0x286fb5c	f44f01a9	stp x20,x19,[sp, #0x10]
+0x286fb60	fd7b02a9	stp x29,x30,[sp, #0x20]
+0x286fb64	fd830091	add x29,sp,#0x20
+0x286fb68	680040f9	ldr x8,[x3]
+0x286fb6c	e80700f9	str x8,[sp, #0x8]
+0x286fb70	7f0000f9	str xzr,[x3]
+0x286fb74	00800091	add x0,x0,#0x20
+0x286fb78	e3230091	add x3,sp,#0x8
+0x286fb7c	0c000094	bl 0x0286fbac
+0x286fb80	e0230091	add x0,sp,#0x8
+0x286fb84	6a105f97	bl 0x00033d2c
+0x286fb88	fd7b42a9	ldp x29,x30,[sp, #0x20]
+0x286fb8c	f44f41a9	ldp x20,x19,[sp, #0x10]
+0x286fb90	ffc30091	add sp,sp,#0x30
+0x286fb94	c0035fd6	ret

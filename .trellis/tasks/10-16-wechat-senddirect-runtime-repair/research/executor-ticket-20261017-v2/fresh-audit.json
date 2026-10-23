@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "verification_sha256": "8cbab12b8b50d7b663ba940ca791fff1b6ac0a2d0cbb6020e38ae039719f844f",
+  "source_files_unchanged": 13,
+  "exports_unchanged": 16,
+  "strict_build_passed": true,
+  "fixture_scenarios": 5,
+  "failed_first_build_preserved": true,
+  "A7_complete": false,
+  "step55_complete": false,
+  "step56_complete": true,
+  "target_operated": false,
+  "deployed": false
+}

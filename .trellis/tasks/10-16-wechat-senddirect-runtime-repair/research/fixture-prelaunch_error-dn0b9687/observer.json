@@ -1,0 +1,10 @@
+{
+  "outcome": "RuntimeError",
+  "detach_ack": true,
+  "attach_calls": 0,
+  "launch_calls": 0,
+  "detached": false,
+  "hit": false,
+  "error": "intentional isolated prelaunch failure",
+  "finished_monotonic": 113652.371556
+}

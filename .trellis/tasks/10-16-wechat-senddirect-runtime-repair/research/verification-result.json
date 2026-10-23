@@ -1,0 +1,83 @@
+[
+  {
+    "name": "bridge-and-resource-tests",
+    "command": [
+      "uv",
+      "run",
+      "--no-sync",
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "tests/wechat-bridge",
+      "tests/desktop/test_pyenv_resources.py::test_wechat_bridge_source_resource_declared_and_present",
+      "tests/desktop/test_pyenv_resources.py::test_wechat_bridge_component_row_contract",
+      "tests/desktop/test_pyenv_resources.py::test_wechat_bridge_pyproject_matches_component_stamp"
+    ],
+    "returncode": 0,
+    "seconds": 9.66,
+    "log": "final-bridge-and-resource-tests.log",
+    "tail": [
+      "........................................................................ [ 41%]",
+      "........................................................................ [ 50%]",
+      "........................................................................ [ 58%]",
+      "..............................................sss....................... [ 67%]",
+      ".......................................................s................ [ 75%]",
+      "........................................................................ [ 83%]",
+      "........................................................................ [ 92%]",
+      "..................................................................       [100%]",
+      "845 passed, 14 skipped in 9.41s"
+    ]
+  },
+  {
+    "name": "changed-files-lint",
+    "command": [
+      "uv",
+      "run",
+      "--no-sync",
+      "ruff",
+      "check",
+      "plugins/wechat-bridge/wechat_bridge/senddirect.py",
+      "plugins/wechat-bridge/wechat_bridge/cli.py",
+      "plugins/wechat-bridge/wechat_bridge/probe.py",
+      "tests/wechat-bridge/test_send_direct.py",
+      "tests/wechat-bridge/test_send_direct_passive.py",
+      "Library/ai/apply_wechat_repair_files_20261016.py",
+      "Library/ai/check_installed_wechat_passive_20261016.py",
+      "Library/ai/check_wechat_launchers_20261016.py",
+      "Library/ai/extract_wechat_task_ownership_20261016.py",
+      "Library/ai/prepare_wechat_repair_install_20261016.py",
+      "Library/ai/verify_wechat_native_exports_20261016.py",
+      "Library/ai/verify_wechat_repair_final_20261016.py",
+      "Library/ai/wechat_repair_inventory_20261016.py"
+    ],
+    "returncode": 0,
+    "seconds": 0.02,
+    "log": "final-changed-files-lint.log",
+    "tail": [
+      "All checks passed!"
+    ]
+  },
+  {
+    "name": "native-buffer-tests",
+    "command": [
+      "node",
+      "--test",
+      "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/output-buffer-4115.test.cjs"
+    ],
+    "returncode": 0,
+    "seconds": 0.1,
+    "log": "final-native-buffer-tests.log",
+    "tail": [
+      "✔ contract keeps output argument and full five-field native layout (0.028958ms)",
+      "ℹ tests 14",
+      "ℹ suites 0",
+      "ℹ pass 14",
+      "ℹ fail 0",
+      "ℹ cancelled 0",
+      "ℹ skipped 0",
+      "ℹ todo 0",
+      "ℹ duration_ms 57.280875"
+    ]
+  }
+]

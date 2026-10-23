@@ -1,0 +1,4 @@
+process attach --pid 56383
+command script import /Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/capwf5.py
+command script import /Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/drivewf5.py
+quit

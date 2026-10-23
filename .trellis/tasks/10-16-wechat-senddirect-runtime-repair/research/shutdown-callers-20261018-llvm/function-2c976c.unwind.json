@@ -1,0 +1,22 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "sdk_format": "mach-o/compact_unwind_encoding.h",
+  "personalities": [
+    "0x9b36c48",
+    "0x9b36138",
+    "0x9b36c78"
+  ],
+  "records": [
+    {
+      "pc": "0x2c976c",
+      "start": "0x2c976c",
+      "end_exclusive": "0x2cb664",
+      "encoding": "0x5400001f",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x7171f6c",
+      "lsda_first_64_hex": "ff9bac0401a00400a0010000a00114803c00c4010cec3b00e00108e43b00e80118d03b0090020cc03b00f4020cbc3b0080030cac3b00dc0308a83b00e4030ca4"
+    }
+  ],
+  "target_executed": false
+}

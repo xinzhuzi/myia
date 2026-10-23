@@ -1,0 +1,23 @@
+0x4cc2258	f44fbea9	stp x20,x19,[sp, #-0x20]!
+0x4cc225c	fd7b01a9	stp x29,x30,[sp, #0x10]
+0x4cc2260	fd430091	add x29,sp,#0x10
+0x4cc2264	141041f9	ldr x20,[x0, #0x220]
+0x4cc2268	f40100b4	cbz x20,0x04cc22a4
+0x4cc226c	131441f9	ldr x19,[x0, #0x228]
+0x4cc2270	b30100b4	cbz x19,0x04cc22a4
+0x4cc2274	68220091	add x8,x19,#0x8
+0x4cc2278	29008052	mov w9,#0x1
+0x4cc227c	090129f8	ldadd x9,x9,[x8]
+0x4cc2280	09008092	mov x9,#-0x1
+0x4cc2284	0801e9f8	ldaddal x9,x8,[x8]
+0x4cc2288	e80000b5	cbnz x8,0x04cc22a4
+0x4cc228c	680240f9	ldr x8,[x19]
+0x4cc2290	080940f9	ldr x8,[x8, #0x10]
+0x4cc2294	e00313aa	mov x0,x19
+0x4cc2298	00013fd6	blr x8
+0x4cc229c	e00313aa	mov x0,x19
+0x4cc22a0	5ff69194	bl 0x0713fc1c
+0x4cc22a4	80c20391	add x0,x20,#0xf0
+0x4cc22a8	fd7b41a9	ldp x29,x30,[sp, #0x10]
+0x4cc22ac	f44fc2a8	ldp x20,x19,[sp], #0x20
+0x4cc22b0	c0035fd6	ret

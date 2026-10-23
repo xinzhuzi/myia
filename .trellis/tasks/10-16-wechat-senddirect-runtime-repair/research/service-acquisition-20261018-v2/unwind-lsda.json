@@ -1,0 +1,352 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "sdk_format": "mach-o/compact_unwind_encoding.h",
+  "personalities": [
+    "0x9b36c48",
+    "0x9b36138",
+    "0x9b36c78"
+  ],
+  "records": [
+    {
+      "pc": "0x268f370",
+      "start": "0x268f370",
+      "end_exclusive": "0x268f4f8",
+      "encoding": "0x54000001",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x7364e58",
+      "call_sites": [
+        {
+          "start": "0x268f370",
+          "end_exclusive": "0x268f3b0",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x268f3b0",
+          "end_exclusive": "0x268f3b8",
+          "landing_pad": "0x268f4e4",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x268f3c4",
+          "end_exclusive": "0x268f3d4",
+          "landing_pad": "0x268f4d4",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x268f3d4",
+          "end_exclusive": "0x268f41c",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x268f41c",
+          "end_exclusive": "0x268f42c",
+          "landing_pad": "0x268f4d0",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x268f42c",
+          "end_exclusive": "0x268f4f8",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        }
+      ],
+      "lsda_consumed_bytes_hex": "ffff011e004000004008f402005410e4020064480000ac0110e00200bc01cc010000"
+    },
+    {
+      "pc": "0x454182c",
+      "start": "0x454182c",
+      "end_exclusive": "0x4541970",
+      "encoding": "0x54000007",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x75209c8",
+      "call_sites": [
+        {
+          "start": "0x454182c",
+          "end_exclusive": "0x45418c8",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x45418c8",
+          "end_exclusive": "0x45418d4",
+          "landing_pad": "0x4541954",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x45418d4",
+          "end_exclusive": "0x4541970",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        }
+      ],
+      "lsda_consumed_bytes_hex": "ffff0111009c0100009c010ca80200a8019c010000"
+    },
+    {
+      "pc": "0x4540bd8",
+      "start": "0x4540bd8",
+      "end_exclusive": "0x4540e80",
+      "encoding": "0x5400000f",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x7520918",
+      "call_sites": [
+        {
+          "start": "0x4540bd8",
+          "end_exclusive": "0x4540c8c",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4540c8c",
+          "end_exclusive": "0x4540c98",
+          "landing_pad": "0x4540e64",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4540ccc",
+          "end_exclusive": "0x4540cdc",
+          "landing_pad": "0x4540e3c",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4540cdc",
+          "end_exclusive": "0x4540d30",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4540d30",
+          "end_exclusive": "0x4540d40",
+          "landing_pad": "0x4540e08",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4540d40",
+          "end_exclusive": "0x4540d68",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4540d68",
+          "end_exclusive": "0x4540d78",
+          "landing_pad": "0x4540e50",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4540d78",
+          "end_exclusive": "0x4540e80",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        }
+      ],
+      "lsda_consumed_bytes_hex": "ffff012d00b4010000b4010c8c0500f40110e404008402540000d80210b00400e802280000900310f80400a00388020000"
+    },
+    {
+      "pc": "0x21b3684",
+      "start": "0x21b3684",
+      "end_exclusive": "0x21b3720",
+      "encoding": "0x4000001",
+      "page_kind": 3,
+      "personality_index": 0,
+      "lsda_address": null
+    },
+    {
+      "pc": "0x6676adc",
+      "start": "0x6676adc",
+      "end_exclusive": "0x6676bf0",
+      "encoding": "0x4000001",
+      "page_kind": 3,
+      "personality_index": 0,
+      "lsda_address": null
+    },
+    {
+      "pc": "0x6676b84",
+      "start": "0x6676adc",
+      "end_exclusive": "0x6676bf0",
+      "encoding": "0x4000001",
+      "page_kind": 3,
+      "personality_index": 0,
+      "lsda_address": null
+    },
+    {
+      "pc": "0x26c4024",
+      "start": "0x26c4018",
+      "end_exclusive": "0x26c4038",
+      "encoding": "0x2000000",
+      "page_kind": 3,
+      "personality_index": 0,
+      "lsda_address": null
+    },
+    {
+      "pc": "0x26c4070",
+      "start": "0x26c4070",
+      "end_exclusive": "0x26c408c",
+      "encoding": "0x2000000",
+      "page_kind": 3,
+      "personality_index": 0,
+      "lsda_address": null
+    },
+    {
+      "pc": "0x4541f78",
+      "start": "0x4541f78",
+      "end_exclusive": "0x45423f4",
+      "encoding": "0x5400000f",
+      "page_kind": 3,
+      "personality_index": 1,
+      "lsda_address": "0x7520a48",
+      "call_sites": [
+        {
+          "start": "0x4541fcc",
+          "end_exclusive": "0x4541fdc",
+          "landing_pad": "0x45423a0",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4541fdc",
+          "end_exclusive": "0x4542020",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4542020",
+          "end_exclusive": "0x4542028",
+          "landing_pad": "0x4542398",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4542074",
+          "end_exclusive": "0x454207c",
+          "landing_pad": "0x45423b8",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x454207c",
+          "end_exclusive": "0x45420b8",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x45420b8",
+          "end_exclusive": "0x45420cc",
+          "landing_pad": "0x4542370",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x45420d4",
+          "end_exclusive": "0x45420e4",
+          "landing_pad": "0x4542360",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x45420e4",
+          "end_exclusive": "0x4542184",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4542184",
+          "end_exclusive": "0x454218c",
+          "landing_pad": "0x45423b0",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x454218c",
+          "end_exclusive": "0x45421b0",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x45421b0",
+          "end_exclusive": "0x45421cc",
+          "landing_pad": "0x45423c0",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x45421fc",
+          "end_exclusive": "0x4542204",
+          "landing_pad": "0x4542350",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4542230",
+          "end_exclusive": "0x4542238",
+          "landing_pad": "0x4542334",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4542238",
+          "end_exclusive": "0x454231c",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x454231c",
+          "end_exclusive": "0x4542324",
+          "landing_pad": "0x45423b8",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4542328",
+          "end_exclusive": "0x4542330",
+          "landing_pad": "0x45423b0",
+          "action": 0,
+          "action_chain": []
+        },
+        {
+          "start": "0x4542330",
+          "end_exclusive": "0x45423f4",
+          "landing_pad": null,
+          "action": 0,
+          "action_chain": []
+        }
+      ],
+      "lsda_consumed_bytes_hex": "ffff01615410a8080064440000a80108a00800fc0108c0080084023c0000c00214f80700dc0210e80700ec02a00100008c0408b808009404240000b8041cc80800840508d80700b80508bc0700c005e4010000a40708c00800b00708b80800b807c4010000"
+    },
+    {
+      "pc": "0x21b3484",
+      "start": "0x21b3484",
+      "end_exclusive": "0x21b34e0",
+      "encoding": "0x4000001",
+      "page_kind": 3,
+      "personality_index": 0,
+      "lsda_address": null
+    }
+  ],
+  "target_executed": false
+}

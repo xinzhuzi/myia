@@ -1,0 +1,22 @@
+[
+  {
+    "rva": "0x986e48f",
+    "text": ">tjshort.weixin.qq.com</domain>        <domain idc=\"8\">mlshort.weixin.qq.com</domain>        <domain idc=\"9\">sgshort.wechat.com</domain>\t\t</domainlist>\t\t<cgilist prefix=\"/cgi-bin/micromsg-bin/\">\t\t<cgi reqid=\"36\" respid=\""
+  },
+  {
+    "rva": "0x986e88f",
+    "text": "\t<cgi reqid=\"34\" respid=\"1000000034\" nettype=\"3\" netstrategy=\"0\">searchcontact</cgi>\t\t<cgi reqid=\"107\" respid=\"1000000107\" nettype=\"3\" netstrategy=\"0\">sendappmsg</cgi>\t\t<cgi reqid=\"2\" respid=\"1000000002\" nettype=\"3\" nets"
+  },
+  {
+    "rva": "0x986ff9c",
+    "text": "proto=\"2\">createchatroom</cgi>        <cgi reqid=\"547\" respid=\"1000000547\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">getchatroommemberdetail</cgi>        <cgi reqid=\"118\" respid=\"1000000118\" nettype=\"3\" netstrategy=\"0\" ne"
+  },
+  {
+    "rva": "0x987039c",
+    "text": "=\"0\" netproto=\"2\">newsync</cgi>        <cgi reqid=\"34\" respid=\"1000000034\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\">searchcontact</cgi>        <cgi reqid=\"107\" respid=\"1000000107\" nettype=\"3\" netstrategy=\"0\" netproto=\"2\""
+  },
+  {
+    "rva": "0x987d7fe",
+    "text": "etchannel=\"1\">transferphonegethisrcvrs</cgi>\n<cgi reqid=\"614\" respid=\"1000000614\" nettype=\"1\" netstrategy=\"0\" netproto=\"2\" netchannel=\"1\">transferoperation</cgi>\n<cgi reqid=\"616\" respid=\"1000000616\" nettype=\"1\" netstrate"
+  }
+]

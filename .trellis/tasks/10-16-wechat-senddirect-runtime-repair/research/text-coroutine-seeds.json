@@ -1,0 +1,74 @@
+[
+  {
+    "address": "0x87e2dd0",
+    "text": "b'CoSendTecbt_filecbt_img_CoPr\\x00\\x00\\x00\\x00epar\\x00\\x00\\x00\\x00eAtt\\x00\\x00\\x00\\x00CoUp\\x00\\x00\\x00\\x00ntsW\\x00\\x00\\x00\\x00'"
+  },
+  {
+    "address": "0x87e3080",
+    "text": "b'CoSendUrlIma\\x00\\x00\\x00\\x00sts,\\x00\\x00\\x00\\x00ectl\\x00\\x00\\x00\\x00y. c\\x00\\x00\\x00\\x00y, c\\x00\\x00\\x00\\x00or=%\\x00\\x00\\x00\\x00d: \\x00\\x00\\x00\\x00\\x00'"
+  },
+  {
+    "address": "0x88049f0",
+    "text": "b'CoSendBypMsgRequ\\x16\\x0f\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x01\\x00\\x00\\x00_a349c2b6\\x00_831bf5b2\\x00_10ccdae4\\x00\\x00\\x00'"
+  },
+  {
+    "address": "0x88895f0",
+    "text": "b'CoSendNotifyHanditem_is is emptyff r\\x00\\x00\\x00\\x00offR\\x00\\x00\\x00\\x00f re\\x00\\x00\\x00\\x00AllH\\x00\\x00\\x00\\x00'"
+  },
+  {
+    "address": "0x8892548",
+    "text": "b'CoSendRe_1c125860\\x00_c1d95c75\\x00\\x00\\x00\\x00\\x00\\x00_b66302cc\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00_48c3ba4e\\x00\\x00\\x00\\x00'"
+  },
+  {
+    "address": "0x88a8fb0",
+    "text": "b'CoSendAppMsgCgi\\x00not file messagegAutoDownloadFilOnFileUploadFini'"
+  },
+  {
+    "address": "0x8916998",
+    "text": "b'CoSendAuthCg\\x00\\x00\\x00\\x00_ QR\\x00\\x00\\x00\\x00ectF\\x00\\x00\\x00\\x00astA\\x00\\x00\\x00\\x00rize\\x00\\x00\\x00\\x00sthr\\x00\\x00\\x00\\x00w co\\x00\\x00\\x00\\x00'"
+  },
+  {
+    "address": "0x8917820",
+    "text": "b'CoSendOpenSdkCgiwx_pc_game_loginOnGameConfirmEndHandleScopeList\\x00'"
+  },
+  {
+    "address": "0x891ad28",
+    "text": "b'CoSendPa&& u\\x00\\x00\\x00\\x00ResolveFownw\\x00\\x00\\x00\\x00rad_\\x00\\x00\\x00\\x00ServerErRecvErro*O\\x00\\x00\\x00\\x00\\x00\\x00'"
+  },
+  {
+    "address": "0x891c300",
+    "text": "b'CoSendBusinessCgweixin://dl/jumpredirect_url:%_\\x00\\xe3s\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x01\\x00\\x00\\x00'"
+  },
+  {
+    "address": "0x89e9510",
+    "text": "b'task_service.cc\\x00_b8c7b8bb\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00\\x00_f12954fb\\x00_512790ee\\x00_269'"
+  },
+  {
+    "address": "0x986e542",
+    "text": "b'micromsg-bin/\">\\t\\t<cgi reqid=\"36\" respid=\"1000000036\" nettype=\"3\"'"
+  },
+  {
+    "address": "0x986f4d9",
+    "text": "b'micromsg-bin/\">\\t\\t<cgi reqid=\"0\" respid=\"0\" nettype=\"1\" netstrate'"
+  },
+  {
+    "address": "0x986fed6",
+    "text": "b'micromsg-bin/\">        <cgi reqid=\"36\" respid=\"1000000036\" netty'"
+  },
+  {
+    "address": "0x987178a",
+    "text": "b'micromsg-bin/\" switchtime=\"480\">        <cgi reqid=\"370\" respid='"
+  },
+  {
+    "address": "0x9877833",
+    "text": "b'micromsg-bin/newgetdns?uin=%u&clientversion=%u&scene=%d&net=%d&m'"
+  },
+  {
+    "address": "0x98793ff",
+    "text": "b'micromsg-bin/\" fuzzy=\"0\">\\n<cgi nettype=\"1\" netstrategy=\"0\" netpr'"
+  },
+  {
+    "address": "0x9881921",
+    "text": "b'micromsg-bin/\" fuzzy=\"0\">\\n<cgi nettype=\"1\" netstrategy=\"0\" netpr'"
+  }
+]

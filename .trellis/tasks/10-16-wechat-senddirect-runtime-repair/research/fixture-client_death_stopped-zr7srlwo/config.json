@@ -1,0 +1,1 @@
+{"mode": "fixture", "case": "client_death_stopped", "pid": null, "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cleanup_fixture", "library": "/Applications/WeChat.app/Contents/Resources/wechat.dylib", "observe_until": 81994.701942, "url": "connect://127.0.0.1:61140"}

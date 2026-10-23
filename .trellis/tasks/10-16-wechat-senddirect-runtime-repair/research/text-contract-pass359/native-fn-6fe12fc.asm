@@ -1,0 +1,14 @@
+0x6fe12fc	48018052	mov w8,#0xa
+0x6fe1300	080800b9	str w8,[x0, #0x8]
+0x6fe1304	290040f9	ldr x9,[x1]
+0x6fe1308	090000f9	str x9,[x0]
+0x6fe130c	2a0140b9	ldr w10,[x9]
+0x6fe1310	4a050051	sub w10,w10,#0x1
+0x6fe1314	5f0d0031	cmn w10,#0x3
+0x6fe1318	a8000054	b.hi 0x06fe132c
+0x6fe131c	28008052	mov w8,#0x1
+0x6fe1320	2801e8b8	ldaddal w8,w8,[x9]
+0x6fe1324	080840b9	ldr w8,[x0, #0x8]
+0x6fe1328	08790112	and w8,w8,#0xbfffffff
+0x6fe132c	080800b9	str w8,[x0, #0x8]
+0x6fe1330	c0035fd6	ret

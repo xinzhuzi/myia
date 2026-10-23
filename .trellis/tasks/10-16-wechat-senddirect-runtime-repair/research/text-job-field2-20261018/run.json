@@ -1,0 +1,30 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "functions": [
+    {
+      "start": "0x291fb70",
+      "end_exclusive": "0x2921e1c",
+      "instructions": 2219,
+      "assembly": "function-291fb70.asm",
+      "sha256": "97af4d42e1a81beee72aba0650da7efe60e1239ee681611ebb3e179edc011636"
+    },
+    {
+      "start": "0x292d868",
+      "end_exclusive": "0x292d940",
+      "instructions": 54,
+      "assembly": "function-292d868.asm",
+      "sha256": "85fd8533a1c31c8920454f1fdfd683b088a805770481e6a61fcf4df5f41904ac"
+    },
+    {
+      "start": "0x292ef9c",
+      "end_exclusive": "0x292fac4",
+      "instructions": 714,
+      "assembly": "function-292ef9c.asm",
+      "sha256": "6803c5729e6bf89686f0e3fbbe1ddef0fc109846e25579af55a2d411bbc9b267"
+    }
+  ],
+  "target_executed": false,
+  "target_attached": false,
+  "source_sha256": "846e138c6abdead9d3940199481109808799d7799f0e762b761576832fd8451c"
+}

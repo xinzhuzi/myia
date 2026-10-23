@@ -1,0 +1,19 @@
+{
+  "args": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "-pthread",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_executor_ticket_4115.cpp",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/executor_erasure_fixture_4115.S",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_erasure_fixture_4115.S",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/executor-ticket-20261017/fixture"
+  ],
+  "returncode": 1,
+  "stdout": "",
+  "stderr": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_executor_ticket_4115.cpp:70:40: error: missing field 'mutex' initializer [-Werror,-Wmissing-field-initializers]\n   70 |     FixtureExecutor executor{&table, {}};\n      |                                        ^\n/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_executor_ticket_4115.cpp:84:40: error: missing field 'mutex' initializer [-Werror,-Wmissing-field-initializers]\n   84 |     FixtureExecutor executor{&table, {}};\n      |                                        ^\n/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_executor_ticket_4115.cpp:100:40: error: missing field 'mutex' initializer [-Werror,-Wmissing-field-initializers]\n  100 |     FixtureExecutor executor{&table, {}};\n      |                                        ^\n/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_executor_ticket_4115.cpp:112:40: error: missing field 'mutex' initializer [-Werror,-Wmissing-field-initializers]\n  112 |     FixtureExecutor executor{&table, {}};\n      |                                        ^\n/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_executor_ticket_4115.cpp:128:40: error: missing field 'mutex' initializer [-Werror,-Wmissing-field-initializers]\n  128 |     FixtureExecutor executor{&table, {}};\n      |                                        ^\n5 errors generated.\n"
+}

@@ -1,0 +1,29 @@
+{
+  "args": [
+    "/Users/zhengbingjin/ghidra_12.1.4_PUBLIC/support/analyzeHeadless",
+    "/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/ghidra-wxui",
+    "wxui",
+    "-process",
+    "wechat_arm64.dylib",
+    "-noanalysis",
+    "-readOnly",
+    "-log",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/callback-pass2/native-ghidra.log",
+    "-scriptlog",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/callback-pass2/native-ghidra-script.log",
+    "-scriptPath",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research",
+    "-postScript",
+    "OfflineNativeContracts.java",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/callback-pass2",
+    "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+    "0x5cc4468",
+    "0x597ffb0",
+    "0x59b73b0",
+    "0x5973938"
+  ],
+  "pid": 47559,
+  "returncode": 0,
+  "failure": null,
+  "seconds": 6.08
+}

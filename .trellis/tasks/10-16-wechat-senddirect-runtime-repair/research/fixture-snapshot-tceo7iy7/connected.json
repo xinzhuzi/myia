@@ -1,0 +1,12 @@
+{
+  "pid": 36140,
+  "state": "stopped",
+  "identity": {
+    "pid": 36140,
+    "flags": 18436,
+    "state": 4,
+    "start_sec": 1792130506,
+    "start_usec": 495218,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cleanup_fixture"
+  }
+}

@@ -1,0 +1,45 @@
+
+/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+000000000001986c <_WeChatMain>:
+ 21b3684: a9be4ff4     	stp	x20, x19, [sp, #-0x20]!
+ 21b3688: a9017bfd     	stp	x29, x30, [sp, #0x10]
+ 21b368c: 910043fd     	add	x29, sp, #0x10
+ 21b3690: f9400000     	ldr	x0, [x0]
+ 21b3694: 9512dc6c     	bl	0x666a844 <_SetWeixinCallbackFunc+0x1883448>
+ 21b3698: b4000320     	cbz	x0, 0x21b36fc <_WeChatMain+0x2199e90>
+ 21b369c: aa0003f3     	mov	x19, x0
+ 21b36a0: f9400000     	ldr	x0, [x0]
+ 21b36a4: b40000a0     	cbz	x0, 0x21b36b8 <_WeChatMain+0x2199e4c>
+ 21b36a8: f9400008     	ldr	x8, [x0]
+ 21b36ac: f9400d08     	ldr	x8, [x8, #0x18]
+ 21b36b0: d63f0100     	blr	x8
+ 21b36b4: 14000003     	b	0x21b36c0 <_WeChatMain+0x2199e54>
+ 21b36b8: f003cc00     	adrp	x0, 0x9b36000 <_wxam_enc_uninit_10+0x9b36000>
+ 21b36bc: f9456000     	ldr	x0, [x0, #0xac0]
+ 21b36c0: f9400408     	ldr	x8, [x0, #0x8]
+ 21b36c4: b00330e9     	adrp	x9, 0x87d0000 <_wxam_enc_uninit_10+0x87d0000>
+ 21b36c8: 9109c129     	add	x9, x9, #0x270
+ 21b36cc: d2f0000a     	mov	x10, #-0x8000000000000000 ; =-9223372036854775808
+ 21b36d0: 8b0a0129     	add	x9, x9, x10
+ 21b36d4: 9240f900     	and	x0, x8, #0x7fffffffffffffff
+ 21b36d8: 9240f921     	and	x1, x9, #0x7fffffffffffffff
+ 21b36dc: 953e38af     	bl	0x7141998 <_wxam_enc_uninit_10+0x7141998>
+ 21b36e0: 350000e0     	cbnz	w0, 0x21b36fc <_WeChatMain+0x2199e90>
+ 21b36e4: f9400268     	ldr	x8, [x19]
+ 21b36e8: b1002100     	adds	x0, x8, #0x8
+ 21b36ec: 54000080     	b.eq	0x21b36fc <_WeChatMain+0x2199e90>
+ 21b36f0: a9417bfd     	ldp	x29, x30, [sp, #0x10]
+ 21b36f4: a8c24ff4     	ldp	x20, x19, [sp], #0x20
+ 21b36f8: d65f03c0     	ret
+ 21b36fc: 52800100     	mov	w0, #0x8                ; =8
+ 21b3700: 953e325b     	bl	0x714006c <_wxam_enc_uninit_10+0x714006c>
+ 21b3704: f900001f     	str	xzr, [x0]
+ 21b3708: 97ff7264     	bl	0x2190098 <_WeChatMain+0x217682c>
+ 21b370c: 9003f001     	adrp	x1, 0x9fb3000 <_wxam_enc_uninit_10+0x9fb3000>
+ 21b3710: 91024021     	add	x1, x1, #0x90
+ 21b3714: b0fffee2     	adrp	x2, 0x2190000 <_WeChatMain+0x2176794>
+ 21b3718: 9102f042     	add	x2, x2, #0xbc
+ 21b371c: 953e327b     	bl	0x7140108 <_wxam_enc_uninit_10+0x7140108>

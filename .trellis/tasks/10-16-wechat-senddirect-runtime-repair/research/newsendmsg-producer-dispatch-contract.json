@@ -1,0 +1,47 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_type": "offline frozen instructions and dyld chained fixups",
+  "scope": "conditional service queue to selected text handler producer; no runtime execution",
+  "queue_dispatch": {
+    "entry": "0x31cbd88",
+    "queue": "*(service+0xb20)+0x88",
+    "lookup": "0x3221ac0",
+    "conditions": ["queue key exists", "queue vector nonempty", "front context state equals 6", "0x318d680 returns nonnull handler"],
+    "next_state": 7,
+    "body_allocation_bytes": "0x48",
+    "body_vtable": "0x9def470",
+    "captures": {"0x8/0x10": "context shared pair", "0x18/0x20": "selected handler shared pair", "0x28": "service", "0x30": "key string"},
+    "job_wrapper": "0x453d344",
+    "invoke_slot": "0x9def4a0",
+    "invoke": "0x32243a8",
+    "earlier_connection": "0x31d15fc: when 0x30d58e0 result words are both zero, sets state6 and invokes queue dispatch by context key"
+  },
+  "body_invoke": {
+    "entry": "0x32243a8",
+    "helper": "0x3224fe8",
+    "helper_registers": {"x0": "address of captured context shared pair copy", "x1": "address of captured handler shared pair copy", "x8": "result storage"},
+    "native_conditional_second_call": {"predicate": "first helper returns nonzero result words, 0x30dc518(handler,context_pair,error_word_1) returns true", "predicate_requirements": ["error word1 equals 0x66", "context, record and context+0x28 object are nonnull", "context state equals10", "record predicate 0x4a28ef8 is nonzero", "byte at context+0x28 object has bit0 set"], "effect": "clear that byte then call helper once more; no loop in this body", "limitation": "This is observed static native behavior, not permission or a design for automatic debugger retries"},
+    "completion_effect": "publish result through 0x3127208(context+0xa0,result), then call 0x31cbd88(service,key) again; delivery and final drain unproved"
+  },
+  "helper": {
+    "entry": "0x3224fe8",
+    "precheck": "0x30d66c0(handler,context_pair), hidden x8 result",
+    "gate": "both 32-bit result words equal zero",
+    "state_before_producer": 10,
+    "producer_wrapper": "0x30d692c",
+    "registers": {"x0": "handler", "x1": "context shared pair copy address", "x8": "local result storage"}
+  },
+  "virtual_calls": {
+    "precheck": {"entry": "0x30d66c0", "slot_offset": "0xd0", "text_slot": "0x9de9b38", "text_target": "0x3107afc", "text_effect": "tail-call result constructor 0x304f1cc with zero/zero"},
+    "producer": {"entry": "0x30d692c", "call_site": "0x30d69a8", "slot_offset": "0xd8", "text_slot": "0x9de9b40", "text_target": "0x3107b0c", "registers": {"x0": "handler", "x1": "stack context shared pair", "x8": "unchanged caller-provided result storage"}, "ownership": "retains context record pair+0x18/+0x20, auxiliary pair+0x28/+0x30 and context pair across virtual call, releases afterward"}
+  },
+  "conditional_static_queue_to_text_producer_path_proven": true,
+  "text_identity_dependency": "newsendmsg-handler-registration-contract.json and newsendmsg-text-handler-contract.json",
+  "runtime_observed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "remaining": ["ordinary-text input creation and exact type identity", "recipient direction and source object identity", "real group/config/thread, cancellation composition and final callback drain", "complete adapter and independent delivery receipt"],
+  "safety": "account-safety-stop-20261016.md: no live WeChat operation or new observation request"
+}

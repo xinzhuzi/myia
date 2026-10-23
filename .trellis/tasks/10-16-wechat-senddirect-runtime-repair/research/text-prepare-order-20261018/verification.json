@@ -1,0 +1,815 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "instruction_positions_matched": 659,
+  "selected_checks": 29,
+  "raw_decoded_transfers": [
+    {
+      "site": "0x3105ad8",
+      "target": "0x3105aec",
+      "assembly": "cbz x8,0x03105aec"
+    },
+    {
+      "site": "0x3105af0",
+      "target": "0x3105b30",
+      "assembly": "cbz x0,0x03105b30"
+    },
+    {
+      "site": "0x3105b08",
+      "target": "0x714012c",
+      "assembly": "bl 0x0714012c"
+    },
+    {
+      "site": "0x3105b0c",
+      "target": "0x3105b30",
+      "assembly": "cbz x0,0x03105b30"
+    },
+    {
+      "site": "0x3105b18",
+      "target": "0x3105b34",
+      "assembly": "cbz x8,0x03105b34"
+    },
+    {
+      "site": "0x3105b2c",
+      "target": "0x3105b34",
+      "assembly": "b 0x03105b34"
+    },
+    {
+      "site": "0x3105b3c",
+      "target": "0x3105b4c",
+      "assembly": "cbz x8,0x03105b4c"
+    },
+    {
+      "site": "0x3105b64",
+      "target": "0x3105b78",
+      "assembly": "cbz x22,0x03105b78"
+    },
+    {
+      "site": "0x3105b74",
+      "target": "0x3105e24",
+      "assembly": "cbz x8,0x03105e24"
+    },
+    {
+      "site": "0x3105b7c",
+      "target": "0x3105e4c",
+      "assembly": "tbz w0,#0x0,0x03105e4c"
+    },
+    {
+      "site": "0x3105b84",
+      "target": "0x3105c10",
+      "assembly": "cbz x0,0x03105c10"
+    },
+    {
+      "site": "0x3105b9c",
+      "target": "0x714012c",
+      "assembly": "bl 0x0714012c"
+    },
+    {
+      "site": "0x3105ba0",
+      "target": "0x3105c10",
+      "assembly": "cbz x0,0x03105c10"
+    },
+    {
+      "site": "0x3105bac",
+      "target": "0x3105bbc",
+      "assembly": "cbz x8,0x03105bbc"
+    },
+    {
+      "site": "0x3105bcc",
+      "target": "0x3105bdc",
+      "assembly": "cbz x9,0x03105bdc"
+    },
+    {
+      "site": "0x3105bdc",
+      "target": "0x310603c",
+      "assembly": "cbz x8,0x0310603c"
+    },
+    {
+      "site": "0x3105be8",
+      "target": "0x3105bf8",
+      "assembly": "cbz x22,0x03105bf8"
+    },
+    {
+      "site": "0x3105bf8",
+      "target": "0x3106254",
+      "assembly": "cbz x9,0x03106254"
+    },
+    {
+      "site": "0x3105c00",
+      "target": "0x31062b8",
+      "assembly": "cbnz w10,0x031062b8"
+    },
+    {
+      "site": "0x3105c0c",
+      "target": "0x31062b8",
+      "assembly": "b 0x031062b8"
+    },
+    {
+      "site": "0x3105c18",
+      "target": "0x5e1d978",
+      "assembly": "bl 0x05e1d978"
+    },
+    {
+      "site": "0x3105c1c",
+      "target": "0x3105df0",
+      "assembly": "cbz w0,0x03105df0"
+    },
+    {
+      "site": "0x3105c28",
+      "target": "0x488143c",
+      "assembly": "bl 0x0488143c"
+    },
+    {
+      "site": "0x3105c44",
+      "target": "0x3105ca0",
+      "assembly": "tbnz w9,#0x0,0x03105ca0"
+    },
+    {
+      "site": "0x3105ca8",
+      "target": "0x3105d10",
+      "assembly": "tbnz w9,#0x0,0x03105d10"
+    },
+    {
+      "site": "0x3105d34",
+      "target": "0x5e1d050",
+      "assembly": "bl 0x05e1d050"
+    },
+    {
+      "site": "0x3105d40",
+      "target": "0x3105da8",
+      "assembly": "tbnz w9,#0x0,0x03105da8"
+    },
+    {
+      "site": "0x3105dcc",
+      "target": "0x5e1d31c",
+      "assembly": "bl 0x05e1d31c"
+    },
+    {
+      "site": "0x3105dd4",
+      "target": "0x5e1d19c",
+      "assembly": "bl 0x05e1d19c"
+    },
+    {
+      "site": "0x3105ddc",
+      "target": "0x3105df0",
+      "assembly": "tbz w8,#0x1f,0x03105df0"
+    },
+    {
+      "site": "0x3105dec",
+      "target": "0x714000c",
+      "assembly": "bl 0x0714000c"
+    },
+    {
+      "site": "0x3105df8",
+      "target": "0x3105e08",
+      "assembly": "cbz x8,0x03105e08"
+    },
+    {
+      "site": "0x3105e14",
+      "target": "0x30db798",
+      "assembly": "bl 0x030db798"
+    },
+    {
+      "site": "0x3105e1c",
+      "target": "0x31063f8",
+      "assembly": "cbnz x19,0x031063f8"
+    },
+    {
+      "site": "0x3105e20",
+      "target": "0x3106420",
+      "assembly": "b 0x03106420"
+    },
+    {
+      "site": "0x3105e3c",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x3105e48",
+      "target": "0x3105b80",
+      "assembly": "tbnz w0,#0x0,0x03105b80"
+    },
+    {
+      "site": "0x3105e50",
+      "target": "0x5e1d978",
+      "assembly": "bl 0x05e1d978"
+    },
+    {
+      "site": "0x3105e54",
+      "target": "0x3106020",
+      "assembly": "cbz w0,0x03106020"
+    },
+    {
+      "site": "0x3105e60",
+      "target": "0x488143c",
+      "assembly": "bl 0x0488143c"
+    },
+    {
+      "site": "0x3105e7c",
+      "target": "0x3105ed8",
+      "assembly": "tbnz w9,#0x0,0x03105ed8"
+    },
+    {
+      "site": "0x3105ee0",
+      "target": "0x3105f48",
+      "assembly": "tbnz w9,#0x0,0x03105f48"
+    },
+    {
+      "site": "0x3105f6c",
+      "target": "0x5e1d050",
+      "assembly": "bl 0x05e1d050"
+    },
+    {
+      "site": "0x3105f78",
+      "target": "0x3105fd8",
+      "assembly": "tbnz w9,#0x0,0x03105fd8"
+    },
+    {
+      "site": "0x3105ffc",
+      "target": "0x5e1d31c",
+      "assembly": "bl 0x05e1d31c"
+    },
+    {
+      "site": "0x3106004",
+      "target": "0x5e1d19c",
+      "assembly": "bl 0x05e1d19c"
+    },
+    {
+      "site": "0x310600c",
+      "target": "0x3106020",
+      "assembly": "tbz w8,#0x1f,0x03106020"
+    },
+    {
+      "site": "0x310601c",
+      "target": "0x714000c",
+      "assembly": "bl 0x0714000c"
+    },
+    {
+      "site": "0x3106034",
+      "target": "0x30f6650",
+      "assembly": "bl 0x030f6650"
+    },
+    {
+      "site": "0x3106038",
+      "target": "0x3106450",
+      "assembly": "b 0x03106450"
+    },
+    {
+      "site": "0x3106040",
+      "target": "0x3106048",
+      "assembly": "tbz x8,#0x3f,0x03106048"
+    },
+    {
+      "site": "0x3106048",
+      "target": "0x3106380",
+      "assembly": "cbz x8,0x03106380"
+    },
+    {
+      "site": "0x3106050",
+      "target": "0x5e1d978",
+      "assembly": "bl 0x05e1d978"
+    },
+    {
+      "site": "0x3106054",
+      "target": "0x3106380",
+      "assembly": "cbz w0,0x03106380"
+    },
+    {
+      "site": "0x3106060",
+      "target": "0x488143c",
+      "assembly": "bl 0x0488143c"
+    },
+    {
+      "site": "0x310607c",
+      "target": "0x31060d8",
+      "assembly": "tbnz w9,#0x0,0x031060d8"
+    },
+    {
+      "site": "0x31060e0",
+      "target": "0x3106148",
+      "assembly": "tbnz w9,#0x0,0x03106148"
+    },
+    {
+      "site": "0x310616c",
+      "target": "0x5e1d050",
+      "assembly": "bl 0x05e1d050"
+    },
+    {
+      "site": "0x3106178",
+      "target": "0x3106208",
+      "assembly": "tbnz w9,#0x0,0x03106208"
+    },
+    {
+      "site": "0x310622c",
+      "target": "0x5e1d31c",
+      "assembly": "bl 0x05e1d31c"
+    },
+    {
+      "site": "0x3106234",
+      "target": "0x5e1d19c",
+      "assembly": "bl 0x05e1d19c"
+    },
+    {
+      "site": "0x310623c",
+      "target": "0x3106380",
+      "assembly": "tbz w8,#0x1f,0x03106380"
+    },
+    {
+      "site": "0x310624c",
+      "target": "0x714000c",
+      "assembly": "bl 0x0714000c"
+    },
+    {
+      "site": "0x3106250",
+      "target": "0x3106380",
+      "assembly": "b 0x03106380"
+    },
+    {
+      "site": "0x3106258",
+      "target": "0x7140030",
+      "assembly": "bl 0x07140030"
+    },
+    {
+      "site": "0x3106278",
+      "target": "0x31062a4",
+      "assembly": "cbz x22,0x031062a4"
+    },
+    {
+      "site": "0x3106288",
+      "target": "0x31062a4",
+      "assembly": "cbnz x8,0x031062a4"
+    },
+    {
+      "site": "0x31062a0",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x31062b8",
+      "target": "0x31062cc",
+      "assembly": "cbz x22,0x031062cc"
+    },
+    {
+      "site": "0x31062d4",
+      "target": "0x3106300",
+      "assembly": "cbz x23,0x03106300"
+    },
+    {
+      "site": "0x31062e4",
+      "target": "0x3106300",
+      "assembly": "cbnz x8,0x03106300"
+    },
+    {
+      "site": "0x31062fc",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x3106300",
+      "target": "0x310632c",
+      "assembly": "cbz x22,0x0310632c"
+    },
+    {
+      "site": "0x3106310",
+      "target": "0x310632c",
+      "assembly": "cbnz x8,0x0310632c"
+    },
+    {
+      "site": "0x3106328",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x3106334",
+      "target": "0x310633c",
+      "assembly": "tbz x9,#0x3f,0x0310633c"
+    },
+    {
+      "site": "0x310633c",
+      "target": "0x3106350",
+      "assembly": "cbz x9,0x03106350"
+    },
+    {
+      "site": "0x310634c",
+      "target": "0x713f8e0",
+      "assembly": "bl 0x0713f8e0"
+    },
+    {
+      "site": "0x3106354",
+      "target": "0x3106380",
+      "assembly": "cbz x22,0x03106380"
+    },
+    {
+      "site": "0x3106364",
+      "target": "0x3106380",
+      "assembly": "cbnz x8,0x03106380"
+    },
+    {
+      "site": "0x310637c",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x3106394",
+      "target": "0x713f8e0",
+      "assembly": "bl 0x0713f8e0"
+    },
+    {
+      "site": "0x31063a0",
+      "target": "0x31063b0",
+      "assembly": "cbz x8,0x031063b0"
+    },
+    {
+      "site": "0x31063bc",
+      "target": "0x30db798",
+      "assembly": "bl 0x030db798"
+    },
+    {
+      "site": "0x31063c4",
+      "target": "0x31063f0",
+      "assembly": "cbz x19,0x031063f0"
+    },
+    {
+      "site": "0x31063d4",
+      "target": "0x31063f0",
+      "assembly": "cbnz x8,0x031063f0"
+    },
+    {
+      "site": "0x31063ec",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x31063f4",
+      "target": "0x3106420",
+      "assembly": "cbz x19,0x03106420"
+    },
+    {
+      "site": "0x3106404",
+      "target": "0x3106420",
+      "assembly": "cbnz x8,0x03106420"
+    },
+    {
+      "site": "0x310641c",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x3106424",
+      "target": "0x3106450",
+      "assembly": "cbz x19,0x03106450"
+    },
+    {
+      "site": "0x3106434",
+      "target": "0x3106450",
+      "assembly": "cbnz x8,0x03106450"
+    },
+    {
+      "site": "0x310644c",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x3106454",
+      "target": "0x3106480",
+      "assembly": "cbz x19,0x03106480"
+    },
+    {
+      "site": "0x3106464",
+      "target": "0x3106480",
+      "assembly": "cbnz x8,0x03106480"
+    },
+    {
+      "site": "0x310647c",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x3106484",
+      "target": "0x31064b0",
+      "assembly": "cbz x19,0x031064b0"
+    },
+    {
+      "site": "0x3106494",
+      "target": "0x31064b0",
+      "assembly": "cbnz x8,0x031064b0"
+    },
+    {
+      "site": "0x31064ac",
+      "target": "0x713fc1c",
+      "assembly": "bl 0x0713fc1c"
+    },
+    {
+      "site": "0x31064c4",
+      "target": "0x31064e0",
+      "assembly": "b.ne 0x031064e0"
+    },
+    {
+      "site": "0x31064e0",
+      "target": "0x71401a4",
+      "assembly": "bl 0x071401a4"
+    }
+  ],
+  "calls_modelled_with_local_normal_return": [
+    {
+      "site": "0x3105b08",
+      "target": "0x714012c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105b5c",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x3105b9c",
+      "target": "0x714012c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105c18",
+      "target": "0x5e1d978",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105c28",
+      "target": "0x488143c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105d34",
+      "target": "0x5e1d050",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105dcc",
+      "target": "0x5e1d31c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105dd4",
+      "target": "0x5e1d19c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105dec",
+      "target": "0x714000c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105e14",
+      "target": "0x30db798",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105e34",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x3105e3c",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105e50",
+      "target": "0x5e1d978",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105e60",
+      "target": "0x488143c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105f6c",
+      "target": "0x5e1d050",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3105ffc",
+      "target": "0x5e1d31c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106004",
+      "target": "0x5e1d19c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x310601c",
+      "target": "0x714000c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106034",
+      "target": "0x30f6650",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106050",
+      "target": "0x5e1d978",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106060",
+      "target": "0x488143c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x310616c",
+      "target": "0x5e1d050",
+      "kind": "direct"
+    },
+    {
+      "site": "0x310622c",
+      "target": "0x5e1d31c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106234",
+      "target": "0x5e1d19c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x310624c",
+      "target": "0x714000c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106258",
+      "target": "0x7140030",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106298",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x31062a0",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x31062f4",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x31062fc",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106320",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x3106328",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x310634c",
+      "target": "0x713f8e0",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106374",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x310637c",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106394",
+      "target": "0x713f8e0",
+      "kind": "direct"
+    },
+    {
+      "site": "0x31063bc",
+      "target": "0x30db798",
+      "kind": "direct"
+    },
+    {
+      "site": "0x31063e4",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x31063ec",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106414",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x310641c",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106444",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x310644c",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x3106474",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x310647c",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x31064a4",
+      "kind": "indirect",
+      "target": "unresolved"
+    },
+    {
+      "site": "0x31064ac",
+      "target": "0x713fc1c",
+      "kind": "direct"
+    },
+    {
+      "site": "0x31064e0",
+      "target": "0x71401a4",
+      "kind": "direct"
+    }
+  ],
+  "normal_return_sites": [
+    "0x31064dc"
+  ],
+  "other_local_terminals": [
+    {
+      "site": "0x31064e0",
+      "assembly": "bl 0x071401a4"
+    }
+  ],
+  "local_cfg_conclusions": {
+    "second_text_cast_success_entry": "0x3105ba4",
+    "body_assignment_dominates_typed_database_call": true,
+    "body_assignment_on_all_local_normal_return_paths_from_typed_entry": true,
+    "metadata_assignment_precedes_body_assignment": true,
+    "metadata_destination": "record+0x230 object, string+0x18",
+    "metadata_source": "typed_input+0x5e0, only if string length nonzero",
+    "body_destination": "context record+0x130",
+    "body_source": "typed_input+0x5c8",
+    "first_validator_success_alone_guarantees_body_assignment": false,
+    "fallback_database_call_reachable_after_first_validator": "0x3105e14",
+    "fallback_witness_without_body_assignment": [
+      "0x3105b80",
+      "0x3105b84",
+      "0x3105c10",
+      "0x3105c14",
+      "0x3105c18",
+      "0x3105c1c",
+      "0x3105df0",
+      "0x3105df4",
+      "0x3105df8",
+      "0x3105e08",
+      "0x3105e0c",
+      "0x3105e10",
+      "0x3105e14"
+    ]
+  },
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/ghidra.log": "c3427d3cc9d8880def45739d63bae39158df8c5eca1a6977c58590e83c9ff88e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/headless-output.log": "89e4d8f259b25d70ca68eecd00107c8604be9d1c8e366d2e9291c840108f9c73",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/native-fn-3105a98.asm": "d5f6911822079ee22866e87bc7ab3b5365973fa5098b31985dd3dfe14e77ca97",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/native-fn-3105a98.c": "37d57ca0b7b08158f1905bb00e0f489c4a1bd90ed2424701cc0e1e2734b69327",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/run.json": "fd5057e250fc665a70a5dfcb5fea6b3dcca624f0833b5d8a8dd51f25f352db97",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass203/script.log": "35354ebb51c4c7e8728b62892dc37e2ad379275cf81b5ef5f6319a5c69efe48b",
+    "Library/ai/analyze_wechat_text_prepare_cfg_20261018.py": "b23cb9d3f67a928e4f3aac16130e6767862be41ba163a9edb1df4a73bffec9b2",
+    "Library/ai/verify_wechat_input_type_20261016.py": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17"
+  },
+  "limitations": [
+    "Local overapproximation: both conditional branches are possible; witnesses do not prove runtime feasibility.",
+    "BL/BLR edges assume normal return; callee mutations, exceptions, nonlocal exits and concurrency are not modelled.",
+    "A normal return here does not prove a zero result, send success or delivery.",
+    "No whole-path record/content preservation, valid native coroutine or final drain proof."
+  ],
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "whole_path_content_preservation_proven": false,
+  "complete_adapter": false,
+  "send_verified": false,
+  "deployed": false,
+  "full_objective_complete": false
+}

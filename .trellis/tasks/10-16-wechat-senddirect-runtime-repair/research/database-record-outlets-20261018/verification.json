@@ -1,0 +1,1873 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass224/native-fn-32cf5e8.asm",
+      "instructions": 1372,
+      "normal_returns": [
+        "0x32d0b2c"
+      ],
+      "other_terminals": [
+        {
+          "site": "0x32d0b54",
+          "assembly": "bl 0x071401a4"
+        }
+      ],
+      "decoded_transfers": [
+        {
+          "site": "0x32cf638",
+          "target": "0x32cf9f8"
+        },
+        {
+          "site": "0x32cf650",
+          "target": "0x466aca8"
+        },
+        {
+          "site": "0x32cf65c",
+          "target": "0x1205740"
+        },
+        {
+          "site": "0x32cf668",
+          "target": "0x2603584"
+        },
+        {
+          "site": "0x32cf674",
+          "target": "0x3289264"
+        },
+        {
+          "site": "0x32cf684",
+          "target": "0x3bda490"
+        },
+        {
+          "site": "0x32cf690",
+          "target": "0x32cf6bc"
+        },
+        {
+          "site": "0x32cf6a0",
+          "target": "0x32cf6bc"
+        },
+        {
+          "site": "0x32cf6b8",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32cf6c0",
+          "target": "0x32cf6ec"
+        },
+        {
+          "site": "0x32cf6d0",
+          "target": "0x32cf6ec"
+        },
+        {
+          "site": "0x32cf6e8",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32cf6f0",
+          "target": "0x32cf71c"
+        },
+        {
+          "site": "0x32cf700",
+          "target": "0x32cf71c"
+        },
+        {
+          "site": "0x32cf718",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32cf720",
+          "target": "0x5e1d978"
+        },
+        {
+          "site": "0x32cf724",
+          "target": "0x32cfd64"
+        },
+        {
+          "site": "0x32cf730",
+          "target": "0x488143c"
+        },
+        {
+          "site": "0x32cf74c",
+          "target": "0x32cf794"
+        },
+        {
+          "site": "0x32cf788",
+          "target": "0x32cf764"
+        },
+        {
+          "site": "0x32cf79c",
+          "target": "0x32cf7c0"
+        },
+        {
+          "site": "0x32cf7e4",
+          "target": "0x5e1d050"
+        },
+        {
+          "site": "0x32cf7f4",
+          "target": "0x4cbde70"
+        },
+        {
+          "site": "0x32cf82c",
+          "target": "0x32cf894"
+        },
+        {
+          "site": "0x32cf888",
+          "target": "0x32cf854"
+        },
+        {
+          "site": "0x32cf8cc",
+          "target": "0x32cf8a4"
+        },
+        {
+          "site": "0x32cf8e4",
+          "target": "0x32cf910"
+        },
+        {
+          "site": "0x32cf90c",
+          "target": "0x32cf8f0"
+        },
+        {
+          "site": "0x32cf964",
+          "target": "0x32cf934"
+        },
+        {
+          "site": "0x32cf968",
+          "target": "0x32cf97c"
+        },
+        {
+          "site": "0x32cf98c",
+          "target": "0x32cf9b8"
+        },
+        {
+          "site": "0x32cf9b4",
+          "target": "0x32cf998"
+        },
+        {
+          "site": "0x32cf9bc",
+          "target": "0x32cfc50"
+        },
+        {
+          "site": "0x32cf9d0",
+          "target": "0x32cfc94"
+        },
+        {
+          "site": "0x32cf9f4",
+          "target": "0x32cfc80"
+        },
+        {
+          "site": "0x32cf9fc",
+          "target": "0x5e1d978"
+        },
+        {
+          "site": "0x32cfa00",
+          "target": "0x32cfbb8"
+        },
+        {
+          "site": "0x32cfa0c",
+          "target": "0x488143c"
+        },
+        {
+          "site": "0x32cfa28",
+          "target": "0x32cfa70"
+        },
+        {
+          "site": "0x32cfa64",
+          "target": "0x32cfa40"
+        },
+        {
+          "site": "0x32cfa78",
+          "target": "0x32cfa9c"
+        },
+        {
+          "site": "0x32cfac0",
+          "target": "0x5e1d050"
+        },
+        {
+          "site": "0x32cfad0",
+          "target": "0x4cbe440"
+        },
+        {
+          "site": "0x32cfaf4",
+          "target": "0x32cfb40"
+        },
+        {
+          "site": "0x32cfb34",
+          "target": "0x32cfb0c"
+        },
+        {
+          "site": "0x32cfb7c",
+          "target": "0x5e1d31c"
+        },
+        {
+          "site": "0x32cfb84",
+          "target": "0x32cfb98"
+        },
+        {
+          "site": "0x32cfb94",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x32cfb9c",
+          "target": "0x5e1d19c"
+        },
+        {
+          "site": "0x32cfba4",
+          "target": "0x32cfbb8"
+        },
+        {
+          "site": "0x32cfbb4",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x32cfbcc",
+          "target": "0x21efaf0"
+        },
+        {
+          "site": "0x32cfbdc",
+          "target": "0x32cfbec"
+        },
+        {
+          "site": "0x32cfbf4",
+          "target": "0x335bddc"
+        },
+        {
+          "site": "0x32cfbfc",
+          "target": "0x32cfc28"
+        },
+        {
+          "site": "0x32cfc0c",
+          "target": "0x32cfc28"
+        },
+        {
+          "site": "0x32cfc24",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32cfc34",
+          "target": "0x32d0af8"
+        },
+        {
+          "site": "0x32cfc48",
+          "target": "0x32d0ad0"
+        },
+        {
+          "site": "0x32cfc4c",
+          "target": "0x32d0af8"
+        },
+        {
+          "site": "0x32cfc60",
+          "target": "0x32cfc94"
+        },
+        {
+          "site": "0x32cfca4",
+          "target": "0x32cfcf0"
+        },
+        {
+          "site": "0x32cfce4",
+          "target": "0x32cfcbc"
+        },
+        {
+          "site": "0x32cfd28",
+          "target": "0x5e1d31c"
+        },
+        {
+          "site": "0x32cfd30",
+          "target": "0x32cfd44"
+        },
+        {
+          "site": "0x32cfd40",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x32cfd48",
+          "target": "0x5e1d19c"
+        },
+        {
+          "site": "0x32cfd50",
+          "target": "0x32cfd64"
+        },
+        {
+          "site": "0x32cfd60",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x32cfd74",
+          "target": "0x466aca8"
+        },
+        {
+          "site": "0x32cfd80",
+          "target": "0x1205740"
+        },
+        {
+          "site": "0x32cfd8c",
+          "target": "0x2603584"
+        },
+        {
+          "site": "0x32cfd98",
+          "target": "0x3289264"
+        },
+        {
+          "site": "0x32cfdac",
+          "target": "0x3bda4e8"
+        },
+        {
+          "site": "0x32cfdb4",
+          "target": "0x32cfde0"
+        },
+        {
+          "site": "0x32cfdc4",
+          "target": "0x32cfde0"
+        },
+        {
+          "site": "0x32cfddc",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32cfde4",
+          "target": "0x32cfe10"
+        },
+        {
+          "site": "0x32cfdf4",
+          "target": "0x32cfe10"
+        },
+        {
+          "site": "0x32cfe0c",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32cfe14",
+          "target": "0x32cfe28"
+        },
+        {
+          "site": "0x32cfe24",
+          "target": "0x32cfe68"
+        },
+        {
+          "site": "0x32cfe2c",
+          "target": "0x32cfe88"
+        },
+        {
+          "site": "0x32cfe3c",
+          "target": "0x32d082c"
+        },
+        {
+          "site": "0x32cfe40",
+          "target": "0x32d082c"
+        },
+        {
+          "site": "0x32cfe50",
+          "target": "0x32d0174"
+        },
+        {
+          "site": "0x32cfe64",
+          "target": "0x32d0184"
+        },
+        {
+          "site": "0x32cfe7c",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32cfe84",
+          "target": "0x32cfe30"
+        },
+        {
+          "site": "0x32cfe8c",
+          "target": "0x5e1d978"
+        },
+        {
+          "site": "0x32cfe90",
+          "target": "0x32d0130"
+        },
+        {
+          "site": "0x32cfe9c",
+          "target": "0x488143c"
+        },
+        {
+          "site": "0x32cfeb8",
+          "target": "0x32cff00"
+        },
+        {
+          "site": "0x32cfef4",
+          "target": "0x32cfed0"
+        },
+        {
+          "site": "0x32cff08",
+          "target": "0x32cff2c"
+        },
+        {
+          "site": "0x32cff50",
+          "target": "0x5e1d050"
+        },
+        {
+          "site": "0x32cff68",
+          "target": "0x32cffd8"
+        },
+        {
+          "site": "0x32cffcc",
+          "target": "0x32cff98"
+        },
+        {
+          "site": "0x32d0024",
+          "target": "0x32cfff4"
+        },
+        {
+          "site": "0x32d0028",
+          "target": "0x32d003c"
+        },
+        {
+          "site": "0x32d004c",
+          "target": "0x32d0078"
+        },
+        {
+          "site": "0x32d0074",
+          "target": "0x32d0058"
+        },
+        {
+          "site": "0x32d0084",
+          "target": "0x32d00d0"
+        },
+        {
+          "site": "0x32d00c4",
+          "target": "0x32d009c"
+        },
+        {
+          "site": "0x32d010c",
+          "target": "0x5e1d31c"
+        },
+        {
+          "site": "0x32d0114",
+          "target": "0x5e1d19c"
+        },
+        {
+          "site": "0x32d011c",
+          "target": "0x32d0130"
+        },
+        {
+          "site": "0x32d012c",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x32d0144",
+          "target": "0x21efaf0"
+        },
+        {
+          "site": "0x32d0154",
+          "target": "0x32d0164"
+        },
+        {
+          "site": "0x32d016c",
+          "target": "0x335bddc"
+        },
+        {
+          "site": "0x32d0170",
+          "target": "0x32d0798"
+        },
+        {
+          "site": "0x32d017c",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0x32d0190",
+          "target": "0x32d01a0"
+        },
+        {
+          "site": "0x32d01b4",
+          "target": "0x21efaf0"
+        },
+        {
+          "site": "0x32d01c4",
+          "target": "0x32d01d4"
+        },
+        {
+          "site": "0x32d01dc",
+          "target": "0x32d020c"
+        },
+        {
+          "site": "0x32d0210",
+          "target": "0x32d025c"
+        },
+        {
+          "site": "0x32d0250",
+          "target": "0x32d0228"
+        },
+        {
+          "site": "0x32d0274",
+          "target": "0x3bb6c"
+        },
+        {
+          "site": "0x32d027c",
+          "target": "0x7140030"
+        },
+        {
+          "site": "0x32d0294",
+          "target": "0x33c40"
+        },
+        {
+          "site": "0x32d02a4",
+          "target": "0x32d02bc"
+        },
+        {
+          "site": "0x32d02b8",
+          "target": "0x32d02cc"
+        },
+        {
+          "site": "0x32d02c8",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0x32d02d8",
+          "target": "0x32d02e8"
+        },
+        {
+          "site": "0x32d02ec",
+          "target": "0x32d02fc"
+        },
+        {
+          "site": "0x32d0308",
+          "target": "0x3c17870"
+        },
+        {
+          "site": "0x32d0314",
+          "target": "0x33d2c"
+        },
+        {
+          "site": "0x32d0320",
+          "target": "0x32d034c"
+        },
+        {
+          "site": "0x32d0330",
+          "target": "0x32d034c"
+        },
+        {
+          "site": "0x32d0348",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d0358",
+          "target": "0x32d0398"
+        },
+        {
+          "site": "0x32d036c",
+          "target": "0x32d0398"
+        },
+        {
+          "site": "0x32d037c",
+          "target": "0x32d0398"
+        },
+        {
+          "site": "0x32d0394",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d03a8",
+          "target": "0x32d03b8"
+        },
+        {
+          "site": "0x32d03c0",
+          "target": "0x66856fc"
+        },
+        {
+          "site": "0x32d03c8",
+          "target": "0x22d9f40"
+        },
+        {
+          "site": "0x32d03d4",
+          "target": "0x32d0400"
+        },
+        {
+          "site": "0x32d03e4",
+          "target": "0x32d0400"
+        },
+        {
+          "site": "0x32d03fc",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d0404",
+          "target": "0x32d0430"
+        },
+        {
+          "site": "0x32d0414",
+          "target": "0x32d0430"
+        },
+        {
+          "site": "0x32d042c",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d0434",
+          "target": "0x32d0460"
+        },
+        {
+          "site": "0x32d0444",
+          "target": "0x32d0460"
+        },
+        {
+          "site": "0x32d045c",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d0464",
+          "target": "0x32d0818"
+        },
+        {
+          "site": "0x32d0468",
+          "target": "0x32d082c"
+        },
+        {
+          "site": "0x32d0470",
+          "target": "0x5e1d978"
+        },
+        {
+          "site": "0x32d0474",
+          "target": "0x32d0758"
+        },
+        {
+          "site": "0x32d0480",
+          "target": "0x488143c"
+        },
+        {
+          "site": "0x32d049c",
+          "target": "0x32d04e4"
+        },
+        {
+          "site": "0x32d04d8",
+          "target": "0x32d04b4"
+        },
+        {
+          "site": "0x32d04ec",
+          "target": "0x32d0510"
+        },
+        {
+          "site": "0x32d0534",
+          "target": "0x5e1d050"
+        },
+        {
+          "site": "0x32d054c",
+          "target": "0x32d05bc"
+        },
+        {
+          "site": "0x32d05b0",
+          "target": "0x32d057c"
+        },
+        {
+          "site": "0x32d05fc",
+          "target": "0x32d05d4"
+        },
+        {
+          "site": "0x32d0614",
+          "target": "0x32d0640"
+        },
+        {
+          "site": "0x32d063c",
+          "target": "0x32d0620"
+        },
+        {
+          "site": "0x32d0668",
+          "target": "0x4cbe440"
+        },
+        {
+          "site": "0x32d068c",
+          "target": "0x32d06d8"
+        },
+        {
+          "site": "0x32d06cc",
+          "target": "0x32d06a4"
+        },
+        {
+          "site": "0x32d071c",
+          "target": "0x5e1d31c"
+        },
+        {
+          "site": "0x32d0724",
+          "target": "0x32d0738"
+        },
+        {
+          "site": "0x32d0734",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x32d073c",
+          "target": "0x5e1d19c"
+        },
+        {
+          "site": "0x32d0744",
+          "target": "0x32d0758"
+        },
+        {
+          "site": "0x32d0754",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x32d076c",
+          "target": "0x21efaf0"
+        },
+        {
+          "site": "0x32d077c",
+          "target": "0x32d078c"
+        },
+        {
+          "site": "0x32d0794",
+          "target": "0x335bddc"
+        },
+        {
+          "site": "0x32d079c",
+          "target": "0x32d07c8"
+        },
+        {
+          "site": "0x32d07ac",
+          "target": "0x32d07c8"
+        },
+        {
+          "site": "0x32d07c4",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d07d4",
+          "target": "0x32d0ac8"
+        },
+        {
+          "site": "0x32d07e8",
+          "target": "0x32d0ac8"
+        },
+        {
+          "site": "0x32d07f8",
+          "target": "0x32d0ac8"
+        },
+        {
+          "site": "0x32d0810",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d0814",
+          "target": "0x32d0ac8"
+        },
+        {
+          "site": "0x32d0824",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x32d0828",
+          "target": "0x32d046c"
+        },
+        {
+          "site": "0x32d0838",
+          "target": "0xf57630"
+        },
+        {
+          "site": "0x32d0844",
+          "target": "0x32d085c"
+        },
+        {
+          "site": "0x32d0858",
+          "target": "0x32d0868"
+        },
+        {
+          "site": "0x32d0864",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0x32d087c",
+          "target": "0x32d088c"
+        },
+        {
+          "site": "0x32d089c",
+          "target": "0x21efaf0"
+        },
+        {
+          "site": "0x32d08ac",
+          "target": "0x32d08bc"
+        },
+        {
+          "site": "0x32d08c0",
+          "target": "0x32d08ec"
+        },
+        {
+          "site": "0x32d08f0",
+          "target": "0x32d093c"
+        },
+        {
+          "site": "0x32d0930",
+          "target": "0x32d0908"
+        },
+        {
+          "site": "0x32d0954",
+          "target": "0x3bb6c"
+        },
+        {
+          "site": "0x32d095c",
+          "target": "0x7140030"
+        },
+        {
+          "site": "0x32d0974",
+          "target": "0x33c40"
+        },
+        {
+          "site": "0x32d0980",
+          "target": "0xf57630"
+        },
+        {
+          "site": "0x32d098c",
+          "target": "0x32d09a4"
+        },
+        {
+          "site": "0x32d09a0",
+          "target": "0x32d09b0"
+        },
+        {
+          "site": "0x32d09ac",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0x32d09c8",
+          "target": "0x32d09d8"
+        },
+        {
+          "site": "0x32d09e0",
+          "target": "0x32d09f0"
+        },
+        {
+          "site": "0x32d0a10",
+          "target": "0x3c17954"
+        },
+        {
+          "site": "0x32d0a18",
+          "target": "0x33d2c"
+        },
+        {
+          "site": "0x32d0a1c",
+          "target": "0x32d0a48"
+        },
+        {
+          "site": "0x32d0a2c",
+          "target": "0x32d0a48"
+        },
+        {
+          "site": "0x32d0a44",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d0a50",
+          "target": "0x32d0a90"
+        },
+        {
+          "site": "0x32d0a64",
+          "target": "0x32d0a90"
+        },
+        {
+          "site": "0x32d0a74",
+          "target": "0x32d0a90"
+        },
+        {
+          "site": "0x32d0a8c",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d0a94",
+          "target": "0x32d0aa8"
+        },
+        {
+          "site": "0x32d0aa4",
+          "target": "0x32d0b30"
+        },
+        {
+          "site": "0x32d0aac",
+          "target": "0x32d0ac0"
+        },
+        {
+          "site": "0x32d0abc",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x32d0ac4",
+          "target": "0xac6290"
+        },
+        {
+          "site": "0x32d0acc",
+          "target": "0x32d0af8"
+        },
+        {
+          "site": "0x32d0adc",
+          "target": "0x32d0af8"
+        },
+        {
+          "site": "0x32d0af4",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d0b0c",
+          "target": "0x32d0b54"
+        },
+        {
+          "site": "0x32d0b44",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x32d0b4c",
+          "target": "0x32d0ac0"
+        },
+        {
+          "site": "0x32d0b50",
+          "target": "0x32d0ab0"
+        },
+        {
+          "site": "0x32d0b54",
+          "target": "0x71401a4"
+        }
+      ]
+    },
+    {
+      "file": "text-contract-pass225/native-fn-335bddc.asm",
+      "instructions": 36,
+      "normal_returns": [
+        "0x335be68"
+      ],
+      "other_terminals": [],
+      "decoded_transfers": [
+        {
+          "site": "0x335bdf8",
+          "target": "0xf57630"
+        },
+        {
+          "site": "0x335be00",
+          "target": "0x7140030"
+        },
+        {
+          "site": "0x335be18",
+          "target": "0x2a0cf30"
+        },
+        {
+          "site": "0x335be34",
+          "target": "0xac6290"
+        },
+        {
+          "site": "0x335be40",
+          "target": "0x66696dc"
+        },
+        {
+          "site": "0x335be48",
+          "target": "0x335be58"
+        }
+      ]
+    },
+    {
+      "file": "text-contract-pass225/native-fn-335c1b4.asm",
+      "instructions": 129,
+      "normal_returns": [
+        "0x335c3b4"
+      ],
+      "other_terminals": [],
+      "decoded_transfers": [
+        {
+          "site": "0x335c1d8",
+          "target": "0x2a0cf30"
+        },
+        {
+          "site": "0x335c200",
+          "target": "0x335c210"
+        },
+        {
+          "site": "0x335c210",
+          "target": "0x474715c"
+        },
+        {
+          "site": "0x335c230",
+          "target": "0x326a144"
+        },
+        {
+          "site": "0x335c23c",
+          "target": "0x3b032cc"
+        },
+        {
+          "site": "0x335c240",
+          "target": "0x335c32c"
+        },
+        {
+          "site": "0x335c258",
+          "target": "0x3aedf54"
+        },
+        {
+          "site": "0x335c268",
+          "target": "0x3aec858"
+        },
+        {
+          "site": "0x335c27c",
+          "target": "0x335c2b0"
+        },
+        {
+          "site": "0x335c2ac",
+          "target": "0x335c2ec"
+        },
+        {
+          "site": "0x335c2b4",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0x335c2d8",
+          "target": "0x335c2ec"
+        },
+        {
+          "site": "0x335c2e8",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x335c300",
+          "target": "0x474715c"
+        },
+        {
+          "site": "0x335c310",
+          "target": "0x3b03320"
+        },
+        {
+          "site": "0x335c318",
+          "target": "0x335c32c"
+        },
+        {
+          "site": "0x335c328",
+          "target": "0x714000c"
+        },
+        {
+          "site": "0x335c334",
+          "target": "0x335c414"
+        },
+        {
+          "site": "0x335c33c",
+          "target": "0x335c368"
+        },
+        {
+          "site": "0x335c34c",
+          "target": "0x335c368"
+        },
+        {
+          "site": "0x335c364",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x335c36c",
+          "target": "0x335c398"
+        },
+        {
+          "site": "0x335c37c",
+          "target": "0x335c398"
+        },
+        {
+          "site": "0x335c394",
+          "target": "0x713fc1c"
+        },
+        {
+          "site": "0x335c39c",
+          "target": "0xac6290"
+        }
+      ]
+    },
+    {
+      "file": "text-contract-pass226/native-fn-335c414.asm",
+      "instructions": 36,
+      "normal_returns": [
+        "0x335c4a0"
+      ],
+      "other_terminals": [],
+      "decoded_transfers": [
+        {
+          "site": "0x335c430",
+          "target": "0x2a0cf30"
+        },
+        {
+          "site": "0x335c438",
+          "target": "0x7140030"
+        },
+        {
+          "site": "0x335c450",
+          "target": "0x2a0cf30"
+        },
+        {
+          "site": "0x335c46c",
+          "target": "0xac6290"
+        },
+        {
+          "site": "0x335c478",
+          "target": "0x66696dc"
+        },
+        {
+          "site": "0x335c480",
+          "target": "0x335c490"
+        }
+      ]
+    },
+    {
+      "file": "text-contract-pass222/native-fn-f57630.asm",
+      "instructions": 206,
+      "normal_returns": [
+        "0xf5795c"
+      ],
+      "other_terminals": [
+        {
+          "site": "0xf57964",
+          "assembly": "bl 0x00018e5c"
+        }
+      ],
+      "decoded_transfers": [
+        {
+          "site": "0xf57670",
+          "target": "0xf576a0"
+        },
+        {
+          "site": "0xf57688",
+          "target": "0xf576b4"
+        },
+        {
+          "site": "0xf5769c",
+          "target": "0xf576c0"
+        },
+        {
+          "site": "0xf576a8",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf576b0",
+          "target": "0xf5768c"
+        },
+        {
+          "site": "0xf576bc",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf576c4",
+          "target": "0xf576dc"
+        },
+        {
+          "site": "0xf576d8",
+          "target": "0xf576e8"
+        },
+        {
+          "site": "0xf576e4",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf576ec",
+          "target": "0xf57704"
+        },
+        {
+          "site": "0xf57700",
+          "target": "0xf57710"
+        },
+        {
+          "site": "0xf5770c",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf57714",
+          "target": "0xf5772c"
+        },
+        {
+          "site": "0xf57728",
+          "target": "0xf57738"
+        },
+        {
+          "site": "0xf57734",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf57748",
+          "target": "0x396384"
+        },
+        {
+          "site": "0xf57750",
+          "target": "0xf57768"
+        },
+        {
+          "site": "0xf57764",
+          "target": "0xf57774"
+        },
+        {
+          "site": "0xf57770",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf57778",
+          "target": "0xf57790"
+        },
+        {
+          "site": "0xf5778c",
+          "target": "0xf5779c"
+        },
+        {
+          "site": "0xf57798",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf577c0",
+          "target": "0xf577d8"
+        },
+        {
+          "site": "0xf577d4",
+          "target": "0xf577e4"
+        },
+        {
+          "site": "0xf577e0",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf577ec",
+          "target": "0xf57808"
+        },
+        {
+          "site": "0xf57804",
+          "target": "0xf57810"
+        },
+        {
+          "site": "0xf5780c",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf57814",
+          "target": "0xf5782c"
+        },
+        {
+          "site": "0xf57828",
+          "target": "0xf57838"
+        },
+        {
+          "site": "0xf57834",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf57848",
+          "target": "0xf57874"
+        },
+        {
+          "site": "0xf5784c",
+          "target": "0xf57960"
+        },
+        {
+          "site": "0xf57854",
+          "target": "0x7140030"
+        },
+        {
+          "site": "0xf5786c",
+          "target": "0x7140e88"
+        },
+        {
+          "site": "0xf5787c",
+          "target": "0x4eae868"
+        },
+        {
+          "site": "0xf57890",
+          "target": "0xf578a0"
+        },
+        {
+          "site": "0xf578b8",
+          "target": "0xf578c8"
+        },
+        {
+          "site": "0xf578d8",
+          "target": "0xf578e8"
+        },
+        {
+          "site": "0xf57900",
+          "target": "0xf57910"
+        },
+        {
+          "site": "0xf57920",
+          "target": "0xf5793c"
+        },
+        {
+          "site": "0xf57938",
+          "target": "0xf57948"
+        },
+        {
+          "site": "0xf57944",
+          "target": "0x18d20"
+        },
+        {
+          "site": "0xf57964",
+          "target": "0x18e5c"
+        }
+      ]
+    },
+    {
+      "file": "text-contract-pass222/native-fn-2a0cf30.asm",
+      "instructions": 165,
+      "normal_returns": [
+        "0x2a0d1c0"
+      ],
+      "other_terminals": [],
+      "decoded_transfers": [
+        {
+          "site": "0x2a0d024",
+          "target": "0x2a0d05c"
+        },
+        {
+          "site": "0x2a0d038",
+          "target": "0x2a0d044"
+        },
+        {
+          "site": "0x2a0d040",
+          "target": "0x2a0d054"
+        },
+        {
+          "site": "0x2a0d048",
+          "target": "0x2a0d054"
+        },
+        {
+          "site": "0x2a0d12c",
+          "target": "0x4eae868"
+        }
+      ]
+    }
+  ],
+  "distinct_instruction_positions_matched": 1944,
+  "selected_checks": 45,
+  "local_normal_return_outlets": [
+    "0x32cfbf4",
+    "0x32d016c",
+    "0x32d0794",
+    "0x32d0a10"
+  ],
+  "every_local_normal_return_traverses_an_outlet": true,
+  "each_outlet_excludes_other_outlets_after_it": true,
+  "direct_copy_and_capture_copy_source_is_original_record_pointer": true,
+  "parent_x20_definitions": [
+    "0x32cf608",
+    "0x32cfbf8",
+    "0x32d0798",
+    "0x32d08a0",
+    "0x32d0b18"
+  ],
+  "scheduled_capture_copy_dominates_submission": true,
+  "callback_record_move_and_native_update_dominate_normal_publication": true,
+  "direct_and_callback_publication_only_after_record_copy_or_moves": true,
+  "paths_to_outlets": {
+    "0x32cfbf4": [
+      "0x32cf5e8",
+      "0x32cf5ec",
+      "0x32cf5f0",
+      "0x32cf5f4",
+      "0x32cf5f8",
+      "0x32cf5fc",
+      "0x32cf600",
+      "0x32cf604",
+      "0x32cf608",
+      "0x32cf60c",
+      "0x32cf610",
+      "0x32cf614",
+      "0x32cf618",
+      "0x32cf61c",
+      "0x32cf620",
+      "0x32cf624",
+      "0x32cf628",
+      "0x32cf62c",
+      "0x32cf630",
+      "0x32cf634",
+      "0x32cf638",
+      "0x32cf9f8",
+      "0x32cf9fc",
+      "0x32cfa00",
+      "0x32cfbb8",
+      "0x32cfbbc",
+      "0x32cfbc0",
+      "0x32cfbc4",
+      "0x32cfbc8",
+      "0x32cfbcc",
+      "0x32cfbd0",
+      "0x32cfbd4",
+      "0x32cfbd8",
+      "0x32cfbdc",
+      "0x32cfbec",
+      "0x32cfbf0",
+      "0x32cfbf4"
+    ],
+    "0x32d016c": [
+      "0x32cf5e8",
+      "0x32cf5ec",
+      "0x32cf5f0",
+      "0x32cf5f4",
+      "0x32cf5f8",
+      "0x32cf5fc",
+      "0x32cf600",
+      "0x32cf604",
+      "0x32cf608",
+      "0x32cf60c",
+      "0x32cf610",
+      "0x32cf614",
+      "0x32cf618",
+      "0x32cf61c",
+      "0x32cf620",
+      "0x32cf624",
+      "0x32cf628",
+      "0x32cf62c",
+      "0x32cf630",
+      "0x32cf634",
+      "0x32cf638",
+      "0x32cf63c",
+      "0x32cf640",
+      "0x32cf644",
+      "0x32cf648",
+      "0x32cf64c",
+      "0x32cf650",
+      "0x32cf654",
+      "0x32cf658",
+      "0x32cf65c",
+      "0x32cf660",
+      "0x32cf664",
+      "0x32cf668",
+      "0x32cf66c",
+      "0x32cf670",
+      "0x32cf674",
+      "0x32cf678",
+      "0x32cf67c",
+      "0x32cf680",
+      "0x32cf684",
+      "0x32cf688",
+      "0x32cf68c",
+      "0x32cf690",
+      "0x32cf6bc",
+      "0x32cf6c0",
+      "0x32cf6ec",
+      "0x32cf6f0",
+      "0x32cf71c",
+      "0x32cf720",
+      "0x32cf724",
+      "0x32cfd64",
+      "0x32cfd68",
+      "0x32cfd6c",
+      "0x32cfd70",
+      "0x32cfd74",
+      "0x32cfd78",
+      "0x32cfd7c",
+      "0x32cfd80",
+      "0x32cfd84",
+      "0x32cfd88",
+      "0x32cfd8c",
+      "0x32cfd90",
+      "0x32cfd94",
+      "0x32cfd98",
+      "0x32cfd9c",
+      "0x32cfda0",
+      "0x32cfda4",
+      "0x32cfda8",
+      "0x32cfdac",
+      "0x32cfdb0",
+      "0x32cfdb4",
+      "0x32cfde0",
+      "0x32cfde4",
+      "0x32cfe10",
+      "0x32cfe14",
+      "0x32cfe28",
+      "0x32cfe2c",
+      "0x32cfe88",
+      "0x32cfe8c",
+      "0x32cfe90",
+      "0x32d0130",
+      "0x32d0134",
+      "0x32d0138",
+      "0x32d013c",
+      "0x32d0140",
+      "0x32d0144",
+      "0x32d0148",
+      "0x32d014c",
+      "0x32d0150",
+      "0x32d0154",
+      "0x32d0164",
+      "0x32d0168",
+      "0x32d016c"
+    ],
+    "0x32d0794": [
+      "0x32cf5e8",
+      "0x32cf5ec",
+      "0x32cf5f0",
+      "0x32cf5f4",
+      "0x32cf5f8",
+      "0x32cf5fc",
+      "0x32cf600",
+      "0x32cf604",
+      "0x32cf608",
+      "0x32cf60c",
+      "0x32cf610",
+      "0x32cf614",
+      "0x32cf618",
+      "0x32cf61c",
+      "0x32cf620",
+      "0x32cf624",
+      "0x32cf628",
+      "0x32cf62c",
+      "0x32cf630",
+      "0x32cf634",
+      "0x32cf638",
+      "0x32cf63c",
+      "0x32cf640",
+      "0x32cf644",
+      "0x32cf648",
+      "0x32cf64c",
+      "0x32cf650",
+      "0x32cf654",
+      "0x32cf658",
+      "0x32cf65c",
+      "0x32cf660",
+      "0x32cf664",
+      "0x32cf668",
+      "0x32cf66c",
+      "0x32cf670",
+      "0x32cf674",
+      "0x32cf678",
+      "0x32cf67c",
+      "0x32cf680",
+      "0x32cf684",
+      "0x32cf688",
+      "0x32cf68c",
+      "0x32cf690",
+      "0x32cf6bc",
+      "0x32cf6c0",
+      "0x32cf6ec",
+      "0x32cf6f0",
+      "0x32cf71c",
+      "0x32cf720",
+      "0x32cf724",
+      "0x32cfd64",
+      "0x32cfd68",
+      "0x32cfd6c",
+      "0x32cfd70",
+      "0x32cfd74",
+      "0x32cfd78",
+      "0x32cfd7c",
+      "0x32cfd80",
+      "0x32cfd84",
+      "0x32cfd88",
+      "0x32cfd8c",
+      "0x32cfd90",
+      "0x32cfd94",
+      "0x32cfd98",
+      "0x32cfd9c",
+      "0x32cfda0",
+      "0x32cfda4",
+      "0x32cfda8",
+      "0x32cfdac",
+      "0x32cfdb0",
+      "0x32cfdb4",
+      "0x32cfde0",
+      "0x32cfde4",
+      "0x32cfe10",
+      "0x32cfe14",
+      "0x32cfe28",
+      "0x32cfe2c",
+      "0x32cfe30",
+      "0x32cfe34",
+      "0x32cfe38",
+      "0x32cfe3c",
+      "0x32cfe40",
+      "0x32cfe44",
+      "0x32cfe48",
+      "0x32cfe4c",
+      "0x32cfe50",
+      "0x32d0174",
+      "0x32d0178",
+      "0x32d017c",
+      "0x32d0180",
+      "0x32d0184",
+      "0x32d0188",
+      "0x32d018c",
+      "0x32d0190",
+      "0x32d01a0",
+      "0x32d01a4",
+      "0x32d01a8",
+      "0x32d01ac",
+      "0x32d01b0",
+      "0x32d01b4",
+      "0x32d01b8",
+      "0x32d01bc",
+      "0x32d01c0",
+      "0x32d01c4",
+      "0x32d01d4",
+      "0x32d01d8",
+      "0x32d01dc",
+      "0x32d020c",
+      "0x32d0210",
+      "0x32d025c",
+      "0x32d0260",
+      "0x32d0264",
+      "0x32d0268",
+      "0x32d026c",
+      "0x32d0270",
+      "0x32d0274",
+      "0x32d0278",
+      "0x32d027c",
+      "0x32d0280",
+      "0x32d0284",
+      "0x32d0288",
+      "0x32d028c",
+      "0x32d0290",
+      "0x32d0294",
+      "0x32d0298",
+      "0x32d029c",
+      "0x32d02a0",
+      "0x32d02a4",
+      "0x32d02bc",
+      "0x32d02c0",
+      "0x32d02c4",
+      "0x32d02c8",
+      "0x32d02cc",
+      "0x32d02d0",
+      "0x32d02d4",
+      "0x32d02d8",
+      "0x32d02e8",
+      "0x32d02ec",
+      "0x32d02fc",
+      "0x32d0300",
+      "0x32d0304",
+      "0x32d0308",
+      "0x32d030c",
+      "0x32d0310",
+      "0x32d0314",
+      "0x32d0318",
+      "0x32d031c",
+      "0x32d0320",
+      "0x32d034c",
+      "0x32d0350",
+      "0x32d0354",
+      "0x32d0358",
+      "0x32d0398",
+      "0x32d039c",
+      "0x32d03a0",
+      "0x32d03a4",
+      "0x32d03a8",
+      "0x32d03b8",
+      "0x32d03bc",
+      "0x32d03c0",
+      "0x32d03c4",
+      "0x32d03c8",
+      "0x32d03cc",
+      "0x32d03d0",
+      "0x32d03d4",
+      "0x32d0400",
+      "0x32d0404",
+      "0x32d0430",
+      "0x32d0434",
+      "0x32d0460",
+      "0x32d0464",
+      "0x32d0468",
+      "0x32d046c",
+      "0x32d0470",
+      "0x32d0474",
+      "0x32d0758",
+      "0x32d075c",
+      "0x32d0760",
+      "0x32d0764",
+      "0x32d0768",
+      "0x32d076c",
+      "0x32d0770",
+      "0x32d0774",
+      "0x32d0778",
+      "0x32d077c",
+      "0x32d078c",
+      "0x32d0790",
+      "0x32d0794"
+    ],
+    "0x32d0a10": [
+      "0x32cf5e8",
+      "0x32cf5ec",
+      "0x32cf5f0",
+      "0x32cf5f4",
+      "0x32cf5f8",
+      "0x32cf5fc",
+      "0x32cf600",
+      "0x32cf604",
+      "0x32cf608",
+      "0x32cf60c",
+      "0x32cf610",
+      "0x32cf614",
+      "0x32cf618",
+      "0x32cf61c",
+      "0x32cf620",
+      "0x32cf624",
+      "0x32cf628",
+      "0x32cf62c",
+      "0x32cf630",
+      "0x32cf634",
+      "0x32cf638",
+      "0x32cf63c",
+      "0x32cf640",
+      "0x32cf644",
+      "0x32cf648",
+      "0x32cf64c",
+      "0x32cf650",
+      "0x32cf654",
+      "0x32cf658",
+      "0x32cf65c",
+      "0x32cf660",
+      "0x32cf664",
+      "0x32cf668",
+      "0x32cf66c",
+      "0x32cf670",
+      "0x32cf674",
+      "0x32cf678",
+      "0x32cf67c",
+      "0x32cf680",
+      "0x32cf684",
+      "0x32cf688",
+      "0x32cf68c",
+      "0x32cf690",
+      "0x32cf6bc",
+      "0x32cf6c0",
+      "0x32cf6ec",
+      "0x32cf6f0",
+      "0x32cf71c",
+      "0x32cf720",
+      "0x32cf724",
+      "0x32cfd64",
+      "0x32cfd68",
+      "0x32cfd6c",
+      "0x32cfd70",
+      "0x32cfd74",
+      "0x32cfd78",
+      "0x32cfd7c",
+      "0x32cfd80",
+      "0x32cfd84",
+      "0x32cfd88",
+      "0x32cfd8c",
+      "0x32cfd90",
+      "0x32cfd94",
+      "0x32cfd98",
+      "0x32cfd9c",
+      "0x32cfda0",
+      "0x32cfda4",
+      "0x32cfda8",
+      "0x32cfdac",
+      "0x32cfdb0",
+      "0x32cfdb4",
+      "0x32cfde0",
+      "0x32cfde4",
+      "0x32cfe10",
+      "0x32cfe14",
+      "0x32cfe28",
+      "0x32cfe2c",
+      "0x32cfe30",
+      "0x32cfe34",
+      "0x32cfe38",
+      "0x32cfe3c",
+      "0x32d082c",
+      "0x32d0830",
+      "0x32d0834",
+      "0x32d0838",
+      "0x32d083c",
+      "0x32d0840",
+      "0x32d0844",
+      "0x32d085c",
+      "0x32d0860",
+      "0x32d0864",
+      "0x32d0868",
+      "0x32d086c",
+      "0x32d0870",
+      "0x32d0874",
+      "0x32d0878",
+      "0x32d087c",
+      "0x32d088c",
+      "0x32d0890",
+      "0x32d0894",
+      "0x32d0898",
+      "0x32d089c",
+      "0x32d08a0",
+      "0x32d08a4",
+      "0x32d08a8",
+      "0x32d08ac",
+      "0x32d08bc",
+      "0x32d08c0",
+      "0x32d08ec",
+      "0x32d08f0",
+      "0x32d093c",
+      "0x32d0940",
+      "0x32d0944",
+      "0x32d0948",
+      "0x32d094c",
+      "0x32d0950",
+      "0x32d0954",
+      "0x32d0958",
+      "0x32d095c",
+      "0x32d0960",
+      "0x32d0964",
+      "0x32d0968",
+      "0x32d096c",
+      "0x32d0970",
+      "0x32d0974",
+      "0x32d0978",
+      "0x32d097c",
+      "0x32d0980",
+      "0x32d0984",
+      "0x32d0988",
+      "0x32d098c",
+      "0x32d09a4",
+      "0x32d09a8",
+      "0x32d09ac",
+      "0x32d09b0",
+      "0x32d09b4",
+      "0x32d09b8",
+      "0x32d09bc",
+      "0x32d09c0",
+      "0x32d09c4",
+      "0x32d09c8",
+      "0x32d09d8",
+      "0x32d09dc",
+      "0x32d09e0",
+      "0x32d09f0",
+      "0x32d09f4",
+      "0x32d09f8",
+      "0x32d09fc",
+      "0x32d0a00",
+      "0x32d0a04",
+      "0x32d0a08",
+      "0x32d0a0c",
+      "0x32d0a10"
+    ]
+  },
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/ghidra.log": "357da4db2f45c1c457f0040d0027f046617fb99962d977ffb97435911eaf8e2a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/headless-output.log": "6bf27e24157ba5acc1175fc6e746bcb58a6c7c7eb9e6bb4406d2d59e7e51cca0",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/native-fn-2a0cf30.asm": "996c279082cdaba1cac7851a0902f8496d0a492ee5c08768e786d5f5e4bc5292",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/native-fn-2a0cf30.c": "5110a90efe92a5e7ab200826dcd102ba04922479f3173f9447d965edf133d8f6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/native-fn-f57630.asm": "b1ff42127c5daebad49470f029ae9bba346cbb9e9a4153c3801a756fde3ec536",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/native-fn-f57630.c": "efb81ad513d55eca5708baaf79deef6b29fccbf943867da298c6cc746eb4bc33",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/run.json": "0350181c0cf82f4fcc0bf56600f3dd2e53bda3c178e8aed23be94b0965c22c00",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass222/script.log": "5e342936efff1668a6302c077746a4f6d317e2c64fe2012296fa68bfc14aa720",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/ghidra.log": "dbad58abe7e37b000a7fa431f96a1e030d6d73b7051ed43f44abda4348fd5050",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/headless-output.log": "be83737773be7559cb50b07ed6f691d732c24be663ff4598348566ccf4e53e57",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/native-fn-32cf5e8.asm": "a23cc21f55908c66f8a16529918db602938894a2a6626f6dad9d7ab2c946c3ae",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/native-fn-32cf5e8.c": "8c2d73ec653b7f071cf98b26a18a16ef29ba9869998df6072c340ed1a8d28061",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/run.json": "4a33c4b769673eb090a609b36ebb19cf1a864fa3e942d71ec6b9e5c1a8081974",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass224/script.log": "5cb1c66247220d18ff6c951ec76b42f8bce3160575ba934e1ba2f779fa584794",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/ghidra.log": "d041c310bd6d07a0d252a6cbfa8b648bb0664b79e2a3119604b5431f4725791c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/headless-output.log": "fbe76dfca19026ac09e24f7243575c96a73f6294ce653af29ea59bacfe2b73ae",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/native-fn-335bddc.asm": "09b0a42adcddd88bbfb1ec775a7eaf149716e461b7b678133855ae144e5ca976",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/native-fn-335bddc.c": "b36a156c60a8b4088e4036d0cafcded34d741bfe3255de13508b452595bb559c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/native-fn-335c1b4.asm": "aef53e1988c2c442229ff0805e7f1184c714ceb7aa0af2cd4d2357df1469f913",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/native-fn-335c1b4.c": "1759f4ac24ae1a678f867930b6c4a061841bd7db973090221f1bd45a08ca5853",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/run.json": "084c27eb427386393bd28619b16eb0415a51cc3eda85120c386f9c8de6f25b0a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass225/script.log": "76bc7c22b13083a7460e2a6824191a5c6d4f060a19ebd6916ba422230dbb8543",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/ghidra.log": "a9295fe31631519ec66b3f53029c7cea2916922b970390ed95b6626e6018909f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/headless-output.log": "541d420b18eb34f5d694deb5b5c5fd2959a73bddbbd544e280c8ccce0d6f9ffb",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/native-fn-335c414.asm": "7b001901f546614d8991e53e85f8daa6bae988c0001a9416f1518e41c397d3c0",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/native-fn-335c414.c": "92ecf533024f94d0b8c1aaa082e0ff660081e1286a053cc5aa1fa352511e5475",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/run.json": "016fac4b812b255221dc03ca0a9a23d71943a3ae440e0e8b440c2416ae443752",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass226/script.log": "f03ef62c419d67eae8e74b0bcae6fe71619e8d30824c9a2918c868db1608be80",
+    "Library/ai/analyze_wechat_database_record_outlets_20261018.py": "a6d0c9e1269f94b7a6b3869d0ddc0233b0017a904484bf4af89b4c992ddb3170",
+    "Library/ai/verify_wechat_input_type_20261016.py": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17"
+  },
+  "remaining_mutation_boundaries": [
+    "Parent callees can mutate the original record or aliased subobjects before each copy.",
+    "Insertion callback calls 0x326a144 with the moved record before publication.",
+    "Callee global effects, lifetime, exceptions, races and all queue stages after replacement remain unproved."
+  ],
+  "limitations": [
+    "Local graph treats both conditional edges as possible and every call as normal-return fallthrough.",
+    "Paths witness graph reachability, not runtime feasibility, valid native calls or send success.",
+    "Pointer provenance does not prove field values, body preservation or final recipient direction.",
+    "No live target, native owned fixture or ASan run in this slice."
+  ],
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "whole_path_content_preservation_proven": false,
+  "complete_adapter": false,
+  "send_verified": false,
+  "deployed": false,
+  "full_objective_complete": false
+}

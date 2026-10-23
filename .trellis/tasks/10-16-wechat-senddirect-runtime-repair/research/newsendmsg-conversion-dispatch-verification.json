@@ -1,0 +1,87 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass175/native-fn-4c91460.asm",
+      "instructions": 65,
+      "sha256": "39a4985eb9de4759a2402eef344d08ccea5a7e287f7fa2ebbe443b346fd4a3b2"
+    },
+    {
+      "file": "text-contract-pass176/native-fn-4c91334.asm",
+      "instructions": 60,
+      "sha256": "665c01b386b7c6fc57870dce5c83ecf90a1789c06cc6c375a5d579de6009364a"
+    },
+    {
+      "file": "text-contract-pass176/native-fn-4c8ce4c.asm",
+      "instructions": 49,
+      "sha256": "e9a680171db5e3e99dafda9d4a9f20300810ebdf80f35d19d7e1e717b3855b1e"
+    },
+    {
+      "file": "text-contract-pass177/native-fn-4c876bc.asm",
+      "instructions": 812,
+      "sha256": "d0e0044344ef9369af636601b8c1ac98ebe6708ab6c3e0a22f988dd0ae345102"
+    },
+    {
+      "file": "text-contract-pass178/native-fn-4c8cbe0.asm",
+      "instructions": 60,
+      "sha256": "b355ae267fae0d950f6f5edec973a125294a66ae0ee0f644397363e905b6922c"
+    },
+    {
+      "file": "text-contract-pass179/native-fn-4c8cd0c.asm",
+      "instructions": 65,
+      "sha256": "d6197fe0ff9124d552f54ee3ade76aea107c065b3f014dcdcc1e31281d948dc9"
+    },
+    {
+      "file": "text-contract-pass181/native-fn-4c7fbc0.asm",
+      "instructions": 214,
+      "sha256": "1b5e3c36114ba3f0aac0811c8650f99eb83fd6f9cb0e2b54cbdffc8c6b70dfb3"
+    },
+    {
+      "file": "text-contract-pass182/native-fn-4c6b5b8.asm",
+      "instructions": 619,
+      "sha256": "1373521b950e0cfdc9d5ad2999799215ae332f1e33b3323549e53a2c7bc4182c"
+    },
+    {
+      "file": "text-contract-pass182/native-fn-48a60b4.asm",
+      "instructions": 50,
+      "sha256": "4288c845c32a9bd52fbd02d4b12a7b05c4e5943ee7595167405eb0ae487c4aba"
+    },
+    {
+      "file": "text-contract-pass171/native-fn-4c7ffe0.asm",
+      "instructions": 67,
+      "sha256": "d877cd57f645e80397e26b286678b0164dcc5059093c388bcb728f3c655c8a00"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9eacf48",
+      "decoded": "0x4c6ed80",
+      "chain_steps": 462
+    },
+    {
+      "slot": "0x9eacf50",
+      "decoded": "0x4c6eff4",
+      "chain_steps": 463
+    },
+    {
+      "slot": "0x9ead728",
+      "decoded": "0x4c7fbc0",
+      "chain_steps": 688
+    },
+    {
+      "slot": "0x9ead730",
+      "decoded": "0x4c7ffa4",
+      "chain_steps": 689
+    }
+  ],
+  "instructions_matched": 2061,
+  "instruction_positions_checked": 39,
+  "predicate_literal": "announcement@all",
+  "reader_source_sha256": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+  "contract_sha256": "0c6711216471bcaed1a1f64db7cc97c297c589c98179129c71041880ac05fb71",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "Numeric object-conversion selection only; not a complete send path or DB-record identity proof."
+}

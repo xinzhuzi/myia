@@ -1,0 +1,59 @@
+{
+  "all_matched": true,
+  "sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "callback-registration-pass5/native-fn-462ece8.asm",
+      "instructions": 56,
+      "bytes": 224
+    },
+    {
+      "file": "callback-registration-pass5/native-fn-462fa2c.asm",
+      "instructions": 54,
+      "bytes": 216
+    },
+    {
+      "file": "callback-registration-pass5/native-fn-4632830.asm",
+      "instructions": 57,
+      "bytes": 228
+    },
+    {
+      "file": "callback-registration-pass5/native-fn-597a9e8.asm",
+      "instructions": 5,
+      "bytes": 20
+    },
+    {
+      "file": "callback-registration-pass6/native-fn-462e4d4.asm",
+      "instructions": 293,
+      "bytes": 1172
+    },
+    {
+      "file": "callback-registration-pass7/native-fn-4656fc4.asm",
+      "instructions": 4,
+      "bytes": 16
+    },
+    {
+      "file": "callback-registration-pass7/native-fn-5975054.asm",
+      "instructions": 52,
+      "bytes": 208
+    },
+    {
+      "file": "callback-registration-pass7/native-fn-597a624.asm",
+      "instructions": 108,
+      "bytes": 432
+    },
+    {
+      "file": "callback-registration-pass8/native-fn-9d3cf0.asm",
+      "instructions": 2,
+      "bytes": 8
+    },
+    {
+      "file": "callback-registration-pass9/native-fn-465756c.asm",
+      "instructions": 2,
+      "bytes": 8
+    }
+  ],
+  "instructions": 633,
+  "bytes": 2532,
+  "limitation": "Verifies instruction provenance; inferred C types, runtime callback selection and sending remain separate."
+}

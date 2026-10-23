@@ -1,0 +1,287 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass126/native-fn-ac6038.asm",
+      "instructions": 67,
+      "sha256": "c7ed0201f723cbf197b88609a507125075b4142af2021db584631fc8eec32456",
+      "pseudocode_sha256": "91e91f1fe2b0cf13e03bafa7a68d3fa063b81d75e2133244d7e56a1eb1fb6891"
+    },
+    {
+      "file": "text-contract-pass222/native-fn-f57630.asm",
+      "instructions": 206,
+      "sha256": "b1ff42127c5daebad49470f029ae9bba346cbb9e9a4153c3801a756fde3ec536",
+      "pseudocode_sha256": "efb81ad513d55eca5708baaf79deef6b29fccbf943867da298c6cc746eb4bc33"
+    },
+    {
+      "file": "text-contract-pass224/native-fn-32cf5e8.asm",
+      "instructions": 1372,
+      "sha256": "a23cc21f55908c66f8a16529918db602938894a2a6626f6dad9d7ab2c946c3ae",
+      "pseudocode_sha256": "8c2d73ec653b7f071cf98b26a18a16ef29ba9869998df6072c340ed1a8d28061"
+    },
+    {
+      "file": "text-contract-pass225/native-fn-335c1b4.asm",
+      "instructions": 129,
+      "sha256": "aef53e1988c2c442229ff0805e7f1184c714ceb7aa0af2cd4d2357df1469f913",
+      "pseudocode_sha256": "1759f4ac24ae1a678f867930b6c4a061841bd7db973090221f1bd45a08ca5853"
+    },
+    {
+      "file": "text-contract-pass227/native-fn-326a144.asm",
+      "instructions": 652,
+      "sha256": "085a2184af8bf1448d927a16a5a76f219d451b2911fe54db3c937e5057c5433e",
+      "pseudocode_sha256": "fd3ff622954e7162b98e3e7eca5810e28581d948df3563833f746799b763af12"
+    },
+    {
+      "file": "text-contract-pass228/native-fn-3269bec.asm",
+      "instructions": 322,
+      "sha256": "023628a6e12378db9e60f2cd1c1595960c208ce5cdbdedf1a54279fa2db2d8c7",
+      "pseudocode_sha256": "51685011482be08be2c24638bc6a6fe5a5b7d81d38492b21b59ee901ca529b13"
+    },
+    {
+      "file": "text-contract-pass229/native-fn-326ad6c.asm",
+      "instructions": 111,
+      "sha256": "85480042103d299ab4f14765edb568582db2149f002f9c348c84527410b3b6bf",
+      "pseudocode_sha256": "bc1473177f962cdfd809bda5e182fcc044cb62c325dad18de314749f83c24068"
+    },
+    {
+      "file": "text-contract-pass229/native-fn-32961a4.asm",
+      "instructions": 503,
+      "sha256": "c21db6d5e3a08789df4276c2e58376bbcb0bbee1ba5dc141489ff9666de25e84",
+      "pseudocode_sha256": "2b4ecb18c1b18d192abc995bc54c119bf5e2508b7bcca1186bf3fc6a5ebb2add"
+    },
+    {
+      "file": "text-contract-pass229/native-fn-3aeddb4.asm",
+      "instructions": 55,
+      "sha256": "19110262270d2db0c4cc9068d7b6fda0aa271bcb62a378f2f5f02f945b39c26d",
+      "pseudocode_sha256": "64e188e1317709d0fe7b750a63c905b777e678ed3a4f274ecf96be9027a672f9"
+    },
+    {
+      "file": "text-contract-pass229/native-fn-3aee89c.asm",
+      "instructions": 665,
+      "sha256": "f168b2222425d5a5b0576be61370189b638d11dcfdd0c20857fbeaca702ecf89",
+      "pseudocode_sha256": "a99dbdf74eef33f4de038cde60f39192ebadc82012e933ce3aa8e7c5bc3ba419"
+    },
+    {
+      "file": "text-contract-pass230/native-fn-2e86b60.asm",
+      "instructions": 102,
+      "sha256": "5a26323b0fc8a1eb5b2f091a0f9a0b0d0ff0f94f0e9c01c5b30b7294b6ee9973",
+      "pseudocode_sha256": "05c5ead39a214922f2aa882d2c3669c3f6712c79689c2c4b0573962cd0b62691"
+    },
+    {
+      "file": "text-contract-pass230/native-fn-3263cd4.asm",
+      "instructions": 176,
+      "sha256": "19cba2ac2895cac063a7d73968e635fa44f8eb627aa970e23af8b54cf949997a",
+      "pseudocode_sha256": "ee95feacd51e8ca436ba148dc88dab981a06ee814a52c0234f52384c752760ca"
+    },
+    {
+      "file": "text-contract-pass230/native-fn-3296b1c.asm",
+      "instructions": 146,
+      "sha256": "910299309bb74afb942d2c48b75e99674bd4281509bce0f7dbaa582eccd3b5e1",
+      "pseudocode_sha256": "7106e24cd8df8aca6fcb873c3ef2ae518296d1e4162d2d0a8a000ced75c9f858"
+    },
+    {
+      "file": "text-contract-pass230/native-fn-4cbf820.asm",
+      "instructions": 21,
+      "sha256": "84431086bdc7b9087e31aeb40cc3a4df08141c46a3917dcce0cb6916aca4a47d",
+      "pseudocode_sha256": "fa11aa0ab74695b8d2caa750386385ef257cd7c520fcd7d57daf75245732540d"
+    },
+    {
+      "file": "text-contract-pass230/native-fn-4cbfb58.asm",
+      "instructions": 25,
+      "sha256": "45f0249854f3ced8b813f0a0c04c3a573ded58176bba6b35fc82507f430d46e8",
+      "pseudocode_sha256": "c2b27b55ca6075a3882154dcbe0699a8bbc6c3b7ccc5b188923a4bdfa49ac833"
+    },
+    {
+      "file": "text-contract-pass230/native-fn-56f412c.asm",
+      "instructions": 121,
+      "sha256": "d3a66348fb2d4fe0cba97b973521de127dc29c93263f66eb5c27898c71aab3e9",
+      "pseudocode_sha256": "a26c152e29301b04d27a24182ed6a79899a5f422db79632934ba7fdc3d16d102"
+    },
+    {
+      "file": "text-contract-pass231/native-fn-4cbebac.asm",
+      "instructions": 193,
+      "sha256": "a6a6abccd0b8ad6a69652fca628c2c7665c6cbbf6b9fca5907603adabb2c8edb",
+      "pseudocode_sha256": "ca0666e0d901bb850d89286f0502b431e34d5246d6499bde5985df246d2f9761"
+    },
+    {
+      "file": "text-contract-pass231/native-fn-4cbf994.asm",
+      "instructions": 61,
+      "sha256": "5339852f4a824052789a5e44e2c4f1eaa1e43d267276b2b05d8ec9049bacdbb9",
+      "pseudocode_sha256": "3f188cfd4da2025a2ee4e095f40d4f33f94a517d99812933af812482b111aa9d"
+    },
+    {
+      "file": "text-contract-pass231/native-fn-56462d0.asm",
+      "instructions": 31,
+      "sha256": "4d76104ab0aab012847b934b75dccf0202c8f9713b36608dc8f1dc4cbf79b6cd",
+      "pseudocode_sha256": "efee7de5c61e06c713b4d5186d7de6b69d1ff748ee607231f45b653cf400c047"
+    },
+    {
+      "file": "text-contract-pass231/native-fn-56f4b4c.asm",
+      "instructions": 70,
+      "sha256": "255a5cf22875f03cd07a2c0a3f040432dbb0f0dc35e88b33805e6909b1bedfa3",
+      "pseudocode_sha256": "3922a5ff954c0b5354f81949b556f057eb68f2b8abb95b3d646091235c992be2"
+    },
+    {
+      "file": "text-contract-pass232/native-fn-4a28ae8.asm",
+      "instructions": 5,
+      "sha256": "21340928fd13bf13623b249cb9b5b57f7fe594fe937054f24ad9cdde643c9eff",
+      "pseudocode_sha256": "0ebdf43331cd14e832cc09986f13b070658cd24efadfac47c50160db05f329a5"
+    },
+    {
+      "file": "text-contract-pass232/native-fn-4a28ea8.asm",
+      "instructions": 4,
+      "sha256": "ed48b6940384d233e87096975fb5c672c84deb54a2d2a77e84a72869bfa736c9",
+      "pseudocode_sha256": "70f5e52026ca91d0132fd07ea309c798daaf5a61c874832c0ebe54284fb7af1c"
+    },
+    {
+      "file": "text-contract-pass232/native-fn-4a28ecc.asm",
+      "instructions": 6,
+      "sha256": "9978bf2fbafe5dbe6a28f9c5477ef5a83fb35a9e484b4faa07fa70a183aaf68f",
+      "pseudocode_sha256": "d8eda3084e7ddf0d89bde07c66ca73c98d79930d55df3d3fbefb1a4bb07fec9d"
+    },
+    {
+      "file": "text-contract-pass232/native-fn-4a28f24.asm",
+      "instructions": 4,
+      "sha256": "8be61e49fc17963c818decce97d7abc7fb95d7402ff2524bd8094cbbd55fa386",
+      "pseudocode_sha256": "183fbcc2c54a83fe11fdce46fef5e5aaf41d0879a52b3f7628fb23b4865dba06"
+    },
+    {
+      "file": "text-contract-pass232/native-fn-4a290c4.asm",
+      "instructions": 7,
+      "sha256": "97b414eba49ca2b38ea01bc234d57f6828caa022f9709074271a0e34cbca6f35",
+      "pseudocode_sha256": "21d5f876bb1d0b896de1f2eea8902c0f73458f25d500e30be97ab069fe481fec"
+    },
+    {
+      "file": "text-contract-pass232/native-fn-4a292d4.asm",
+      "instructions": 4,
+      "sha256": "7be50e920cfca222ed4310987afb797568bbb9ab822eb445588109d592e89e7b",
+      "pseudocode_sha256": "9db6e57c1fa8533bfda38414472ae4642dfa16b28ec9289317ef267964b3c482"
+    },
+    {
+      "file": "text-contract-pass232/native-fn-4a29d84.asm",
+      "instructions": 4,
+      "sha256": "5c86dfc37a674c98aa260cf83935998b3de16687579ea038afb3928e3b42591a",
+      "pseudocode_sha256": "abb2eec726dc5f42c1bf0f7bc253a06eaf18d2738199482f745bf5113b72b3dc"
+    },
+    {
+      "file": "text-contract-pass232/native-fn-4a2bd4c.asm",
+      "instructions": 5,
+      "sha256": "5749db3dfbc348056262377266ffac48739189eb6160f7aebac7787c094821b1",
+      "pseudocode_sha256": "eedbb7a35a8f1cd9648662cf01ad91f8a6b66313fd6738c30d8cceffdbe1d51e"
+    },
+    {
+      "file": "text-contract-pass233/native-fn-4a292c4.asm",
+      "instructions": 4,
+      "sha256": "b78a4bc54931f6c8d73d68aea7f2d393ccaf86d47cf83ef5c7f032380ccf6321",
+      "pseudocode_sha256": "9ab07c9458b9e892eb36693d64cb790a0436a99e4e634fc9c497a8aceb2edec6"
+    },
+    {
+      "file": "text-contract-pass233/native-fn-4a292e4.asm",
+      "instructions": 205,
+      "sha256": "45a5a3eca027fc86cda1ab2705f6d59dad6a7e421fc2b193ffe2d2a198d29dd2",
+      "pseudocode_sha256": "949c1bce0e1e36865201b5431d9c36c7f5cc1609f9b6874bf10bb92b0ae79aa2"
+    },
+    {
+      "file": "text-contract-pass233/native-fn-4a2964c.asm",
+      "instructions": 4,
+      "sha256": "ccf5a3b6c9f961150a771350cdd357241391f0725659d0e3a92a96348ae1887d",
+      "pseudocode_sha256": "6b1e8c0c52905c6f32d08c61667bb7c5d608a7d7788e542800998a62fc7eee50"
+    },
+    {
+      "file": "text-contract-pass233/native-fn-4a2965c.asm",
+      "instructions": 17,
+      "sha256": "76b8939797a7bab2199e6b2d39336736479ed87a11149041a8014af9af5cb230",
+      "pseudocode_sha256": "ddc5056ef5acc655748a7f7ecaca2a94866bde3507a1e01acaa23af5a617110f"
+    },
+    {
+      "file": "text-contract-pass233/native-fn-4cbe4cc.asm",
+      "instructions": 72,
+      "sha256": "e804fd346c55020e0c1c58190b3581c468b43180eeb96e444253bdac037578b6",
+      "pseudocode_sha256": "755c5ae6bc95ac5778f086ac470ebd4dc872743f90af25aa5e9e0250dea0efcf"
+    },
+    {
+      "file": "text-contract-pass233/native-fn-4cbf3c0.asm",
+      "instructions": 59,
+      "sha256": "ad1ee6ad4ff78d137334801812bfbfac2fbd014a8ec2797a1dc39b4dcc1e3952",
+      "pseudocode_sha256": "556d6ed8b20c37780efa6d179304f8a9bcb3b438e0e6cd952e74ad620475cf6a"
+    },
+    {
+      "file": "text-contract-pass234/native-fn-4bb4e7c.asm",
+      "instructions": 30,
+      "sha256": "d144ddff4f147c53975f7f3f14bc21f9aeb569a4b4cc846f9e79a8703ddc4fea",
+      "pseudocode_sha256": "05d3cbde5b5ff91953fc7e42c0525cf938b96977384be4d612dddc2eb28194b2"
+    },
+    {
+      "file": "text-contract-pass234/native-fn-4cbf170.asm",
+      "instructions": 65,
+      "sha256": "a01cb2238adedc3cc89ccf162e88d2531900ff87820530cd1ffe15a50261c5df",
+      "pseudocode_sha256": "3116a0bcd53a323a4cf1072d0dcea9fdbca5a824261a8c2350aaf43bb0c6a3b9"
+    },
+    {
+      "file": "text-contract-pass235/native-fn-32970cc.asm",
+      "instructions": 100,
+      "sha256": "73759352801253c7d8365202512cce605beca4038c9a73d2aad3f097b9dbf7b5",
+      "pseudocode_sha256": "a40a28aeafbb7b85ef7f11b2f33fe31a63fc08d978fc673af2e07637ded52a1e"
+    },
+    {
+      "file": "text-contract-pass235/native-fn-4cd949c.asm",
+      "instructions": 1,
+      "sha256": "3c6fb6de3b9f17d2dd056e6290325c6f5a01cb3818869ebae5e7dc4d6d36000d",
+      "pseudocode_sha256": "7364c27bb2691a2dfa2afcdfa54f06dc7a853985e4dc350a6ef496175e6ca81a"
+    },
+    {
+      "file": "text-contract-pass236/native-fn-32973c8.asm",
+      "instructions": 298,
+      "sha256": "fa70973050c997277cba92075cb91f209871037b788b1942e83695288d7ddddd",
+      "pseudocode_sha256": "890f386d5ae203c83810f894d374114943d35ef3d5b5d8c6a9fd975c1d85492b"
+    },
+    {
+      "file": "text-contract-pass236/native-fn-4ce9cd8.asm",
+      "instructions": 1,
+      "sha256": "6b33b78eb94c79b9849b68b783bf308703ce49a0f82084869f75f68755842fff",
+      "pseudocode_sha256": "e868366f67c516eb890ea2ff550b05a9e3d1c1acf52b24dd0bc9fe1ed12a003a"
+    },
+    {
+      "file": "text-contract-pass237/native-fn-32979e0.asm",
+      "instructions": 55,
+      "sha256": "c94e0394cdc57207398d3fe7af73698fe71778982b7309eeafbcad149ccee0fd",
+      "pseudocode_sha256": "86ef9fa0ae0b71d3cb1c808b2bb94dd8e63836fe243b1be53fea64a511db5281"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9df1bc0",
+      "decoded": "0x32961a4",
+      "chain_steps": 810
+    },
+    {
+      "slot": "0x9f23928",
+      "decoded": "0x56f4b4c",
+      "chain_steps": 1591
+    },
+    {
+      "slot": "0x9eb0ff8",
+      "decoded": "0x4cd949c",
+      "chain_steps": 474
+    },
+    {
+      "slot": "0x9eb1660",
+      "decoded": "0x4ce9cd8",
+      "chain_steps": 667
+    }
+  ],
+  "instructions_matched": 5978,
+  "instruction_positions_checked": 74,
+  "contract_sha256": "c84f989aa14884e480902b2b528e1615c46da583c2e15c999bac557b2bd1c2c1",
+  "verifier_sha256": "ca81081f2acdf0bdf8117664d36075d62b4b8e911852d8bb5d51707ccd9f6733",
+  "prior_contract_sha256": {
+    "newsendmsg-record-replacement-contract.json": "d6a4e21d092db6723fc05c3336e6b23ce9aabec6d5c4f4957bf3a4e0350df2ec",
+    "newsendmsg-business-field-investigation.md": "3ea0c1b2638660130a427dbcc273d298cd2fa226b16695f827ebc5cb2e443843",
+    "account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "Frozen-byte and dyld checks support conditional local record propagation; semantic claims require reviewed control flow. Lookup branches, recipient direction, runtime context/drain and independent receipt remain unproved."
+}

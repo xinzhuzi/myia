@@ -1,0 +1,1 @@
+{"mode": "live", "case": "observe", "pid": 33589, "executable": "/Applications/WeChat.app/Contents/MacOS/WeChat", "library": "/Applications/WeChat.app/Contents/Resources/wechat.dylib", "observe_until": 114142.29714, "url": "connect://127.0.0.1:62658"}

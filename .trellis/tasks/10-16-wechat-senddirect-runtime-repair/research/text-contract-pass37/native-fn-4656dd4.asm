@@ -1,0 +1,4 @@
+0x4656dd4	000440f9	ldr x0,[x0, #0x8]
+0x4656dd8	080040f9	ldr x8,[x0]
+0x4656ddc	060d40f9	ldr x6,[x8, #0x18]
+0x4656de0	c0001fd6	br x6

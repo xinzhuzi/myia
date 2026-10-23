@@ -1,0 +1,22 @@
+0x4cc2e90	ff0301d1	sub sp,sp,#0x40
+0x4cc2e94	f44f02a9	stp x20,x19,[sp, #0x20]
+0x4cc2e98	fd7b03a9	stp x29,x30,[sp, #0x30]
+0x4cc2e9c	fdc30091	add x29,sp,#0x30
+0x4cc2ea0	f30308aa	mov x19,x8
+0x4cc2ea4	090440f9	ldr x9,[x0, #0x8]
+0x4cc2ea8	1f0900f9	str xzr,[x8, #0x10]
+0x4cc2eac	c85b02f0	adrp x8,0x983d000
+0x4cc2eb0	08412f91	add x8,x8,#0xbd0
+0x4cc2eb4	687e00a9	stp x8,xzr,[x19]
+0x4cc2eb8	e8230091	add x8,sp,#0x8
+0x4cc2ebc	2000098b	add x0,x1,x9
+0x4cc2ec0	7c182894	bl 0x056c90b0
+0x4cc2ec4	e1230091	add x1,sp,#0x8
+0x4cc2ec8	e00313aa	mov x0,x19
+0x4cc2ecc	e4b32594	bl 0x0562fe5c
+0x4cc2ed0	e0230091	add x0,sp,#0x8
+0x4cc2ed4	acb32594	bl 0x0562fd84
+0x4cc2ed8	fd7b43a9	ldp x29,x30,[sp, #0x30]
+0x4cc2edc	f44f42a9	ldp x20,x19,[sp, #0x20]
+0x4cc2ee0	ff030191	add sp,sp,#0x40
+0x4cc2ee4	c0035fd6	ret

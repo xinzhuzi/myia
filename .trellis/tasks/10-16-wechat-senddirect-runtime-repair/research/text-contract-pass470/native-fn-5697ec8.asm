@@ -1,0 +1,9 @@
+0x5697ec8	080440f9	ldr x8,[x0, #0x8]
+0x5697ecc	004d40f9	ldr x0,[x8, #0x98]
+0x5697ed0	800000b4	cbz x0,0x05697ee0
+0x5697ed4	080040f9	ldr x8,[x0]
+0x5697ed8	021940f9	ldr x2,[x8, #0x30]
+0x5697edc	40001fd6	br x2
+0x5697ee0	fd7bbfa9	stp x29,x30,[sp, #-0x10]!
+0x5697ee4	fd030091	mov x29,sp
+0x5697ee8	791bae96	bl 0x0021eccc

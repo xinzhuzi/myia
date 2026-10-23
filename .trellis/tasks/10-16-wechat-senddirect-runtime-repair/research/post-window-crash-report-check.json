@@ -1,0 +1,17 @@
+{
+  "since_window_consumption": 1792098976.141045,
+  "checks": [
+    {
+      "directory": "/Users/zhengbingjin/Library/Logs/DiagnosticReports",
+      "present": true,
+      "new_wechat_reports": []
+    },
+    {
+      "directory": "/Library/Logs/DiagnosticReports",
+      "present": true,
+      "new_wechat_reports": []
+    }
+  ],
+  "new_wechat_reports": 0,
+  "scope": "Top-level diagnostic report files after this single window; no report contents read."
+}

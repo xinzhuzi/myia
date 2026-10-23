@@ -1,0 +1,201 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "text_start": "0x17000",
+  "text_bytes": 118643596,
+  "matches": [
+    {
+      "store": "0x7701c4",
+      "immediate_one": "0x7701c0",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x957994",
+      "immediate_one": "0x957990",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x95a730",
+      "immediate_one": "0x95a72c",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0xca853c",
+      "immediate_one": "0xca8538",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x13b23f8",
+      "immediate_one": "0x13b23f4",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x13b2c94",
+      "immediate_one": "0x13b2c90",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x1890fcc",
+      "immediate_one": "0x1890fc8",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x18942ac",
+      "immediate_one": "0x18942a8",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x1c7d414",
+      "immediate_one": "0x1c7d410",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x23c0e28",
+      "immediate_one": "0x23c0e24",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x2920b74",
+      "immediate_one": "0x2920b70",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x29406b0",
+      "immediate_one": "0x29406ac",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x380ad04",
+      "immediate_one": "0x380ad00",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x386c604",
+      "immediate_one": "0x386c600",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x386c644",
+      "immediate_one": "0x386c640",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x386d9f0",
+      "immediate_one": "0x386d9ec",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x3d11ecc",
+      "immediate_one": "0x3d11ebc",
+      "source_register": 8,
+      "base_register": 0
+    },
+    {
+      "store": "0x476b1a8",
+      "immediate_one": "0x476b1a4",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x476b918",
+      "immediate_one": "0x476b914",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x476db94",
+      "immediate_one": "0x476db90",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x4bd4f40",
+      "immediate_one": "0x4bd4f3c",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x4c6f030",
+      "immediate_one": "0x4c6f02c",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x4c7cbe4",
+      "immediate_one": "0x4c7cbe0",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x4c7ffe0",
+      "immediate_one": "0x4c7ffdc",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x4c82120",
+      "immediate_one": "0x4c8211c",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x4c86044",
+      "immediate_one": "0x4c86040",
+      "source_register": 9,
+      "base_register": 8
+    },
+    {
+      "store": "0x5848cec",
+      "immediate_one": "0x5848cd4",
+      "source_register": 8,
+      "base_register": 31
+    },
+    {
+      "store": "0x5e2e2e0",
+      "immediate_one": "0x5e2e2dc",
+      "source_register": 8,
+      "base_register": 31
+    },
+    {
+      "store": "0x5f9b520",
+      "immediate_one": "0x5f9b51c",
+      "source_register": 8,
+      "base_register": 31
+    },
+    {
+      "store": "0x6373c10",
+      "immediate_one": "0x6373c0c",
+      "source_register": 8,
+      "base_register": 19
+    },
+    {
+      "store": "0x645fbf0",
+      "immediate_one": "0x645fbec",
+      "source_register": 8,
+      "base_register": 0
+    },
+    {
+      "store": "0x6ba9aac",
+      "immediate_one": "0x6ba9aa4",
+      "source_register": 8,
+      "base_register": 31
+    }
+  ],
+  "target_executed": false,
+  "limitation": "Instruction-pattern scan only; intervening writes and object types are unproved."
+}

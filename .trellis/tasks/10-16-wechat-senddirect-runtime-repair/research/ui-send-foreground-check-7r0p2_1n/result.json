@@ -1,0 +1,21 @@
+{
+  "sent": false,
+  "attached": false,
+  "activated": true,
+  "frontmost_wechat": true,
+  "window_id": 12490,
+  "width": 1920.0,
+  "height": 1050.0,
+  "title": {
+    "declared_text_seen": false,
+    "matched_confidence": null,
+    "lines": 5,
+    "ocr_seconds": 0.18
+  },
+  "input": {
+    "declared_text_seen": false,
+    "matched_confidence": null,
+    "lines": 4,
+    "ocr_seconds": 0.056
+  }
+}

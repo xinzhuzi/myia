@@ -1,0 +1,18 @@
+{
+  "outcome": "RuntimeError",
+  "detach_ack": true,
+  "attach_calls": 0,
+  "launch_calls": 1,
+  "detached": true,
+  "hit": false,
+  "hardware_breakpoint": true,
+  "stop_reasons": [
+    {
+      "reason": 3,
+      "data": []
+    }
+  ],
+  "error": "unexpected stop; no resume/retry",
+  "detach_error": "success",
+  "finished_monotonic": 81836.671792
+}

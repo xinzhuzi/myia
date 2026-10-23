@@ -1,0 +1,3 @@
+0x4cc2df8	080440f9	ldr x8,[x0, #0x8]
+0x4cc2dfc	206868f8	ldr x0,[x1, x8#0x0]
+0x4cc2e00	c0035fd6	ret

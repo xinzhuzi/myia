@@ -1,0 +1,5 @@
+{
+  "returncode": -6,
+  "stdout": "",
+  "stderr": "Assertion failed: (job && !body && !finished), function FixtureFlow, file test_newsendmsg_job_operation_4115.cpp, line 75.\n"
+}

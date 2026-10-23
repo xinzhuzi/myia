@@ -1,0 +1,34 @@
+{
+  "doctor": {
+    "enabled": true,
+    "anchored": "ok",
+    "lldb": "missing",
+    "last_anchor_build": "4.1.15",
+    "slice_sha256_matched": true,
+    "validation": "disk_only",
+    "runtime_verified": false
+  },
+  "seconds": 0.064,
+  "runtime_calls": 0,
+  "dry_run": {
+    "send": {
+      "target": {
+        "username": "filehelper",
+        "display_name": null
+      },
+      "sent": false,
+      "dry_run": true,
+      "channel": "direct",
+      "anchor_build": "4.1.15",
+      "preflight": "ok",
+      "validation": "disk_only",
+      "runtime_verified": false,
+      "adapter_ready": false,
+      "elapsed_ms": 59
+    }
+  },
+  "real_send_gate": {
+    "exit": 24,
+    "message": "4.1.15 的 schema-3 模板直调配方已证伪，拒绝附加或执行；当前原生适配尚未完成真实直发验收"
+  }
+}

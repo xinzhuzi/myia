@@ -1,0 +1,43 @@
+{
+  "mode": "live",
+  "case": "observe",
+  "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/live-observe-aegb31sm",
+  "deadline_seconds": 30.0,
+  "lldb_exit": 0,
+  "server_exit": 0,
+  "before": {
+    "pid": 33589,
+    "flags": 16388,
+    "state": 2,
+    "start_sec": 1792085027,
+    "start_usec": 181673,
+    "executable": "/Applications/WeChat.app/Contents/MacOS/WeChat"
+  },
+  "after": {
+    "pid": 33589,
+    "flags": 16388,
+    "state": 2,
+    "start_sec": 1792085027,
+    "start_usec": 181673,
+    "executable": "/Applications/WeChat.app/Contents/MacOS/WeChat"
+  },
+  "elapsed_seconds": 21.053,
+  "target_recovered": true,
+  "helpers_remaining": 0,
+  "cleanup_ok": true,
+  "observer": {
+    "outcome": "TimeoutError",
+    "detach_ack": true,
+    "attach_calls": 1,
+    "launch_calls": 0,
+    "detached": true,
+    "hit": false,
+    "module_base": "0x13be04000",
+    "module_uuid": "0C2F01C0-C197-3286-901D-70E1D007A1C0",
+    "runtime_anchors_matched": true,
+    "hardware_breakpoint": true,
+    "error": "observation deadline",
+    "detach_error": "success",
+    "finished_monotonic": 82210.940692
+  }
+}

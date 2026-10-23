@@ -1,0 +1,9 @@
+0x562fd60	2000c03d	ldr q0,[x1]
+0x562fd64	0000803d	str q0,[x0]
+0x562fd68	280840f9	ldr x8,[x1, #0x10]
+0x562fd6c	080800f9	str x8,[x0, #0x10]
+0x562fd70	3ffc00a9	stp xzr,xzr,[x1, #0x8]
+0x562fd74	681002d0	adrp x8,0x983d000
+0x562fd78	08412f91	add x8,x8,#0xbd0
+0x562fd7c	280000f9	str x8,[x1]
+0x562fd80	c0035fd6	ret

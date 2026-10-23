@@ -1,0 +1,40 @@
+{
+  "mode": "fixture",
+  "case": "timeout",
+  "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-timeout-_k8je0ac",
+  "deadline_seconds": 6.0,
+  "lldb_exit": 0,
+  "server_exit": 0,
+  "before": {
+    "pid": 38380,
+    "flags": 18436,
+    "state": 4,
+    "start_sec": 1792137588,
+    "start_usec": 369219,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/factory_snapshot_fixture_4115"
+  },
+  "after": {
+    "pid": 38380,
+    "flags": 16388,
+    "state": 2,
+    "start_sec": 1792137588,
+    "start_usec": 369219,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/factory_snapshot_fixture_4115"
+  },
+  "elapsed_seconds": 3.392,
+  "target_recovered": true,
+  "helpers_remaining": 0,
+  "cleanup_ok": true,
+  "observer": {
+    "outcome": "TimeoutError",
+    "detach_ack": true,
+    "attach_calls": 0,
+    "launch_calls": 1,
+    "detached": true,
+    "hit": false,
+    "hardware_breakpoint": true,
+    "error": "observation deadline",
+    "detach_error": "success",
+    "finished_monotonic": 120805.43288
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "pointer_format": 6,
+  "all_matched": true,
+  "slots": [
+    {
+      "slot": "0x9de8268",
+      "raw": "0x100000030c2ebc",
+      "decoded": "0x30c2ebc",
+      "chain_steps": 72,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9de8270",
+      "raw": "0x100000030c2ec0",
+      "decoded": "0x30c2ec0",
+      "chain_steps": 73,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9de8278",
+      "raw": "0x100000030c2ed8",
+      "decoded": "0x30c2ed8",
+      "chain_steps": 74,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9de8280",
+      "raw": "0x100000030c2f80",
+      "decoded": "0x30c2f80",
+      "chain_steps": 75,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9de8288",
+      "raw": "0x100000030c2fd4",
+      "decoded": "0x30c2fd4",
+      "chain_steps": 76,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9de8290",
+      "raw": "0x100000030c2fdc",
+      "decoded": "0x30c2fdc",
+      "chain_steps": 77,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9e91e48",
+      "raw": "0x1000000465da58",
+      "decoded": "0x465da58",
+      "chain_steps": 907,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9e91e40",
+      "raw": "0x1000000465dacc",
+      "decoded": "0x465dacc",
+      "chain_steps": 906,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9e91e20",
+      "raw": "0x1000000465dbc0",
+      "decoded": "0x465dbc0",
+      "chain_steps": 902,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9e91dd0",
+      "raw": "0x1000000465d024",
+      "decoded": "0x465d024",
+      "chain_steps": 893,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9e91da8",
+      "raw": "0x1000000465d30c",
+      "decoded": "0x465d30c",
+      "chain_steps": 888,
+      "chain_membership_verified": true
+    },
+    {
+      "slot": "0x9e8fdc8",
+      "raw": "0x100000046353a0",
+      "decoded": "0x46353a0",
+      "chain_steps": 1817,
+      "chain_membership_verified": true
+    }
+  ],
+  "scope": "Offline data provenance only; current service identity is not observed."
+}

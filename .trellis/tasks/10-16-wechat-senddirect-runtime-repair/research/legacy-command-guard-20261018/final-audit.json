@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "open_implementation_ids": [
+    11,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    55,
+    67
+  ],
+  "A7_open": true,
+  "L3_blocked": true,
+  "hashes": {
+    "Library/ai/verify_wechat_legacy_commands_20261018.py": "9d280b9f646a0a4ed0cbea7a954c941162f62109c06315faa6427b0a9c71df66",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "92a73f3e94b9381dab36be165d203f45dec16d863a1a9f88269620236bdf9046",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cross-session-reconciliation-20261018.md": "b81d7dd6277a6ee0c27cf8ec3a587c96eb99aa16ebb091711083882c67207c9b",
+    ".trellis/spec/python/wechat-direct-passive-contract.md": "3315c5ce1b6ed8246eaf4cc109a81ffeb963644365ff4221df74eeca9e5f56e2",
+    ".trellis/tasks/10-15-media-key-hunt/task.json": "df97617598cd6c5aa2f9c3c802942dd7adc75d67258c19ca7d679555dea8c96a"
+  },
+  "target_attached": false,
+  "full_goal_complete": false
+}

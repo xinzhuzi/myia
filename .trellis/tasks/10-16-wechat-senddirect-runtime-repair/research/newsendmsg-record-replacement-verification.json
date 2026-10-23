@@ -1,0 +1,150 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass198/native-fn-30db798.asm",
+      "instructions": 591,
+      "sha256": "e0814c739fbf751e30457bce9da0b1806b9b6e867a551fdb7392c30728722d38",
+      "pseudocode_sha256": "54c2bfa899ceab64c01b1f173467ee524f469cf975e3646e5d48c9a58f2cd269"
+    },
+    {
+      "file": "text-contract-pass203/native-fn-3105a98.asm",
+      "instructions": 659,
+      "sha256": "d5f6911822079ee22866e87bc7ab3b5365973fa5098b31985dd3dfe14e77ca97",
+      "pseudocode_sha256": "37d57ca0b7b08158f1905bb00e0f489c4a1bd90ed2424701cc0e1e2734b69327"
+    },
+    {
+      "file": "text-contract-pass204/native-fn-30f1d74.asm",
+      "instructions": 94,
+      "sha256": "d8ebec839644ab22f7d1d4f16711fa2b52382057583c7fdc17b94f9853416975",
+      "pseudocode_sha256": "7cbae64757161ebad17f5cd6325b6a679ffe64fe6edfd397397868fac1a97780"
+    },
+    {
+      "file": "text-contract-pass222/native-fn-2a0cf30.asm",
+      "instructions": 165,
+      "sha256": "996c279082cdaba1cac7851a0902f8496d0a492ee5c08768e786d5f5e4bc5292",
+      "pseudocode_sha256": "5110a90efe92a5e7ab200826dcd102ba04922479f3173f9447d965edf133d8f6"
+    },
+    {
+      "file": "text-contract-pass222/native-fn-30dc1e0.asm",
+      "instructions": 35,
+      "sha256": "18492c10041f64ccae5258f52925941101a1c3988bfb5540b1c749f034ce9cee",
+      "pseudocode_sha256": "3beb71da6f9ecd25728fe6c8e6018bec1c97636c6b4775e6fe47a06320570f43"
+    },
+    {
+      "file": "text-contract-pass222/native-fn-f57630.asm",
+      "instructions": 206,
+      "sha256": "b1ff42127c5daebad49470f029ae9bba346cbb9e9a4153c3801a756fde3ec536",
+      "pseudocode_sha256": "efb81ad513d55eca5708baaf79deef6b29fccbf943867da298c6cc746eb4bc33"
+    },
+    {
+      "file": "text-contract-pass223/native-fn-30dc6fc.asm",
+      "instructions": 39,
+      "sha256": "aa0d578b3994024f544261e409c3e517eb585ac8a10b7f9081308eb256066810",
+      "pseudocode_sha256": "fa5ffa72a76883a5242824a897050fed0ec7faac0ba076ba5a01fa473abe8a61"
+    },
+    {
+      "file": "text-contract-pass223/native-fn-32cf5ac.asm",
+      "instructions": 15,
+      "sha256": "1d275f62ccb94573a3c9905501dfeeb3ae9a59c910a22308bbaf7f0e335ee778",
+      "pseudocode_sha256": "aae414fa1ab1183d056644fadbd664e75116ff2dbed6dc80f5a820f36993975f"
+    },
+    {
+      "file": "text-contract-pass223/native-fn-66856fc.asm",
+      "instructions": 178,
+      "sha256": "e88680817b0b337e367a5a1fc6b756e602c6ee420f886b03b37fb931827fc857",
+      "pseudocode_sha256": "2a420cf8ce11e55aa6a9792f8c654b2560b622a31f88f5b60ba2ac2120e97db3"
+    },
+    {
+      "file": "text-contract-pass224/native-fn-32cf5e8.asm",
+      "instructions": 1372,
+      "sha256": "a23cc21f55908c66f8a16529918db602938894a2a6626f6dad9d7ab2c946c3ae",
+      "pseudocode_sha256": "8c2d73ec653b7f071cf98b26a18a16ef29ba9869998df6072c340ed1a8d28061"
+    },
+    {
+      "file": "text-contract-pass224/native-fn-4cbd624.asm",
+      "instructions": 60,
+      "sha256": "e98182667b280109e4f783c93ea5997c97ef6882f627302082ab350bd39098fd",
+      "pseudocode_sha256": "0e0ded0201403622be79c7fa67e659086aaebdd4686a147b6497ac0da7169c97"
+    },
+    {
+      "file": "text-contract-pass225/native-fn-335bddc.asm",
+      "instructions": 36,
+      "sha256": "09b0a42adcddd88bbfb1ec775a7eaf149716e461b7b678133855ae144e5ca976",
+      "pseudocode_sha256": "b36a156c60a8b4088e4036d0cafcded34d741bfe3255de13508b452595bb559c"
+    },
+    {
+      "file": "text-contract-pass225/native-fn-335c1b4.asm",
+      "instructions": 129,
+      "sha256": "aef53e1988c2c442229ff0805e7f1184c714ceb7aa0af2cd4d2357df1469f913",
+      "pseudocode_sha256": "1759f4ac24ae1a678f867930b6c4a061841bd7db973090221f1bd45a08ca5853"
+    },
+    {
+      "file": "text-contract-pass225/native-fn-335c4ec.asm",
+      "instructions": 46,
+      "sha256": "02be9200ce0ed623ddb32fbbf9641d6ce7154401e5a8882395632408137df6cb",
+      "pseudocode_sha256": "e43d20670d6f26b518bbe8e45c75d4b9b6f40ddc2da793f26f1b7df04a96d233"
+    },
+    {
+      "file": "text-contract-pass225/native-fn-4cbd748.asm",
+      "instructions": 59,
+      "sha256": "939412fd8c2b00fff34c552e21205130f1b61b69d994803fbea7e795309f559e",
+      "pseudocode_sha256": "14f3a891c7b5f9e6d8b08b0bec15d6ad64b91aae064cf823805b287dd250d2e8"
+    },
+    {
+      "file": "text-contract-pass226/native-fn-335bf80.asm",
+      "instructions": 3,
+      "sha256": "71109a1dd07dd0ae87d3478c76c3708b6d19e1717e56ca90e3604907b121bd46",
+      "pseudocode_sha256": "e332001e41fc39b96eb9852e628af4c039589c53cf5745d40008bd45f8eef723"
+    },
+    {
+      "file": "text-contract-pass226/native-fn-335c414.asm",
+      "instructions": 36,
+      "sha256": "7b001901f546614d8991e53e85f8daa6bae988c0001a9416f1518e41c397d3c0",
+      "pseudocode_sha256": "92ecf533024f94d0b8c1aaa082e0ff660081e1286a053cc5aa1fa352511e5475"
+    },
+    {
+      "file": "text-contract-pass227/native-fn-326a144.asm",
+      "instructions": 652,
+      "sha256": "085a2184af8bf1448d927a16a5a76f219d451b2911fe54db3c937e5057c5433e",
+      "pseudocode_sha256": "fd3ff622954e7162b98e3e7eca5810e28581d948df3563833f746799b763af12"
+    },
+    {
+      "file": "text-contract-pass228/native-fn-3269bec.asm",
+      "instructions": 322,
+      "sha256": "023628a6e12378db9e60f2cd1c1595960c208ce5cdbdedf1a54279fa2db2d8c7",
+      "pseudocode_sha256": "51685011482be08be2c24638bc6a6fe5a5b7d81d38492b21b59ee901ca529b13"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9df3938",
+      "decoded": "0x335bf80",
+      "chain_steps": 1695
+    },
+    {
+      "slot": "0x9df3978",
+      "decoded": "0x80000000088aee40",
+      "chain_steps": 1703
+    },
+    {
+      "slot": "0x9eb0538",
+      "decoded": "0x8000000008ad4ac8",
+      "chain_steps": 160
+    }
+  ],
+  "instructions_matched": 4697,
+  "instruction_positions_checked": 90,
+  "type_names_checked": 2,
+  "contract_sha256": "d6a4e21d092db6723fc05c3336e6b23ce9aabec6d5c4f4957bf3a4e0350df2ec",
+  "prior_contract_sha256": {
+    "newsendmsg-text-handler-contract.json": "75995ef81a55770aac6463f2f51c810e75f4b840fea77997b6c45297f84e2c65",
+    "newsendmsg-text-input-path-contract.json": "ffa7abe710f241e7a70d655db85c0bc0e52e632c0b2482cbac5a9b1831ff1941",
+    "account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "Static replacement and typed transport only; external record mutation, direction, thread/drain and independent receipt remain unproved."
+}

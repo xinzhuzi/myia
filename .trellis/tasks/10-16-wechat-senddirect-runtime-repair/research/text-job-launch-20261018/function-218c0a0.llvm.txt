@@ -1,0 +1,26 @@
+
+/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+000000000001986c <_WeChatMain>:
+ 218c0a0: a9be4ff4     	stp	x20, x19, [sp, #-0x20]!
+ 218c0a4: a9017bfd     	stp	x29, x30, [sp, #0x10]
+ 218c0a8: 910043fd     	add	x29, sp, #0x10
+ 218c0ac: f9400413     	ldr	x19, [x0, #0x8]
+ 218c0b0: b40001b3     	cbz	x19, 0x218c0e4 <_WeChatMain+0x2172878>
+ 218c0b4: 91002268     	add	x8, x19, #0x8
+ 218c0b8: 92800009     	mov	x9, #-0x1               ; =-1
+ 218c0bc: f8e90108     	ldaddal	x9, x8, [x8]
+ 218c0c0: b5000128     	cbnz	x8, 0x218c0e4 <_WeChatMain+0x2172878>
+ 218c0c4: f9400268     	ldr	x8, [x19]
+ 218c0c8: f9400908     	ldr	x8, [x8, #0x10]
+ 218c0cc: aa0003f4     	mov	x20, x0
+ 218c0d0: aa1303e0     	mov	x0, x19
+ 218c0d4: d63f0100     	blr	x8
+ 218c0d8: aa1303e0     	mov	x0, x19
+ 218c0dc: 953eced0     	bl	0x713fc1c <_wxam_enc_uninit_10+0x713fc1c>
+ 218c0e0: aa1403e0     	mov	x0, x20
+ 218c0e4: a9417bfd     	ldp	x29, x30, [sp, #0x10]
+ 218c0e8: a8c24ff4     	ldp	x20, x19, [sp], #0x20
+ 218c0ec: d65f03c0     	ret

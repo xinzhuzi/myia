@@ -1,0 +1,28 @@
+{
+  "entries": [
+    {
+      "source": "standalone",
+      "dry_run": true,
+      "exit_code": 0
+    },
+    {
+      "source": "standalone",
+      "dry_run": false,
+      "exit_code": 24
+    },
+    {
+      "source": "managed",
+      "dry_run": true,
+      "exit_code": 0
+    },
+    {
+      "source": "managed",
+      "dry_run": false,
+      "exit_code": 24
+    }
+  ],
+  "runtime_child_spawns": 0,
+  "cwd": "/",
+  "wechat_attached": false,
+  "limitations": "Checks executable selection and passive/rejection paths; no native sending validation."
+}

@@ -1,0 +1,11 @@
+{
+  "outcome": "fixture_snapshot",
+  "detach_ack": true,
+  "attach_calls": 0,
+  "launch_calls": 1,
+  "detached": true,
+  "hit": false,
+  "fixture_snapshot_read_bytes": 16,
+  "detach_error": "success",
+  "finished_monotonic": 120812.902102
+}

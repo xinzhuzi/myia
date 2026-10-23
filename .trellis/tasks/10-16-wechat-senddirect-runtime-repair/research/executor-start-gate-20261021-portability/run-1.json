@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\"scenarios\":4,\"real_operation_component\":true,\"host_erased_abi\":true,\"balanced_lifetime\":true,\"native_scheduler_executed\":false,\"target_executed\":false,\"sent\":false}\n",
+  "stderr": ""
+}

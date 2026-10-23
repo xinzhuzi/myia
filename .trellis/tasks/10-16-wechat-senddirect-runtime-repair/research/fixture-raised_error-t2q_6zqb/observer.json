@@ -1,0 +1,11 @@
+{
+  "outcome": "RuntimeError",
+  "detach_ack": true,
+  "attach_calls": 0,
+  "launch_calls": 1,
+  "detached": true,
+  "hit": false,
+  "error": "intentional embedded LLDB exception",
+  "detach_error": "success",
+  "finished_monotonic": 120806.767311
+}

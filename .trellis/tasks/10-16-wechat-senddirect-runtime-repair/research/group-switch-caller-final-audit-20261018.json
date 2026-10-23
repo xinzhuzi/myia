@@ -1,0 +1,35 @@
+{
+  "passed": true,
+  "verified_source_hashes": {
+    "scheduler-config-20261018/verification.json": 173,
+    "launch-cancel-order-20261018/verification.json": 62,
+    "group-switch-caller-20261018/verification.json": 83
+  },
+  "open_implementation_items": [
+    "11",
+    "18",
+    "20",
+    "21",
+    "22",
+    "23",
+    "24",
+    "55",
+    "67"
+  ],
+  "a7_complete": false,
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/prd.md": "d42502f8857a8d5263206a61f9abf44d338630031c65867081793c14e5ff397a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/design.md": "963b24a174eb7132e98342534b612e35783d17dbbc4d9e47b5e1a40e45e94b9d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "fcb54d4d013843f1dc07574b6468982ba93aafba4aa608c569910eed1d977573",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task.json": "5a27767910ce9b4758ba1ace4b98ffac97b5857cc35cd9342912e27e8598998a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task-tiers.json": "9196afcce5da0cb93470952fe122742ba63de3d73a72632b61f619b502790ccb",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-group-switch-caller-result.md": "bc138e037e36a3a442f891dab88c07504c6320e020e8db5ba99f8940f8c6c1e2",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/completion-gap-audit-20261017.md": "4f64fde030288a306e75a036d460cb25304989deb072ac154234e0038b81410d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/group-switch-caller-20261018/verification.json": "7faffd5037b560ce1055d3335a1e5386465fd27b147ea4be6241b1333e3bf561"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "send_verified": false,
+  "deployed": false
+}

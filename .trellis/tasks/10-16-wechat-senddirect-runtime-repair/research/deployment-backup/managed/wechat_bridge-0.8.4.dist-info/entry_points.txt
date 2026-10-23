@@ -1,0 +1,2 @@
+[console_scripts]
+wechat-bridge = wechat_bridge.cli:main

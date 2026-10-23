@@ -1,0 +1,38 @@
+{
+  "utc": "2026-10-16T05:27:05.607583+00:00",
+  "source_sha256": {
+    "Library/ai/scan_wechat_cgi_literals_20261016.py": "e756c493ab394fbad652ecaa321ae0e055a5e5ac99f89c1ea0b219fc8ff849ac",
+    "Library/ai/verify_wechat_newsendmsg_slots_20261016.py": "df6262baa9a544f70590dc6d845d11987560ad28c45511c421af33c940338404",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-4115-static-contract.json": "477643bf36c035a9ae82101c5257831d4b4c6ad1be0833bc3c7bfae31ef18a89"
+  },
+  "lint_returncode": 0,
+  "byte_provenance": {
+    "exports": 98,
+    "instructions": 21883,
+    "bytes": 87532,
+    "all_match": true
+  },
+  "dyld_slots_verified": 12,
+  "wechat": [
+    {
+      "pid": 33589,
+      "probe_exit": 0,
+      "state": 2,
+      "traced": false
+    }
+  ],
+  "debuggers": {
+    "lldb": {
+      "exit": 1,
+      "pids": []
+    },
+    "debugserver": {
+      "exit": 1,
+      "pids": []
+    }
+  },
+  "attached_this_turn": false,
+  "sent_this_turn": false,
+  "send_verified": false,
+  "product_json_modified_this_turn": false
+}

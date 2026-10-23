@@ -1,0 +1,42 @@
+{
+  "passed": true,
+  "host": "arm64",
+  "fixture": {
+    "cases": 4,
+    "inline_and_heap": true,
+    "raw_virtual_invoke": true,
+    "bool_reference_checked": true
+  },
+  "native_instruction_sites_checked": 11,
+  "native_provenance": "text-contract-byte-verification-v14.json",
+  "command": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_job_erasure_4115.cpp",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_erasure_fixture_4115.S",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_job_erasure_4115"
+  ],
+  "source_sha256": {
+    "newsendmsg_job_abi_4115.hpp": "646abe66de8b3859d2e158cefead1daece820365c817ed3b11a150cf78d22692",
+    "test_newsendmsg_job_erasure_4115.cpp": "74d578d0d5166fb74c721d5b9aad6d904e3995611a1db9dc33c0e88a95d03d70",
+    "job_erasure_fixture_4115.S": "e19be46c110ae42ae0ff36004b382b59e3d28e09e130dff190a8779e592a2075",
+    "text-contract-pass148/native-fn-667f534.asm": "44b4c38a2109e34ec144c13efc76bcbe4a6131d1341af75609cf71ec01742666",
+    "text-contract-pass149/native-fn-667fc38.asm": "2e46b6d188d566886fe98f5560dec2d0874da8f206af8f1abf97a33e8520baf4"
+  },
+  "binary_sha256": "60a27c87119608e5e45ab3d83c1b3ca95ea0fe2dbe16c77a228b1f1f8eb1f690",
+  "wechat_loaded": false,
+  "wechat_attached": false,
+  "native_job_called": false,
+  "sent": false,
+  "callable_for_send": false,
+  "limits": [
+    "Host erased callback ABI only; no native job, dispatch or send execution.",
+    "Callback type compatibility does not establish scheduler/thread safety or drain.",
+    "Empty functions, native ownership and exception propagation are outside this fixture."
+  ]
+}

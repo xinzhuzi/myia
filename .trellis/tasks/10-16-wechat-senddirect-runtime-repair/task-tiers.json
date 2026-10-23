@@ -1,0 +1,627 @@
+{
+  "decision": "required",
+  "tiers": [
+    {
+      "tier": "L1",
+      "id": "runtime-entry-fixes",
+      "status": "completed",
+      "scope": "doctor/dry-run隐式附加与已失效配方的产品修复",
+      "verification": "845 passed, 14 gated skipped；15项事故回归。独立桥及桌面Python均装入0.9.1，真实磁盘检查通过且runtime_calls=0，未改其他依赖。"
+    },
+    {
+      "tier": "L2",
+      "id": "native-buffer-contract",
+      "status": "completed",
+      "depends_on": [
+        "runtime-entry-fixes"
+      ],
+      "scope": "静态调用合同与离线buffer原型",
+      "verification": "14项假内存测试通过；13函数4611指令18444字节匹配；Task两块buffer的复制/析构已定位，完整外部上下文生命周期留待L3。见research/native-repair-contract.md。"
+    },
+    {
+      "tier": "L3",
+      "id": "real-direct-validation",
+      "status": "blocked",
+      "depends_on": [
+        "native-buffer-contract"
+      ],
+      "scope": "正文/Task所有权与真正直发终验；本次单次授权仅观察，不发送",
+      "blockers": [
+        "2026-10-16用户报告账号安全重新登录提示后，停止一切微信活体操作；自动goal续跑仅处理本地文件和离线证据，不恢复附加/UI/发送/登录测试，也不继续申请下一观察窗口。此约束优先于下列历史下一步建议；见research/account-safety-stop-20261016.md。",
+        "newsendmsg CGI/522、请求工厂、条目wire及字段5哈希已证明；服务身份已在单次只读窗口匹配。仍需确定业务字段输入、原生调用线程/上下文与可执行适配合同。",
+        "完成functor的shared捕获、复制/析构和context首次决议已证明；不等于已证明调度器ABI或任意线程调用安全。",
+        "四个只读授权均已消费；两次工厂观察未形成有效的人工发送时间对照，未命中不构成路线证伪。未调用原生发送或核验直发回执。再次附加须新的明确单次窗口，且先修正并验证本机就绪协调；发送另受收件人和正文范围约束。"
+      ],
+      "offline_scheduler_lifetime_progress": {
+        "evidence": "research/newsendmsg-scheduler-lifetime-result.md",
+        "contract": "research/newsendmsg-scheduler-lifetime-contract.json",
+        "verification": "冻结薄片240份导出40175指令/160700字节匹配，完整consumer另487条匹配；14槽中新增2个调度槽独立dyld解码，19个指令位置核验，3脚本Ruff通过。",
+        "result": "运行标志清零早于正文function销毁；完成入口标志及结果发布早于最终用户回调，均不能作为模块卸载/全部排空依据。",
+        "remaining": "具体调度服务、取消回调、join与末尾回调及weak引用析构顺序、业务输入关联和真实回执；账号安全停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_cancel_dispatch_progress": {
+        "evidence": "research/newsendmsg-cancel-dispatch-result.md",
+        "verification": "246份导出41483指令/165932字节匹配冻结薄片，完整consumer另487条匹配；16槽中新增2个取消invoke槽独立dyld链核验，验证脚本Ruff通过。",
+        "result": "确认已启动/未启动作业的取消handler分支；Ghidra省略的x1取消码须按原始指令保留。协程作业取消不等于请求服务按task_id取消，两层均不构成完整排空证明。",
+        "remaining": "具体调度服务、两层取消组合、最终回调/weak引用排空、业务关联、可执行适配与独立直发回执；账号安全停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_job_abi_progress": {
+        "evidence": "research/newsendmsg-job-abi-result.md",
+        "erased_callback_evidence": "research/newsendmsg-job-erasure-result.md",
+        "erased_callback_verification": "newsendmsg-job-erasure-verification.json：内联/堆存储正文和布尔完成回调4场景通过，11个原始指令位置与源文件哈希核验，新脚本Ruff通过；作业取消布尔值不构成发送或送达证据。",
+        "verification": "newsendmsg-job-abi-verification.json：本机Apple ARM64独立汇编/C++夹具5场景通过，核验13个原始指令位置与源文件哈希；新验证脚本Ruff通过。",
+        "result": "新增无地址、无加载器的作业ABI声明：非平凡16字节句柄通过隐藏x8返回，完整入口x0/group、x1/config、x2/body、x3/finished；简化入口仅前三项。默认group依赖协程/线程和运行时配置，不能照静态地址放行。",
+        "remaining": "真实group/config和线程合同、两层取消及末尾引用排空、业务字段关联、完整适配与独立直发回执；账号安全停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_client_id_source_progress": {
+        "evidence": "research/newsendmsg-client-id-source-result.md",
+        "verification": "research/newsendmsg-client-id-source-verification.json",
+        "result": "字段5输入链新增缓存、record标识格式化、时间/local_id来源、精确后缀及64位计数器原值消费合同；6份定点导出769指令、19个关键位置及字面量/thunk核验通过。",
+        "remaining": "计数器初始化/并发序列化、记录方向与文本type、调度与排空、完整适配及独立发送回执；账号安全停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_record_input_progress": {
+        "evidence": "research/newsendmsg-record-input-result.md",
+        "contract": "research/newsendmsg-record-input-contract.json",
+        "verification": "13份定点导出4903指令/21关键位置及新脚本Ruff通过；research/newsendmsg-record-input-verification.json。",
+        "result": "构造侧生成已识别record虚表并保存shared pair；local_type的两个32位来源分别设入低/高半并同步64位，wire field3只读取低半。",
+        "remaining": "完整context到producer派发、方向/普通文本type、调度与排空、完整适配及独立回执；账号安全停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_payload_type_progress": {
+        "evidence": "research/newsendmsg-input-type-result.md",
+        "contract": "research/newsendmsg-input-type-contract.json",
+        "verification": "22份导出5576指令/11关键位置、2组原始常量、6槽dyld链及新脚本Ruff通过；research/newsendmsg-input-type-verification.json。",
+        "result": "两条输入payload虚槽分别读取+0xe4/+0xe8；分支设低/高值49/1及49/51，不能把高半1或另一槽恒1作为普通文本类型。",
+        "remaining": "普通文本输入与完整派发、方向、线程/排空及独立送达；账号安全停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_type_one_content_progress": {
+        "evidence": "research/newsendmsg-type-one-content-result.md",
+        "contract": "research/newsendmsg-type-one-content-contract.json",
+        "verification": "6份定点导出232指令、32关键位置及4槽dyld链匹配冻结文件；新验证器和模式扫描脚本Ruff通过。research/newsendmsg-type-one-content-verification.json。",
+        "result": "确认基础类型初始化为0/0；转换器真实入口0x4c6eff4显式设低类型1，复制source+0x130/+0x148到新payload+0x5c8/+0x5e0，并通过隐藏x8返回shared pair。偏移关联不等于完整发送身份关联。",
+        "remaining": "转换器所属对象及到发送producer的完整派发、source同类型身份、收件人方向、线程和排空、完整适配及独立回执；账号安全停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_conversion_dispatch_progress": {
+        "evidence": "research/newsendmsg-conversion-dispatch-result.md",
+        "contract": "research/newsendmsg-conversion-dispatch-contract.json",
+        "verification": "10份定点导出2061指令、39关键位置、4个dyld槽及16字节比较常量核验通过，新脚本Ruff通过。",
+        "result": "上一转换器属于选择值49/115的对象且位于另一虚槽；实际选择值1使用不同转换对象，公共工厂结果虚表0x9eba160与已确认数据库record虚表0x9eb04f0不同，禁止按相同偏移混用字段。",
+        "remaining": "转换对象到发送context/producer的正向身份关联、业务输入方向、真实线程/config/排空、完整适配及独立回执；账号安全停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_forward_queue_progress": {
+        "evidence": "research/newsendmsg-forward-queue-result.md",
+        "contract": "research/newsendmsg-forward-queue-contract.json",
+        "verification": "9450指令、54关键位置、4个dyld槽及constructor thunk与冻结文件匹配，新脚本Ruff通过。research/newsendmsg-forward-queue-verification.json。",
+        "result": "从context构造正向追出按key入队、状态筛选、移除、另一队列和捕获shared回调；后续handler+0x90的零结果方法与producer+0xd8是不同槽，不能将阶段返回或入队当作发送完成。",
+        "remaining": "准备阶段handler注册/身份及到producer的精确派发、业务方向、真实线程/config/末尾排空、完整适配及独立回执；账号安全停止保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_state_three_progress": {
+        "evidence": "research/newsendmsg-state-three-result.md",
+        "contract": "research/newsendmsg-state-three-contract.json",
+        "verification": "13份导出8891指令、39关键位置、5个dyld槽及重定向隐藏x8保留核验，新脚本Ruff通过；research/newsendmsg-state-three-verification.json。",
+        "result": "确认前置成功/flag/handler门后状态3派发及input+0xd8模式分支；已知handler+0x88重定向+0x80零结果方法，+0x78真实目标为0x30bcd9c，不能混用另一方法或当作producer。后继通知目标尚未证明。",
+        "remaining": "两个通知容器的实际目标、所选handler身份及到producer连接、业务方向、真实线程/config/末尾排空、完整适配与独立回执；账号安全停止保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_text_handler_progress": {
+        "evidence": "research/newsendmsg-text-handler-result.md",
+        "contract": "research/newsendmsg-text-handler-contract.json",
+        "verification": "19份导出7494指令、66关键位置、9个dyld槽、TextMessageHandler/LocationMessageHandler精确名称核验，新脚本Ruff通过；research/newsendmsg-text-handler-verification.json。",
+        "result": "明确旧已知handler属于Location；文本工厂生成0x9de9a68，+0x78准备把input+0x5c8正文复制至record+0x130，+0xd8真实producer为0x3107b0c并调用共用请求helper。两条通知容器的直接/执行器分支及拥有record副本已定位。",
+        "remaining": "实际服务注册表与初始化表关联、到文本producer的完整派发、输入类型/方向、线程/config/末尾排空、可执行适配及独立回执；账号安全停止保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_handler_registration_progress": {
+        "evidence": "research/newsendmsg-handler-registration-result.md",
+        "contract": "research/newsendmsg-handler-registration-contract.json",
+        "verification": "14份导出5274指令、67关键位置匹配冻结文件；新脚本Ruff通过，见research/newsendmsg-handler-registration-verification.json。",
+        "result": "实际service+0xb20注册与选择共用storage和storage+0x28两张表；类型1名称映射到文本handler shared pair。两条通知实际成员目标已核验，不构成producer或回执证据。",
+        "remaining": "context到文本producer准确虚调用、输入身份/方向、真实线程/config/排空、完整适配与独立回执；账号安全停止保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_producer_dispatch_progress": {
+        "evidence": "research/newsendmsg-producer-dispatch-result.md",
+        "contract": "research/newsendmsg-producer-dispatch-contract.json",
+        "verification": "8份导出2950指令、92关键位置、3槽独立dyld解码及有边界模式扫描通过，新脚本Ruff通过；research/newsendmsg-producer-dispatch-verification.json。",
+        "result": "状态6第二队列选择已注册handler、设状态7并捕获作业；正文经前置+0xd0零结果门设置状态10，再由0x30d692c调用文本+0xd8的0x3107b0c。补证原生条件性第二次helper调用与结果发布，不构成实机执行或送达证明。",
+        "remaining": "普通文本输入构造/身份、业务方向、真实线程/config/排空、完整适配及独立回执；账号安全停止约束保持，A7和20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_text_input_path_progress": {
+        "evidence": "research/newsendmsg-text-input-path-result.md",
+        "contract": "research/newsendmsg-text-input-path-contract.json",
+        "verification": "12份导出3467指令、75关键位置、6槽独立dyld解码及新脚本Ruff通过；research/newsendmsg-text-input-path-verification.json。",
+        "result": "工厂payload的RTTI与文本准备要求精确相同；0x291fb70的数值1分支赋正文并捕获同一input pair，作业0x292ef9c通过0x317ded4进入已确认发送服务，组合注册表得到文本handler的条件静态链。",
+        "remaining": "builder参数来源/完整前置条件、业务方向、record替换关联、线程/config/排空、完整适配及独立回执；账号安全停止约束保持，A7和20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_record_replacement_progress": {
+        "evidence": "research/newsendmsg-record-replacement-result.md",
+        "contract": "research/newsendmsg-record-replacement-contract.json",
+        "verification": "19份导出4697指令、90关键位置、3槽dyld链及2类型名称核验通过，新脚本Ruff通过；research/newsendmsg-record-replacement-verification.json。",
+        "result": "文本准备从future提取新record，经+0xf4非零门替换context shared pair；复制/移动边界和类型化getter名称已对应。外部记录操作仍未证明完整正文保持，不据此启用发送。",
+        "remaining": "全部lookup分支及外部记录修改、builder参数和收件人方向、真实线程/config/排空、完整适配和独立回执；账号停止约束保持，A7及20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_record_database_progress": {
+        "evidence": "research/newsendmsg-record-database-result.md",
+        "contract": "research/newsendmsg-record-database-contract.json",
+        "verification": "41份留存导出5978指令、74关键位置及4个dyld槽核验通过，新脚本Ruff通过；research/newsendmsg-record-database-verification.json。",
+        "result": "条件性插入链通过record共享整数单元回填local_id/+0xf4；新建的两类低类型1辅助对象虚槽+0x10均为空方法，source仍有更新。父分支w24被lookup返回字节覆盖，不能按原w4解释后续条件。",
+        "remaining": "全部lookup分支、既有辅助对象、builder参数及收件人方向、线程/config/取消/排空、完整适配及独立回执；账号停止约束保持，A7及20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_server_id_query_progress": {
+        "evidence": "research/newsendmsg-server-id-query-result.md",
+        "contract": "research/newsendmsg-server-id-query-contract.json",
+        "verification": "9份导出2066指令、56关键位置及1精确类型名称核验通过，新脚本Ruff通过；research/newsendmsg-server-id-query-verification.json。",
+        "result": "server_id门后的capture调用数据库query并仅发布结果标签字节；父方法非零分支复制原record，query不返回替代record。隐藏x8返回区、capture移动/清理及getter类型检查已核验，标签完整业务语义仍未证明。",
+        "remaining": "其他父方法分支及数据库query语义、builder参数和收件人方向、线程/config/取消/排空、完整适配及独立回执；账号停止约束保持，A7及20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_builder_json_progress": {
+        "evidence": "research/newsendmsg-builder-json-result.md",
+        "contract": "research/newsendmsg-builder-json-contract.json",
+        "verification": "8份导出5320指令、65关键位置及4精确JSON字段核验通过，新脚本Ruff通过；research/newsendmsg-builder-json-verification.json。",
+        "result": "一条JSON解析路线的chat_id/message_type/content_xml_base64/content_xml已从冻结字节对应到解析输出及类型1输入；chat_id进入input+0x90/context+0x38，正文进入input+0x5c8。直接内容与转换路线的flag和解析成功门已证明，未将协调器转发字符串误作chat_id。",
+        "remaining": "上游路线及可选/错误语义、chat_id到最终请求收件人方向、完整记录变更、线程/config/取消/排空、完整适配和独立回执；账号停止约束保持，A7及20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "observation_authorization": {
+        "source": "用户对call_EDiItm3EkUrLX7ZUeObpWbFp的回答：授权上述窗口，最长 30 秒",
+        "target": "当前运行的WeChat 4.1.15",
+        "purpose": "验证并修复send_direct原生调用，仅观察",
+        "max_seconds": 30,
+        "single_foreground_window": true,
+        "consumed": true,
+        "conditions": [
+          "限时清理机制先验证通过",
+          "不自动发送消息，不注入，不触发UI",
+          "失败不重试，不重附加"
+        ],
+        "result": "21.053秒，1次附加，未自然命中，成功脱附，无发送",
+        "evidence": "research/live-observe-aegb31sm/supervisor.json"
+      },
+      "observation_verification": "research/cleanup-qualification.json的9项清理通过；research/live-observe-aegb31sm/supervisor.json为1次附加/21.053秒/未命中/成功脱附/无残留；research/callback-registration-byte-verification.json及callback-slot-verification.json为默认注册链静态证据",
+      "identity_observation_authorization": {
+        "source": "用户对call_dP05Bw2871pKi3PUUIixinJy的回答：授权这一次只读窗口，最长 30 秒",
+        "target": "当前运行的WeChat 4.1.15",
+        "purpose": "核验账号与发送服务的固定对象指针；两处16字节代码锚点及最多80字节对象身份；不调用原生发送函数、不发送消息",
+        "max_seconds": 30,
+        "single_foreground_window": true,
+        "consumed": true,
+        "conditions": [
+          "读取完成立即解除",
+          "失败/取消/到时均清理",
+          "不重试、不循环重挂",
+          "不读取密钥或聊天正文",
+          "结束验证同PID/启动时间、非停止态、P_TRACED清除及零调试器残留"
+        ],
+        "result": "3.822秒，1次附加，80字节固定对象身份全部符合、两处代码锚点符合；成功脱附，同PID/启动时间、非停止态、P_TRACED清除，零辅助残留，无原生调用/发送",
+        "evidence": "research/live-observe-xk07n8e9/supervisor.json"
+      },
+      "identity_observation_verification": "10项隔离清理通过；live-observe-xk07n8e9/supervisor.json：3.822秒、1次附加、10次/80字节身份读取符合，成功脱附，同PID/启动时间、非停止态、P_TRACED清除、零残留，无原生调用/发送。",
+      "offline_operation_progress": {
+        "evidence": "research/newsendmsg-integrated-verification.json",
+        "result": "5个C++夹具16/9/8/11/1，100次完成/取消竞态；41 passed/122 subtests；无微信调用/发送",
+        "remaining": "业务映射与相关性、co上下文、超时触发/底层排空、可执行限时实验与新的发送授权和独立回执"
+      },
+      "factory_observation_preparation": {
+        "evidence": "research/factory-observer-preparation.json",
+        "plan": "research/newsendmsg-factory-window-plan.md",
+        "result": "75 passed/122 subtests；真实LLDB自有对象图夹具10项清理通过，零辅助残留。",
+        "test_input_confirmed": {
+          "recipient": "filehelper",
+          "content": "今天真是个好日子"
+        },
+        "requires_new_human_authorization": true
+      },
+      "factory_observation_authorization": {
+        "source": "用户对call_ZJjALN9NhvT4oT0BepKttldH的回答：授权这一次只读观察，最长 30 秒",
+        "target": "WeChat 4.1.15 (270135)",
+        "purpose": "one factory hit: manual filehelper test digests and thread stack",
+        "recipient": "filehelper",
+        "content": "今天真是个好日子",
+        "max_seconds": 30,
+        "single_foreground_window": true,
+        "no_native_calls": true,
+        "no_automatic_send": true,
+        "consumed": true,
+        "conditions": [
+          "一个一次性硬件断点，可能短暂停顿",
+          "命中/到时/取消/失败立即清理并验证解除",
+          "不重试、不循环、不注入、不调用原生函数、不自动发送",
+          "人类等待可以发送提示后手动发送一次"
+        ],
+        "evidence": "research/live-observe-ccgpziio/supervisor.json",
+        "result": "21.173秒、1次附加、服务身份匹配、一次硬件断点未命中，超时成功解除；同PID/启动时间、非停止态、P_TRACED清除、零辅助残留；无注入/原生调用/自动发送。"
+      },
+      "factory_observation_verification": {
+        "window_ended": true,
+        "cleanup_ok": true,
+        "factory_hit": false,
+        "manual_send_timing": "after window ended; no overlap; no route conclusion",
+        "replay_rejected_by_consumed_flag_and_exclusive_marker": true,
+        "manual_send_timing_source": "用户对call_72ObGIUvW72rjqdTzUODzHns的回答：窗口结束后才发送",
+        "factory_route_inference_valid": false
+      },
+      "factory_observation_second_authorization": {
+        "source": "用户对call_1AR09zdZbwO3yE2UDfAnQbZb的回答：授权这一次只读观察，最长 30 秒",
+        "target": "WeChat 4.1.15 (270135)",
+        "purpose": "one factory hit: manual filehelper test digests and thread stack",
+        "recipient": "filehelper",
+        "content": "今天真是个好日子",
+        "max_seconds": 30,
+        "single_foreground_window": true,
+        "no_native_calls": true,
+        "no_automatic_send": true,
+        "consumed": true,
+        "conditions": [
+          "单个一次性硬件断点，可能短暂停顿",
+          "命中/到时/取消/失败立即清理并验证解除",
+          "不重试、不循环、不注入、不调用原生函数、不自动发送",
+          "用户已准备输入，等待可以发送提示后立即手动发送一次"
+        ],
+        "evidence": "research/live-observe-htk7670m/supervisor.json",
+        "result": "21.048秒、一次附加、服务身份匹配、未命中、成功解除，同PID/启动时间、运行态、P_TRACED清除、零辅助残留；没有注入/原生调用/自动发送。模型端就绪检查混用了time.monotonic与CLOCK_MONOTONIC，首个剩余时间值不可用；未向用户发出可以发送提示，未形成有效对照，不作路线判断。"
+      },
+      "offline_recipient_route_progress": {
+        "evidence": "research/newsendmsg-recipient-route-result.md",
+        "verification": "research/newsendmsg-recipient-route-verification.json",
+        "gap_audit": "research/completion-gap-audit-20261017.md",
+        "result": "chat_id到初始record+0x30及普通请求字段1的条件静态连接已补证；明确特殊后缀/辅助对象分支和@weclaw另路，不声称完整收件人语义。",
+        "remaining": "完整记录变更/字段路线、真实线程/group/config及取消排空、完整适配器集成和独立发送回执；账号停止约束保持，A7及20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_job_operation_integration_progress": {
+        "evidence": "research/newsendmsg-job-operation-result.md",
+        "verification": "research/job-operation-integration-20261017-v2/verification.json",
+        "result": "已将作业ABI、operation/factory/response组件放入自有调度夹具，10场景通过；两层取消不可互代，job完成不构成请求排空，晚到回调不覆盖本地取消/超时。",
+        "remaining": "原生group/config/线程、取消派发及尾部引用排空、完整业务路线/原生适配与独立回执；本轮仅补22的夹具部分，A7及20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_join_boundary_progress": {
+        "evidence": "research/newsendmsg-join-boundary-result.md",
+        "verification": [
+          "research/join-boundary-20261017/verification.json",
+          "research/job-destruction-20261017/verification.json"
+        ],
+        "result": "共享state就绪先于通知和最终function，join不是排空；完成捕获在job析构时另行销毁。2场景自有门控并发夹具、2703原始指令/84位置/2析构槽核验通过。",
+        "remaining": "最后原生job拥有者、排队通知/基类清理和真实线程/group/config、完整业务路线与适配器、真实发送独立回执；A7及20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_core_teardown_progress": {
+        "evidence": "research/newsendmsg-core-teardown-result.md",
+        "verification": "research/core-teardown-20261017/verification.json",
+        "result": "正常返回的job/core相互持有由参数清理解除；作业组有效直接通知先移除job节点，最终回调返回后释放参数中的job强引用，提交闭包另持有core。2场景组件组合及原始指令/虚槽核验通过。",
+        "signal_dispatch_verification": "research/signal-dispatch-20261018-v2-verification.json",
+        "signal_dispatch_result": "实施70纠正旧合同base_cleanup[1]：信号状态+0x90是pthread_self身份，不是派发计数；同线程析构通过+0x98延后回收信号状态，不能补作core参数清理。独立快照/执行器闭包继续持有接收方，断开原节点不撤销已复制调用，job参数仍为raw pointer。15完整导出1472指令、75位置/19分支/3导入/3虚槽及Ruff通过；历史错误标签与证据保留并明确被取代。实际监听集合和状态0最终释放仍开放。",
+        "remaining": "取消/异常分支、全部外部拥有者、真实线程/group/config及执行器排空、完整字段路线/适配器与真实独立回执；A7及20～24未完成。",
+        "runtime_observed": false,
+        "callable_for_send": false,
+        "text_job_launch_verification": "research/text-job-launch-20261018/verification.json",
+        "text_job_launch_evidence": "research/newsendmsg-text-job-launch-result.md",
+        "text_job_launch_result": "实施71补证所选builder立即释放返回shared句柄，正常launch传空最终function；可选包装先经当前core执行器+0x18/等待入口再调用正文，不能补作状态0未进入正文时的参数释放。19导出1684条、完整builder2219条及8个unwind/LLVM范围677条，共4006位置、100检查/19分支/6槽和Ruff通过。实际启动/取消全序、全部间接拥有者及最终清理仍缺，不证明可发送或排空。",
+        "scheduler_admission_evidence": "research/newsendmsg-scheduler-admission-result.md",
+        "scheduler_admission_verification": "research/scheduler-admission-20261018-v2/verification.json",
+        "scheduler_admission_result": "实施72补齐core+0x270对象键控的TLS准入队列，与+0x268执行器分开；默认对象上限UINT64_MAX，不能据通用容量门断言本路线有限限流。pending选择/模式1闭包均跳过状态3；正常参数清理先于树退队，容器析构不等于参数释放。14导出1061条、9个unwind/LLVM范围716条，去重1149位置/108检查/26分支/5槽及Ruff通过。须先证所选group/config实际key，再判容量门相关性；55/22/A7及完整映射/适配/真实回执/部署未完成，无微信操作。",
+        "scheduler_config_evidence": "research/newsendmsg-scheduler-config-result.md",
+        "scheduler_config_verification": "research/scheduler-config-20261018/verification.json",
+        "scheduler_config_result": "实施73补齐所选launch配置+0x20经Job+0x100至core+0x270，零值继承所选group+0x128；两种组构造均清零且parent setter不复制。在配置未另改及默认首次构造条件下为UINT64_MAX，有限容量不是当前故障已证前提。22导出3971条和9个unwind/LLVM范围2743条，去重4273位置/82检查/20分支/1槽及173源哈希、Ruff通过。实际启动/组切换/关闭协调及状态0最终释放仍缺，55/22/A7及完整映射/适配/真实回执/部署未完成，无微信操作。",
+        "launch_cancel_order_evidence": "research/newsendmsg-launch-cancel-order-result.md",
+        "launch_cancel_order_verification": "research/launch-cancel-order-20261018/verification.json",
+        "launch_cancel_order_result": "实施74补证登记锁释放先于启动、启动位早于core发布/首次恢复提交。外部取消可重叠的自有偏序模型枚举126种，65种满足分支，两种提交顺序均存在；不证明当前原生可达/队列FIFO/实际泄漏。9导出1215指令/59检查/16分支/3槽和62源哈希、Ruff通过。必须另证实际外部生命周期协议或最终释放，55/22/A7及完整业务映射/适配/真发送/回执/部署保持未完成，无微信操作。",
+        "group_switch_caller_evidence": "research/newsendmsg-group-switch-caller-result.md",
+        "group_switch_caller_verification": "research/group-switch-caller-20261018/verification.json",
+        "group_switch_caller_result": "所选取消生产者自身通过默认组提交协程；共享配置执行器以服务/接口实例与配置不变为条件，尚未证明不可yield/重入或完整关闭/最终释放。",
+        "recipient_lookup_evidence": "research/newsendmsg-recipient-lookup-result.md",
+        "recipient_lookup_contract": "research/newsendmsg-recipient-lookup-contract.json",
+        "recipient_lookup_verification": "research/recipient-lookup-20261018/verification.json",
+        "recipient_lookup_typed_wait_verification": "research/recipient-lookup-20261018/typed-wait-supplement.json",
+        "recipient_lookup_result": "高层收件人前置查找在缓存缺失时原生等待，TLS身份不足以提供普通函数栈调用资格；filehelper精确分支与类型1原始parsed chat_id赋值来源已核验，完整变更/网络字段保持仍缺。"
+      },
+      "offline_exception_boundary_progress": {
+        "evidence": "research/newsendmsg-exception-boundary-result.md",
+        "verification": "research/exception-boundary-20261017-v2/verification.json",
+        "result": "unwind/LSDA补证正文两种原生类型处理及最终function异常展开边界；新增自有最终通知异常保护，8场景/32路并发及host ARM64虚槽调用通过。正常清理不能推广到抛出路线。",
+        "remaining": "真实执行器来源/顺序、状态0取消可达性与最终参数清理、完整排空及字段/原生适配/独立回执；A7及20～24未完成，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_executor_start_gate_progress": {
+        "evidence": "research/newsendmsg-executor-start-gate-result.md",
+        "verification": "research/executor-start-gate-20261017/verification.json",
+        "result": "定位服务协程接口、默认/活动group共用的具体执行器及普通队列和正常捕获析构；自有正文启动门10场景及ResearchOperation组合4场景通过，7133指令/47位置/12槽匹配冻结文件，新验证器Ruff通过。",
+        "remaining": "门只限制协调器显式取消；原生组/外部取消顺序、状态0最终参数清理、异常和完整排空仍缺，业务保持/完整适配/真发送与独立回执未完成。55保持开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_executor_ticket_progress": {
+        "evidence": "research/newsendmsg-executor-ticket-result.md",
+        "verification": "research/executor-ticket-20261017-v2/verification.json",
+        "result": "确认executor+0x20为完整64位票据移除而非线程检查；普通捕获在队列锁内析构、调度记录稍后回收，组等待按结果移除节点。新增提交/移除ABI声明与host虚槽/ResearchOperation组合5场景通过，2513指令/48位置/5槽及Ruff通过。",
+        "remaining": "原生组取消绕过自有启动门；55的取消顺序、状态0最终释放、线程身份及整体排空未完成，业务映射/完整适配/真发送与独立回执仍缺。56仅完成离线ABI与边界固化，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_job_config_progress": {
+        "evidence": "research/newsendmsg-job-config-result.md",
+        "verification": "research/job-config-20261017-v2/verification.json",
+        "result": "补齐JobConfig的0x38字节布局及精确继承；确认组取消优先于延迟启动，跳过登记不能豁免组取消。12份导出2237指令/48位置/3槽及8场景含16分支、host ARM64配置读取/调用ABI与ResearchOperation组合通过，新验证器Ruff通过。",
+        "remaining": "布局不证明真实对象身份、组隔离或并发原子性；55的原生组/外部取消、状态0最终清理、线程及排空仍缺。完整业务映射/适配、真发送与独立回执未完成，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_control_thread_progress": {
+        "evidence": "research/newsendmsg-operation-thread-result.md",
+        "verification": "research/operation-thread-20261018-verified/verification.json",
+        "result": "ResearchOperation取消/超时先核对factory线程生命周期令牌；69次错误线程调用拒绝，实际复现线程编号复用。8组45场景及100次完成/取消竞态通过；补证服务关闭→组取消/等待→后续服务虚调用顺序。",
+        "remaining": "自有线程守卫不证明真实执行器/协程/服务身份、状态0取消最终清理或完整排空；完整字段、原生适配及真实独立回执仍缺。55、A7及20～24保持开放，不恢复微信操作或部署。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_source_mapping_progress": {
+        "evidence": "research/newsendmsg-source-result.md",
+        "contract": "research/newsendmsg-source-contract.json",
+        "verification": "research/source-mapping-20261018-verification.json",
+        "result": "补齐source辅助对象18个顶层字段/条件、x0输入与隐藏x8返回ABI、覆盖record+0x160及普通请求字段6的非空门；明确与metadata byte vector区别。15导出3636指令/68位置、13条独立分支目标、19名称及Ruff通过。",
+        "remaining": "嵌套source与精确XML输出、既有辅助对象及完整record变更/lookup、builder参数来源仍未完成；真实线程/取消排空、完整适配与独立回执继续开放。A7、20～24及55保持未完成，不恢复微信操作或部署。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_result_lookup_progress": {
+        "evidence": "research/newsendmsg-result-lookup-result.md",
+        "contract": "research/newsendmsg-result-lookup-contract.json",
+        "verification": "research/result-lookup-20261018-v2-verification.json",
+        "result": "补证高层结果中的local_id/存储选择值到本地record查询、隐藏x8 ABI与future RTTI关联；查询后会依据映射替换record+0x18/+0x30，不能直接保持构造字段或把命中当回执。18导出3623指令、166位置、37分支、3槽及Ruff通过。",
+        "remaining": "上游结果与map来源/完整变更、全部业务映射、真实线程及取消排空、完整适配/独立回执仍未完成；A7、20～24、55保持开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_name_map_progress": {
+        "evidence": "research/newsendmsg-name-map-result.md",
+        "contract": "research/newsendmsg-name-map-contract.json",
+        "verification": "research/name-map-20261018-verification.json",
+        "result": "补证Name2Id的rowid/user_name查询与成功不代表齐全；缺键插空值可覆盖记录名称，null/群聊/企业后缀触发不同setter路径。18导出3258指令/211位置/45分支/8字面量及Ruff通过；另恢复两条导出缺口分支并单列。",
+        "remaining": "上游方向与metadata完整schema/账户身份、后续更新副作用、真实线程/取消最终清理、完整适配及真发送/独立回执仍缺；A7、20～24、55未完成，停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_packed_info_progress": {
+        "evidence": "research/newsendmsg-packed-info-result.md",
+        "contract": "research/newsendmsg-packed-info-contract.json",
+        "verification": "research/packed-info-20261018-verification.json",
+        "result": "确认内嵌MessagePackedInfo的field1/2和名称编号双向关系、失败不回滚且后续继续的边界及正文前缀回退。Ghidra缺段以unwind完整范围与LLVM833指令补齐；去重2883位置/261检查/35分支/7槽/7字面量及Ruff通过。",
+        "remaining": "上游方向/账户身份与嵌套schema、真实线程和取消最终清理、完整原生适配/真发送及独立回执仍缺；A7、20～24、55未完成，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_account_source_progress": {
+        "evidence": "research/newsendmsg-account-source-result.md",
+        "contract": "research/newsendmsg-account-source-contract.json",
+        "verification": "research/account-source-20261018-v2-verification.json",
+        "result": "所选账号子对象安装、输入复制、实际虚表和比较string读取链已连上；16导出3532指令/63位置/10分支/6槽/1RTTI及Ruff通过。getter返回借用引用，RTTI名称指针保留原始高位；不据此命名业务身份或发送人方向。",
+        "remaining": "上游结果+0x70业务身份、其他替换路线及并发生命周期、完整业务映射、真实线程和取消最终清理、完整适配/真发送/独立回执及部署仍缺；账号停止约束保持，A7及11/18/20～24/55开放。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_auth_origin_progress": {
+        "evidence": "research/newsendmsg-auth-origin-result.md",
+        "contract": "research/newsendmsg-auth-origin-contract.json",
+        "verification": "research/auth-origin-20261018-verification.json",
+        "result": "响应field4/AcctSectResp.field1条件性写结果+0x70，但selector1调用方再用capture+0x50覆盖；立即capture构造及首string复制已证明，不能把中间响应字段直接命名为最终账号。9导出4540指令及LLVM1088指令去重5142位置，186检查/19分支/8槽/2类型名、unwind重算与Ruff通过。",
+        "remaining": "capture原始输入身份和selector0/其他覆盖、完整业务映射、真实线程和取消最终清理、完整原生适配、真实发送/独立回执及部署仍缺；A7及11/18/20～24/55保持开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_login_input_progress": {
+        "evidence": "research/newsendmsg-login-input-result.md",
+        "contract": "research/newsendmsg-login-input-contract.json",
+        "verification": "research/login-input-20261018-verification.json",
+        "result": "补证selector0/1 builder均从x1复制首string，经两级functor和正常控制流连至最终覆盖；selector0仅连共同生产，不声称最终值保持。8导出4172指令加LLVM4246，共8418位置/138检查/13分支/3槽、unwind重算和Ruff通过。",
+        "remaining": "builder调用者/业务身份、其他覆盖及selector0最终保持、完整业务映射、原生线程/取消最终清理、完整适配/真发送/独立回执/部署仍缺；A7及11/18/20～24/55保持开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_login_caller_progress": {
+        "evidence": "research/newsendmsg-login-caller-result.md",
+        "contract": "research/newsendmsg-login-caller-contract.json",
+        "verification": "research/login-caller-20261018-verification.json",
+        "result": "selector0调用点传空string；selector1具体状态及工厂/key转换链连至缓存首输出，所选缓存写入显式传编号键3。16导出3113指令/148检查/25分支/3槽与NUL/RTTI名称、Ruff通过；未命名业务身份。",
+        "remaining": "编号getter/key文本/dispatcher和全部变更保持仍缺；完整业务映射、原生线程/取消最终清理、完整适配/真发送/独立回执/部署未完成，A7及11/18/20～24/55开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_command_dispatch_progress": {
+        "evidence": "research/newsendmsg-command-dispatch-result.md",
+        "contract": "research/newsendmsg-command-dispatch-contract.json",
+        "verification": "research/command-dispatch-20261018-verification.json",
+        "result": "补齐message::send_message注册和实际回调；转发x2来自WxFunctionCallInput wire2，命令查表来自wire3，JSON来自wire4。所选上游事件经service协程接口提交再到命令派发；24导出4343指令/132检查/31独立分支/4槽/两名称及Ruff通过。",
+        "remaining": "field2在文本作业中的完整作用、builder前置条件、真实线程与状态0取消最终清理、完整适配/真发送/独立回执/部署仍缺；67及A7/11/18/20～24/55保持开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_text_job_input_progress": {
+        "evidence": "research/newsendmsg-text-job-input-result.md",
+        "contract": "research/newsendmsg-text-job-input-contract.json",
+        "verification": "research/text-job-input-20261018-verification.json",
+        "result": "wire2转发string复制到body+0x18，所选成功/失败日志称call_id；与input pair及chat_id查询参数分离，clone/析构已连上。正文category特殊分流早于message_type判断，不能仅以类型1承诺任意正文保持。13导出3654指令/142检查/35分支/6正常流来源/6槽与字符串及Ruff通过；LLVM补全旧invoke异常尾段。",
+        "remaining": "全部gate语义、最终正文/收件人保持、真实线程与状态0取消最终释放、完整适配及真发送/独立回执/部署仍缺；67及A7/11/18/20～24/55开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_state_zero_cancel_progress": {
+        "evidence": "research/newsendmsg-state-zero-cancel-result.md",
+        "contract": "research/newsendmsg-state-zero-cancel-contract.json",
+        "verification": "research/state-zero-cancel-20261018-verification.json",
+        "result": "恢复闭包可选条件function与core pair分离，capture+0x18虚槽+0x30不是执行器线程检查，初次恢复传空条件。组取消直接遍历Job后才提交handler，不能据此证明与首次恢复严格排序；限定state0取消写3返回、后到恢复跳过的清理缺口已具体化。20导出2805指令/69位置/23分支/5槽/两个状态前缀及Ruff通过，pass394只读xref成功。",
+        "remaining": "实际调用者线程与生命周期协调、所有间接通知效果、状态0最终释放和完整排空仍缺；不报告已观察泄漏，不手工调用清理器。完整业务字段/适配、真实发送/独立回执/部署未完成，55及A7/11/18/20～24/67保持开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_executor_context_progress": {
+        "evidence": "research/newsendmsg-executor-context-result.md",
+        "contract": "research/newsendmsg-executor-context-contract.json",
+        "verification": "research/executor-context-20261018/verification.json",
+        "result": "核验当前执行器getter/同槽setter/工作循环正常路径；85指令、29位置、4分支、2绑定导入与TLS节匹配冻结文件。新增ExecutorResearchOperation组合，正文/factory前及cancel/expire入口核对TLS并保留线程生命周期令牌；9个新场景及15个依赖场景、100竞态、64/69次线程拒绝和Ruff通过。",
+        "shutdown_caller_verification": "research/shutdown-callers-20261018-verification.json",
+        "shutdown_caller_result": "补证0x2fec684→0x46735dc→0x4551eac的隐藏x8和空名组切换，以及_WeChatMain跳板→0x2c976c→0x4671338→服务关闭；9导出4343指令、26位置/12分支，独立unwind+LLVM补齐220遗漏位置，去重4563位置匹配。仅核对选定调用点，不证明原生执行器身份、所有前驱或首次恢复/取消全序，55不关闭。初次连续性失败源保留。",
+        "remaining": "入口身份检查不证明协程/对象活性、原生组取消排序、状态0参数最终释放或完整排空。完整业务字段/原生适配、真发送/独立回执/部署仍缺，55/22及A7保持开放；账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_text_input_owner_progress": {
+        "evidence": "research/newsendmsg-text-input-owner-result.md",
+        "contract": "research/newsendmsg-text-input-owner-contract.json",
+        "verification": "research/text-input-owner-qualified-20261018-v2/verification.json",
+        "result": "新增拥有工厂结果的文本输入组件，精确复制chat_id/正文并处理异常释放；严格构建和UBSan各21场景，1998指令/30位置/7独立BL/精确assignment导入/33源哈希及Ruff通过。ASan和最小程序均超时，保留诊断，不报告ASan或leak检查通过。",
+        "remaining": "仅该组件完成；最终业务字段保持、真实协程/取消最终清理、完整适配/真发送/独立回执及部署仍缺，A7和其余9未勾项保持开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_text_service_abi_progress": {
+        "evidence": "research/newsendmsg-text-service-abi-result.md",
+        "contract": "research/newsendmsg-text-service-abi-contract.json",
+        "verification": "research/text-service-abi-20261018/verification.json",
+        "result": "核验48字节非平凡返回及内部协程等待，新增准确ABI声明；严格/UBSan各7场景通过，1629指令/58位置/10独立BL/RTTI字面量/43源哈希及77依赖33哈希复验、Ruff通过。",
+        "remaining": "返回shared对象保持opaque；执行器TLS不提供合法协程栈，零状态/本地结果不提供独立回执。完整业务保持、原生调度和取消最终清理、完整适配/真发送/回执/部署仍缺，A7及9项未完成，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_launch_span_progress": {
+        "evidence": "research/newsendmsg-launch-span-result.md",
+        "verification": "research/launch-span-20261018/verification.json",
+        "result": "core构造先派发0xa517a48创建通知后才返回并发布Job.core；无执行器监听器可同步调用，0xa517ac0是初始化guard而非通知开关。TLS string清理/首次构造与名称getter已拆明。19导出1883位置、72检查/33分支/5导入、96源哈希及Ruff通过。",
+        "remaining": "实际监听集合/效果及完整原生参数清理仍缺；同执行器不足以证明不可重入。55/20/22/A7及11/18/21/23/24/67保持开放，完整字段/适配/真发送/独立回执/部署未完成，账号安全停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_text_auxiliary_progress": {
+        "evidence": "research/newsendmsg-text-auxiliary-result.md",
+        "verification": "research/text-auxiliary-20261018-v2/verification.json",
+        "result": "补齐record初值、低类型setter主动prepare、两类aux工厂与安装helper、copy/move保持的局部连接；非空prepare不替换，两类+0x10均为ret，高类型setter的类型49门不适用低类型1。25导出3286位置/101检查/27独立控制转移/2槽/108源哈希及Ruff通过。",
+        "remaining": "仍需证明所有中间调用没有替换/虚表修改及metadata副作用，不能据此证明整条路线字段保持；原生协程/取消最终清理、完整适配、真发送/独立回执/部署及原9项/A7仍未完成。账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_text_prepare_order_progress": {
+        "evidence": "research/newsendmsg-text-prepare-order-result.md",
+        "verification": "research/text-prepare-order-20261018/verification.json",
+        "result": "局部正常返回CFG证明第二text cast成功后正文赋值支配typed DB和返回；仅首validator成功不足。metadata赋值先于正文。659指令/29位置/101独立控制转移/48调用边/9源哈希及Ruff通过。",
+        "remaining": "外部callee、数据库返回/后继字段保持、异常并发、原生协程与最终清理、完整适配和真发送/独立回执/部署未完成；A7及原9项开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_database_record_outlets_progress": {
+        "evidence": "research/newsendmsg-database-record-outlets-result.md",
+        "verification": "research/database-record-outlets-20261018/verification.json",
+        "result": "穷举全部本地正常返回的三处直接发布/一处插入提交；复制源均来自入口record。插入capture复制支配提交，invoke经0x326a144修改后发布。1944既有指令位置/45检查/311独立控制转移/31源哈希及Ruff通过。",
+        "remaining": "同源不能证明字段保持；父流程callee/共享子对象、插入修改与后续队列需继续核验。完整映射、原生协程/取消最终清理、完整适配、真发送/独立回执/部署及原9项/A7未完成，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_insertion_mutations_progress": {
+        "evidence": "research/newsendmsg-insertion-mutations-result.md",
+        "verification": "research/insertion-mutations-20261018-v2/verification.json",
+        "result": "固定插入所选直接写域、metadata顶层/嵌套缓存写入及vector扩容；record副本共享整数/两类aux，metadata另建合并。2110位置/56检查/424独立分支/27store/11嵌套顶层分配分支/91源哈希及Ruff通过。",
+        "remaining": "定点核验0x3296b1c/0x3263cd4对共享对象的影响；其他callee/别名、整链字段保持、真实协程/取消最终清理、完整适配/真发送/独立回执/部署及原9项/A7未完成。账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_vector_consumers_progress": {
+        "evidence": "research/newsendmsg-vector-consumers-result.md",
+        "verification": "research/vector-consumers-20261018/verification.json",
+        "result": "13导出2039位置/81检查/364独立控制转移/60源哈希及Ruff通过。入口低类型仍为1时后处理跳过aux/摘要；接受集合为3/43/10000，其他接受类型显式传40字节摘要。插入完整record暴露于访问器+0x18/+0x30共8个虚调用；共享ID写入为旧证复核。冻结字节补明一处遗漏BRK #1。",
+        "remaining": "具体所选插入字段访问器副作用、其他callee/别名/并发和整链字段保持仍缺；真实协程/取消最终清理、完整适配/真发送/独立回执/部署及原9项/A7未完成。账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_registered_accessors_progress": {
+        "evidence": "research/newsendmsg-registered-accessors-result.md",
+        "verification": "research/registered-accessors-20261018/verification.json",
+        "result": "30连续导出1022位置/59检查/190独立控制转移/15槽/15注册pair/99源哈希及Ruff通过。五类访问器精确身份与标量读域固定；字符串/vector返回借用data/length，包装移动不复制payload或retain原存储。field+0xf0只读访问器，operation初始化不选择record注册表。",
+        "remaining": "实际插入字段列表来源及backend+0x48/+0x58消费合同仍缺；其他callee/别名/并发与整链字段保持、协程/取消最终释放、完整适配/真发送/独立回执/部署及原9项/A7未完成。账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_insertion_field_list_progress": {
+        "evidence": "research/newsendmsg-insertion-field-list-result.md",
+        "verification": "research/insertion-field-list-20261018/verification.json",
+        "result": "22导出2163位置/74检查/390独立控制转移/4独立指针复制对/88源哈希及85依赖99哈希复验、Ruff通过。所选空额外列表/空operation默认字段来源接到record注册表，节点复制显式保持访问器指针；查询getter可COW/释放，句柄+a0缓存与重新取得路径固定。",
+        "remaining": "需核验0x563f1a8的具体返回句柄及backend+0x10/+0x48/+0x58消费；外部/并发列表改写和其他callee/别名未证明。完整字段保持、协程/取消最终释放、完整适配/真发送/独立回执/部署及原9项/A7仍开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_statement_binding_progress": {
+        "evidence": "research/newsendmsg-statement-binding-result.md",
+        "verification": "research/statement-binding-20261018/verification.json",
+        "result": "44连续导出2521位置/116检查/505独立控制转移/5槽/6load/174源哈希及86依赖88、85依赖99哈希复验、Ruff通过。包装虚槽返回connection+0x260而非connection；新建kind0语句虚表为0x9f1cbc0，直接分支传-1并以真实_memcpy复制内部存储，复制支配本地成功选择点。借用源需活至完整绑定返回。",
+        "remaining": "旧缓存/池身份、配置后的拦截flag与callback捕获/保留未证，88继续核验0x5640094。其他callee/并发、完整字段保持、协程/取消最终释放、完整适配/真发送/独立回执/部署及原9项/A7仍开放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_interception_progress": {
+        "evidence": "research/newsendmsg-interception-result.md",
+        "verification": "research/interception-20261018/verification.json",
+        "result": "74连续导出6412位置/120检查/1285独立控制转移/12槽/4导入/258源哈希及87依赖174哈希复验、Ruff通过。两类callback捕获和下层委托已连接；字符串缓存移动owner或分配复制，buffer缓存条件性分配复制并共享包装，最后持有者调用free。buffer分配失败结果未被构造调用方检查，禁止无条件视为拥有数据。",
+        "remaining": "88仍开放：基础/保存后function身份、raw processor capture和转换工作区完整寿命；再回到55/67。整链字段保持、原生协程/取消最终释放、完整适配/真实发送/独立回执/部署及原9项/A7未完成，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_interception_lifetime_progress": {
+        "evidence": "research/newsendmsg-interception-lifetime-result.md",
+        "verification": "research/interception-lifetime-20261018/verification.json",
+        "result": "88有界静态合同收口：112连续导出7559位置/191检查/1507独立控制转移及另1原始B/32槽/5导入/2TLV绑定/六组raw清理形状/371源哈希及前次258哈希复验、Ruff通过。基础function接到复制入口，树shared pair持有processor，先树后bundle析构且所选清理不解引用processor；转换工作区属于按线程/key缓存，容量调整可free/malloc，返回view不接管所有权。",
+        "preconditions": "有效对象及所选新建配置、正常返回/所需分配成功、无并发销毁或同TLS/key重入替换；实际准入与这些条件的保证仍属20/55/22，不据此启用发送。",
+        "remaining": "回到55/67，证明真实执行器/入口参数、实际串行/重入约束与状态0取消最终释放；完整字段保持、完整适配/真实发送/独立回执/部署及原9项/A7未完成，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_service_acquisition_progress": {
+        "evidence": "research/newsendmsg-service-acquisition-result.md",
+        "verification": "research/service-acquisition-20261018-v2/verification.json",
+        "result": "补明0x268f370的精确描述器键_3d834e75、pending/fallback取得拥有service pair及无条件当前core guard；所选wait/getter/fallback异常经LSDA/完整LLVM证明先清guard再清optional future。builder保留pair后移入body+0x60。3662冻结位置、106检查/705独立控制转移/4槽/4导入/4个LSDA调用位置/78源哈希及Ruff通过。初次内部缺口失败源码保留。",
+        "remaining": "仅局部取得/清理合同，不证明服务关闭租约、实际线程身份、新Job启动与外部取消协调或状态0最终释放；原9项/A7及完整映射/适配/真发送/独立回执/部署未完成。下一步聚焦55最终释放，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      },
+      "offline_core_publication_progress": {
+        "evidence": "research/newsendmsg-core-publication-result.md",
+        "verification": "research/core-publication-20261018/verification.json",
+        "result": "启动位早于core pair发布；所选已启动取消handler和state getter无空值回落。1325冻结位置/40检查/180独立控制转移/4个load解码/3槽/88源哈希及前次62哈希复验、Ruff通过。210种抽象合并区分发布前读取与首次恢复前取消提交，未观察原生崩溃或调度。",
+        "remaining": "仍需真实发布/生命周期保证及外部取消生产者协调或状态0最终释放；同执行器消费不足以替代。原9项/A7、完整映射/适配/真发送/独立回执/部署未完成，账号停止约束保持。",
+        "runtime_observed": false,
+        "callable_for_send": false
+      }
+    }
+  ]
+}

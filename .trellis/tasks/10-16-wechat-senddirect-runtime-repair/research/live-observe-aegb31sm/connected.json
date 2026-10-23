@@ -1,0 +1,12 @@
+{
+  "pid": 33589,
+  "state": "stopped",
+  "identity": {
+    "pid": 33589,
+    "flags": 18436,
+    "state": 4,
+    "start_sec": 1792085027,
+    "start_usec": 181673,
+    "executable": "/Applications/WeChat.app/Contents/MacOS/WeChat"
+  }
+}

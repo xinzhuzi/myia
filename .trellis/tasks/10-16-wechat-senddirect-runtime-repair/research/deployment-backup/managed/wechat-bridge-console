@@ -1,0 +1,8 @@
+#!/bin/sh
+'''exec' "/Users/zhengbingjin/Library/Application Support/MYIA/python/bin/python3" "$0" "$@"
+' '''
+import sys
+from wechat_bridge.cli import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())

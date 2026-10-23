@@ -1,0 +1,25 @@
+{
+  "outcome": "TimeoutError",
+  "detach_ack": true,
+  "attach_calls": 1,
+  "launch_calls": 0,
+  "detached": true,
+  "hit": false,
+  "module_uuid": "0C2F01C0-C197-3286-901D-70E1D007A1C0",
+  "service_identity": {
+    "account_object": "0x90094ca80",
+    "service_interface": "0x900a5c8e8",
+    "owner_object": "0x900a5c8d8",
+    "control_block": "0x900a5c8c0",
+    "enqueue_rva": "0x46353a0",
+    "reads": 10,
+    "bytes_read": 80,
+    "identity_matched": true,
+    "native_called": false,
+    "sent": false
+  },
+  "hardware_breakpoint": true,
+  "error": "observation deadline",
+  "detach_error": "success",
+  "finished_monotonic": 120164.043755
+}

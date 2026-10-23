@@ -1,0 +1,71 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "scope": "selected numeric-one builder and text-job body; offline frozen evidence only",
+  "forwarded_string": {
+    "upstream": "WxFunctionCallInput wire field2, established by newsendmsg-command-dispatch-contract.json",
+    "builder_argument": "0x291fb70 x2 saved in x20",
+    "capture_source_offset": "0x10",
+    "body_offset": "0x18",
+    "body_bytes": "0x70",
+    "constructor": "0x292d868 copies string; moves independent completion/input/service pairs",
+    "clone": "0x292fb44 copies the string at capture+0x10, retaining three shared pairs",
+    "destruction": "0x292d940 frees heap string at capture+0x10 after service and input releases, before completion-state release",
+    "success_log": "call_id=%_ Send message success, chat_id=%_, message_type=%_",
+    "failure_log": "call_id=%_ Send message failed, error=%_",
+    "selected_invoke_role": "two normal-path reads feed log arguments; no direct field2 argument in the inspected send-service and record-lookup callsites",
+    "official_protobuf_field_name_verified": false,
+    "all_builder_branches_or_other_consumers_verified": false
+  },
+  "separate_send_inputs": {
+    "entry": "0x292ef9c",
+    "send_service_call": "0x292f008 -> 0x317ded4",
+    "send_service_arguments": {"x0": "body+0x60 service pointer value", "x1": "address of copied input pair from body+0x30/+0x38", "hidden_x8": "result at sp+0x310"},
+    "lookup_call": "0x292f3b8 -> 0x3190538",
+    "lookup_arguments": {"x0": "body+0x60 service pointer value", "x1": "body+0x40 chat_id string address", "w2": "local_id from result", "w3": "storage selector from result", "hidden_x8": "record result"},
+    "forwarded_string_is_native_recipient_argument": false
+  },
+  "builder_routing_gates": {
+    "entry": "0x291fb70",
+    "ordered_conditions": [
+      "0x2ab6388 receives x0=service and x1=parsed object first string with hidden x8=shared result; nonnull result required",
+      "direct-content flag+0x40 ==1 copies parsed+0x20; otherwise 0x206bc must return bit0 set",
+      "body is searched for <category>...</category>, then exact outer CDATA is stripped from the extracted substring",
+      "category equal to brand_account or emoticon takes a special route before testing message_type==1",
+      "numeric message_type==1 constructs input, copies body and chat_id, and requires nonnull 0x268f370 service result before scheduling"
+    ],
+    "category_tag": "category",
+    "special_categories": ["brand_account", "emoticon"],
+    "category_processing_is_full_xml_parser": false,
+    "arbitrary_plaintext_preservation_through_high_level_route_proven": false,
+    "all_gate_helper_semantics_verified": false
+  },
+  "completion_boundary": {
+    "state_pointer": "body+0x8",
+    "flag": "byte state+0x0, non-atomic load/store in selected invoke",
+    "callback_pointer": "state+0x8 moved out and zeroed before invoking callback+0x8",
+    "normal_success_callsite": "0x292f828",
+    "failure_callsite": "0x292f438",
+    "result_shape": "local outcome and optional local record/server_id data; error path constructs prefixed error string",
+    "concurrent_once_guarantee_proven": false,
+    "independent_delivery_receipt": false,
+    "full_native_drain": false
+  },
+  "coverage": {
+    "complete_llvm_ranges": ["0x291fb70..0x2921e1c", "0x292d868..0x292d940", "0x292ef9c..0x292fac4"],
+    "ghidra_invoke_omitted_tail": "0x292f93c..0x292fac4; LLVM includes these exception landing pads",
+    "normal_flow_reaching_definitions": true,
+    "exception_and_alias_dataflow_proven": false
+  },
+  "limitations": [
+    "Log wording identifies the observed use as call_id, not an official protobuf field name or delivered-message identity",
+    "Callee-saved register provenance assumes AAPCS64 and does not analyze memory aliases or exceptional edges",
+    "Special category routing prevents claiming arbitrary-plaintext preservation from numeric message_type alone",
+    "Gate helpers, final record mutations, actual thread identity, cancellation/final release, complete adapter, sending and independent receipt remain incomplete"
+  ],
+  "runtime_observed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "safety": "account-safety-stop-20261016.md remains authoritative; no live operations, new authorization requests, product wiring or deployment"
+}

@@ -1,0 +1,9 @@
+{
+ "error": {
+  "code": "timeout",
+  "message": "发送未执行:3 次尝试均未通过断言;末次失败 平台子进程超时(osascript -e…,10s 未退出,已 kill)",
+  "fix_hint": "重试;持续超时说明 osascript/pbcopy 层挂起,查系统日志"
+ }
+}
+
+--stderr--

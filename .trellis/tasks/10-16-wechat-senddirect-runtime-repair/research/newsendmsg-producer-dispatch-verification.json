@@ -1,0 +1,89 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass187/native-fn-31d15fc.asm",
+      "instructions": 769,
+      "sha256": "c0d871ce83af77398b17b4a2c5eb1a50a7052d0e034771c7070ecb4b40c43c35"
+    },
+    {
+      "file": "text-contract-pass203/native-fn-3107afc.asm",
+      "instructions": 4,
+      "sha256": "4992f3bac101b33cb74b851c01ec57593d7ccb9aa0d4053774aa20d3cb6bc112"
+    },
+    {
+      "file": "text-contract-pass211/native-fn-30d69a0.asm",
+      "instructions": 72,
+      "sha256": "3c870485f4afd2e648fa503fd03e74eaf512f6670d3121731d58f20171c0ab0c"
+    },
+    {
+      "file": "text-contract-pass213/native-fn-3224fe8.asm",
+      "instructions": 370,
+      "sha256": "8667f6fbcdb76e88cc03136ae57df816b1314d7b045460763d30f22307ddbbe4"
+    },
+    {
+      "file": "text-contract-pass215/native-fn-30d66c0.asm",
+      "instructions": 138,
+      "sha256": "44c37ba9b3cfdd6d3318c776525da9712cff0212a3680252b58b0b4cd728ee28"
+    },
+    {
+      "file": "text-contract-pass215/native-fn-32243a8.asm",
+      "instructions": 669,
+      "sha256": "5b8b368cd3afe26af121d25b1e5839d6b6b3289735b6badbbb611dcf9646533b"
+    },
+    {
+      "file": "text-contract-pass218/native-fn-31cbd88.asm",
+      "instructions": 862,
+      "sha256": "bff897df67c3aa71eebcecb98c4bb452048acb8863aef05878faa1d517df8608"
+    },
+    {
+      "file": "text-contract-pass218/native-fn-30dc518.asm",
+      "instructions": 66,
+      "sha256": "cd9a026cf6fb52e23774cd2bd8a78493cfb6d718445183741428ac677dde9f39"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9def4a0",
+      "decoded": "0x32243a8",
+      "chain_steps": 1498
+    },
+    {
+      "slot": "0x9de9b38",
+      "decoded": "0x3107afc",
+      "chain_steps": 805
+    },
+    {
+      "slot": "0x9de9b40",
+      "decoded": "0x3107b0c",
+      "chain_steps": 806
+    }
+  ],
+  "instructions_matched": 2950,
+  "instruction_positions_checked": 92,
+  "locator_scan": {
+    "start": "0x30c0000",
+    "end_exclusive": "0x3230000",
+    "loads": 126,
+    "hits": [
+      {
+        "load": "0x30d69a0",
+        "branch": "0x30d69a8",
+        "register": 9,
+        "base": 9
+      }
+    ],
+    "limitation": "Opcode pattern only; no global uniqueness or general register-clobber analysis."
+  },
+  "contract_sha256": "ffaa6f7febf780f90bde5eee6078f71ecb08c5993913b3afd4800ff4a86e7cd8",
+  "prior_contract_sha256": {
+    "newsendmsg-text-handler-contract.json": "75995ef81a55770aac6463f2f51c810e75f4b840fea77997b6c45297f84e2c65",
+    "newsendmsg-handler-registration-contract.json": "6911f2a4b1956576d0734a5c4f1c7f51687f7ccf772af235cc83ff39a4ef198f"
+  },
+  "stop_record_sha256": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "Byte agreement plus reviewed conditional static path only; no live input identity, thread/config/drain safety, executable adapter or delivery proof."
+}

@@ -1,0 +1,20 @@
+{
+  "passed": true,
+  "args": [
+    "xcrun",
+    "llvm-objdump",
+    "--disassemble",
+    "--start-address=0x2c976c",
+    "--stop-address=0x2cb664",
+    "/Users/zhengbingjin/Downloads/\u5fae\u4fe1\u53cd\u7f16\u8bd1/ghidra-wxhunt/wechat_arm64.dylib"
+  ],
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "start": "0x2c976c",
+  "end_exclusive": "0x2cb664",
+  "instructions": 1982,
+  "assembly_sha256": "b4b700aedd48f40d36b672ce53ab5c3a675c08664e881a933d181f438d501098",
+  "source_sha256": "6eb6e5a0ec7bff601865367a0bf8d7e960669afa40bbd916eb1a9aad975ba465",
+  "unwind_helper_sha256": "82cb22932b58299ac22e688d493402ebaffc4877a2b2af2d6d7de5e68db6fb4b",
+  "target_executed": false,
+  "target_attached": false
+}

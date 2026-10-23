@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "hashes": {
+    "identity_observer_4115.py": "5be31b6bfcb5a40edada5a70aa754ac9408cbe57cfd68e74e4bbc45912d4ea24",
+    "run_identity_observer_4115.py": "0f81fe3f78e0cf3ba4f00d3388467fdf0091d6a7bc9babced2a287edf0ef31b9",
+    "process_status": "1b51dec0e7c0741a2cdbd96e9eecd47769a72dca79896e19e85022321ad17dde",
+    "cleanup_fixture": "ec61895a642106eb28305803009227ab75780729dbed71ad0cfdf61f699a3574",
+    "newsendmsg_identity_4115.py": "4dda4d75492d37e757755a47e76b4091321d417999d9d653a796f2b854d09d13"
+  },
+  "cases": [
+    {
+      "case": "observe",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-observe-fy1brqld",
+      "cleanup_ok": true,
+      "elapsed_seconds": 0.451
+    },
+    {
+      "case": "timeout",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-timeout-zfo7evtg",
+      "cleanup_ok": true,
+      "elapsed_seconds": 3.389
+    },
+    {
+      "case": "cancel",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-cancel-5m_smv6o",
+      "cleanup_ok": true,
+      "elapsed_seconds": 0.881
+    },
+    {
+      "case": "raised_error",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-raised_error-fmco37xg",
+      "cleanup_ok": true,
+      "elapsed_seconds": 0.258
+    },
+    {
+      "case": "prelaunch_error",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-prelaunch_error-ui42rdkc",
+      "cleanup_ok": true,
+      "elapsed_seconds": 0.207
+    },
+    {
+      "case": "client_death_stopped",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-client_death_stopped-2tuyc3tu",
+      "cleanup_ok": true,
+      "elapsed_seconds": 0.255
+    },
+    {
+      "case": "client_death_running",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-client_death_running-y2vy_qs1",
+      "cleanup_ok": true,
+      "elapsed_seconds": 0.262
+    },
+    {
+      "case": "watchdog",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-watchdog-8tegnhdk",
+      "cleanup_ok": true,
+      "elapsed_seconds": 4.666
+    },
+    {
+      "case": "nonexistent_pid",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-nonexistent_pid-iq4tz430",
+      "cleanup_ok": true,
+      "elapsed_seconds": 0.224
+    },
+    {
+      "case": "snapshot",
+      "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-snapshot-tceo7iy7",
+      "cleanup_ok": true,
+      "elapsed_seconds": 0.257
+    }
+  ],
+  "limitations": "Disposable fixture cleanup and actual installed attach-default protocol; no WeChat attachment or sending.",
+  "review": "Primary reviewed derived snapshot sources; synthetic service graph tests are separate from disposable LLDB cleanup tests."
+}

@@ -1,0 +1,65 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "scope": "Initial resume predicate and conditional state-zero cancellation ownership",
+  "resume_closure": {
+    "vtable": "0x9fb2590",
+    "allocation_bytes": 64,
+    "body_to_capture": 8,
+    "body_fields": {
+      "+0x8..+0x27": "optional function object; erased pointer at body+0x20",
+      "+0x28/+0x30": "owned core shared pair",
+      "+0x38": "forwarded resume value"
+    },
+    "capture_fields": {
+      "+0x18": "optional function erased pointer, not executor",
+      "+0x20/+0x28": "owned core shared pair",
+      "+0x30": "forwarded resume value"
+    },
+    "invoke_thunk": "0x6677a98 adds x0+8 then branches to 0x6677b20",
+    "optional_predicate": "null proceeds; otherwise virtual+0x30 returns a value whose low 32 bits must be nonzero",
+    "initial_resume": "0x66738d4 zeros stack function+0x18 and passes its address in x2 to 0x6673990",
+    "thread_identity_proved_by_predicate": false
+  },
+  "native_group_cancellation": {
+    "entry": "0x668272c",
+    "mutex": "group+0x78",
+    "first_cancel": "atomic exchange byte group+0xd1 to 1",
+    "iteration": "under group mutex call each nonnull job virtual+0x18 directly; this entry does not submit the group iteration to the job executor",
+    "job_vtable": "0x9fb2c20",
+    "job_cancel": "0x667e8cc",
+    "job_cancel_effect": "atomic exchange job+0x143; clear job+0x141; select by job+0x140 and submit handler on job+0xf8 virtual+0x10",
+    "start_flag": "job+0x140 is exchanged before core construction, storage and initial resume submission",
+    "serialization_of_start_and_group_cancel_proved": false
+  },
+  "state_zero_conditional_path": {
+    "preconditions": [
+      "Cancellation handler runs with an initialized core whose state is zero",
+      "Current TLS core differs from the cancelled core",
+      "All calls on the selected completion/notification path return normally"
+    ],
+    "core_cancel": "0x66741ac writes core+0x288=3, then reaches the normal return epilogue without touching core+0x258/+0x260",
+    "started_job_handler": "0x668082c observes state 3 and job+0x150 bit0 clear, then tail-calls 0x667fc38(job,1)",
+    "job_completion": "0x667fc38 publishes a result, dispatches associated notifications, invokes final function; no direct core parameter cleanup in this function",
+    "later_initial_resume": "0x66761cc sees state 3 and returns without enqueuing or calling 0x6677e1c",
+    "closure_disposal": "0x6677a10 releases the closure-owned core pair and optional function; it does not directly call the core argument cleaner",
+    "core_disposal": "selected control-block virtual+0x10 -> 0x667a264 -> 0x667b0e8; this destructor has no direct core+0x258/+0x260 cleanup",
+    "ownership": "job owns core; core-owned argument retains job; group unlink and closure disposal alone do not establish that this mutual retention is broken",
+    "runtime_reachability_proved": false,
+    "actual_leak_observed": false,
+    "global_no_cleanup_claimed": false
+  },
+  "required_next_proof": [
+    "Determine native callers and thread/locking requirements that exclude or allow cancellation before initial resume",
+    "Resolve all applicable notification effects and any path that breaks the job/core ownership cycle",
+    "Integrate only after native cancellation, exception and final drain contracts are complete"
+  ],
+  "adapter_constraints": [
+    "Do not interpret optional function virtual+0x30 as a native executor thread check",
+    "Keep explicit coordinator start gate, but do not claim it intercepts native group cancellation",
+    "Do not manually call core argument cleanup or reset native fields to force destruction",
+    "Completion result, final callback, state 3 and queue-empty checks are not full drain or delivery evidence"
+  ],
+  "runtime_observed": false,
+  "target_executed": false,
+  "callable_for_send": false
+}

@@ -1,0 +1,54 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "scope": "Exception boundaries and owned final notification",
+  "body_exception": {
+    "call": "0x667f584",
+    "landing": "0x667f61c",
+    "caught_types": [
+      {
+        "filter": 1,
+        "type_info": "0x9fb24e8",
+        "name": "_257f487b"
+      },
+      {
+        "filter": 2,
+        "type_info": "0x9fb1c88",
+        "name": "_d0dea98e"
+      }
+    ],
+    "other_exception": "resume unwinding at 0x667fa10",
+    "known_type_sequence": [
+      "begin catch",
+      "conditional diagnostics",
+      "group cancellation at 0x668272c",
+      "end catch",
+      "group worker exit and return to normal disposal"
+    ]
+  },
+  "final_exception": {
+    "call": "0x667fcd0",
+    "local_landing_pad": null,
+    "core_entry_call": "0x6678cd4",
+    "core_entry_landing_pad": null,
+    "consequence": "No local parameter cleanup on this propagation route; do not extrapolate normal return teardown to thrown callbacks."
+  },
+  "cancel_state_zero": {
+    "state_store": "0x6674204",
+    "return_branch": "0x6674208",
+    "cleanup_in_branch": false,
+    "constraint": "Completion/state 3 is not proof of argument cleanup; actual executor ordering and later cleanup remain unproved."
+  },
+  "owned_final_guard": {
+    "header": "newsendmsg_job_finished_4115.hpp",
+    "behavior": "Preserve first exception without escape; keep shared error state.",
+    "scope": "Owned final notification only; no native calls or throwing destructors.",
+    "not_for_job_body": "Native typed coroutine-control exceptions must retain their route."
+  },
+  "runtime_observed": false,
+  "callable_for_send": false,
+  "remaining": [
+    "Native executor identity/order and cancellation-before-entry cleanup",
+    "Full exception/cancellation paths and complete request/queue drain",
+    "Business-field closure, integrated native adapter and independent receipt"
+  ]
+}

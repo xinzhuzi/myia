@@ -1,0 +1,28 @@
+{
+  "mode": "fixture",
+  "case": "client_death_running",
+  "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-client_death_running-y2vy_qs1",
+  "deadline_seconds": 6.0,
+  "lldb_exit": 91,
+  "server_exit": 0,
+  "before": {
+    "pid": 36073,
+    "flags": 18436,
+    "state": 4,
+    "start_sec": 1792130501,
+    "start_usec": 213656,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cleanup_fixture"
+  },
+  "after": {
+    "pid": 36073,
+    "flags": 16388,
+    "state": 2,
+    "start_sec": 1792130501,
+    "start_usec": 213656,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cleanup_fixture"
+  },
+  "elapsed_seconds": 0.262,
+  "target_recovered": true,
+  "helpers_remaining": 0,
+  "cleanup_ok": true
+}

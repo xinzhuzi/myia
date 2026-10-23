@@ -1,0 +1,70 @@
+{
+  "passed": true,
+  "fixtures": [
+    {
+      "source": "test_newsendmsg_native_response_4115.cpp",
+      "build": [
+        "clang++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_native_response_4115.cpp",
+        "-o",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_native_response_4115"
+      ],
+      "result": {
+        "cases": 8,
+        "balanced_lifetime": true,
+        "cached_size_order": true,
+        "wechat_loaded": false,
+        "sent": false
+      },
+      "binary_sha256": "cb267bbaa4920e6757d476bd70fbfeaf2ba35a44a7be433e2d9242e9c75999cc"
+    },
+    {
+      "source": "test_newsendmsg_operation_4115.cpp",
+      "build": [
+        "clang++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_operation_4115.cpp",
+        "-o",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_operation_4115"
+      ],
+      "result": {
+        "cases": 11,
+        "cancel_races": 100,
+        "late_callback_preserves_terminal_state": true,
+        "balanced_lifetime": true,
+        "wechat_loaded": false,
+        "sent": false
+      },
+      "binary_sha256": "d25c2e6a4f0d1ebcd379838b73e47dd92822579a402f4e905808b04a8ce479c7"
+    }
+  ],
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_native_response_4115.hpp": "687f66733ed1a97e2fb5443ebdeabf771de9d38a47cf240f821d1ee5cb8c9f6c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_operation_4115.hpp": "1c7d9365f68cb908b050aacab9672f58fc43c819576dc697e9389c169fb09bcd",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_native_body_4115.hpp": "90d0943eca268abdebadbfe0c00e3105d7e37d23774997c35f885af8064d4eec",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_completion_4115.hpp": "657caf0781d8a2562fa6c35b69b64ea9569e373f5b0ebcea318e6b49e0a0c2ad",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_native_response_4115.cpp": "d87c4cc82af05522f2a7306f3b254040cc8c23c9e32c71e44ed696df372bd36b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_operation_4115.cpp": "7b9853a15ba4f80fd4010dc8725e04ac56355c9b0d4c5d72048caee5bed5af2c",
+    "Library/ai/verify_wechat_newsendmsg_operation_20261016.py": "58bc7dd0828fa8bdfe13023c938b0293cb21f94c39dd44c51f22aa6a518ab7c6"
+  },
+  "native_factory_executed": false,
+  "wechat_loaded": false,
+  "target_attached": false,
+  "sent": false,
+  "live_ready": false,
+  "sanitizers_passed": false,
+  "limits": [
+    "Injected service fixtures establish host ABI/ownership behavior only.",
+    "No native scheduling or thread-affinity proof, dynamic loader or module-unload barrier.",
+    "Response is copied to wire before fixture request deletion; business parsing/correlation remains separate.",
+    "Unknown factory outcomes are never retried; no factory exception recovery claimed.",
+    "External bounded supervision must explicitly cancel; destructor makes no implicit native call."
+  ]
+}

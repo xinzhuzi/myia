@@ -1,0 +1,63 @@
+0x50deef0	f657bda9	stp x22,x21,[sp, #-0x30]!
+0x50deef4	f44f01a9	stp x20,x19,[sp, #0x10]
+0x50deef8	fd7b02a9	stp x29,x30,[sp, #0x20]
+0x50deefc	fd830091	add x29,sp,#0x20
+0x50def00	f30308aa	mov x19,x8
+0x50def04	289f0290	adrp x8,0xa4c2000
+0x50def08	09796c39	ldrb w9,[x8, #0xb1e]
+0x50def0c	c9020037	tbnz w9,#0x0,0x050def64
+0x50def10	a9b001d0	adrp x9,0x86f4000
+0x50def14	203947fd	ldr d0,[x9, #0xe70]
+0x50def18	a9c90190	adrp x9,0x8a12000
+0x50def1c	217d45fd	ldr d1,[x9, #0xaf8]
+0x50def20	20040c6e	mov v0.S[0x1],v1.S[0x0]
+0x50def24	29d101f0	adrp x9,0x8b05000
+0x50def28	216941fd	ldr d1,[x9, #0x2d0]
+0x50def2c	2004146e	mov v0.S[0x2],v1.S[0x0]
+0x50def30	29d101f0	adrp x9,0x8b05000
+0x50def34	216d41fd	ldr d1,[x9, #0x2d8]
+0x50def38	20041c6e	mov v0.S[0x3],v1.S[0x0]
+0x50def3c	299f0290	adrp x9,0xa4c2000
+0x50def40	29212c91	add x9,x9,#0xb08
+0x50def44	2001803d	str q0,[x9]
+0x50def48	aab80190	adrp x10,0x87f2000
+0x50def4c	40c941fd	ldr d0,[x10, #0x390]
+0x50def50	201100bd	str s0,[x9, #0x10]
+0x50def54	0a0e8052	mov w10,#0x70
+0x50def58	2a290079	strh w10,[x9, #0x14]
+0x50def5c	29008052	mov w9,#0x1
+0x50def60	09792c39	strb w9,[x8, #0xb1e]
+0x50def64	209f0290	adrp x0,0xa4c2000
+0x50def68	00202c91	add x0,x0,#0xb08
+0x50def6c	a38a8194	bl 0x071419f8
+0x50def70	e8ef7db2	orr x8,xzr,#0x7ffffffffffffff8
+0x50def74	1f0008eb	cmp x0,x8
+0x50def78	62030054	b.cs 0x050defe4
+0x50def7c	f40300aa	mov x20,x0
+0x50def80	1f5c00f1	cmp x0,#0x17
+0x50def84	82000054	b.cs 0x050def94
+0x50def88	745e0039	strb w20,[x19, #0x17]
+0x50def8c	940100b5	cbnz x20,0x050defbc
+0x50def90	10000014	b 0x050defd0
+0x50def94	880a40b2	orr x8,x20,#0x7
+0x50def98	1f5d00f1	cmp x8,#0x17
+0x50def9c	29038052	mov w9,#0x19
+0x50defa0	3505889a	csinc x21,x9,x8,eq
+0x50defa4	e00315aa	mov x0,x21
+0x50defa8	22848194	bl 0x07140030
+0x50defac	a80241b2	orr x8,x21,#-0x8000000000000000
+0x50defb0	74a200a9	stp x20,x8,[x19, #0x8]
+0x50defb4	600200f9	str x0,[x19]
+0x50defb8	f30300aa	mov x19,x0
+0x50defbc	219f0290	adrp x1,0xa4c2000
+0x50defc0	21202c91	add x1,x1,#0xb08
+0x50defc4	e00313aa	mov x0,x19
+0x50defc8	e20314aa	mov x2,x20
+0x50defcc	af878194	bl 0x07140e88
+0x50defd0	7f6a3438	strb wzr,[x19, x20]
+0x50defd4	fd7b42a9	ldp x29,x30,[sp, #0x20]
+0x50defd8	f44f41a9	ldp x20,x19,[sp, #0x10]
+0x50defdc	f657c3a8	ldp x22,x21,[sp], #0x30
+0x50defe0	c0035fd6	ret
+0x50defe4	e00313aa	mov x0,x19
+0x50defe8	6de7bc96	bl 0x00018d9c

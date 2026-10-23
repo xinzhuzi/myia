@@ -1,0 +1,46 @@
+{
+  "mode": "fixture",
+  "case": "observe",
+  "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-observe-zywrb1vk",
+  "deadline_seconds": 6.0,
+  "lldb_exit": 0,
+  "server_exit": 0,
+  "before": {
+    "pid": 66492,
+    "flags": 18436,
+    "state": 4,
+    "start_sec": 1792098622,
+    "start_usec": 667325,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cleanup_fixture"
+  },
+  "after": {
+    "pid": 66492,
+    "flags": 16388,
+    "state": 2,
+    "start_sec": 1792098622,
+    "start_usec": 667325,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cleanup_fixture"
+  },
+  "elapsed_seconds": 0.462,
+  "target_recovered": true,
+  "helpers_remaining": 0,
+  "cleanup_ok": true,
+  "observer": {
+    "outcome": "RuntimeError",
+    "detach_ack": true,
+    "attach_calls": 0,
+    "launch_calls": 1,
+    "detached": true,
+    "hit": false,
+    "hardware_breakpoint": true,
+    "stop_reasons": [
+      {
+        "reason": 3,
+        "data": []
+      }
+    ],
+    "error": "unexpected stop; no resume/retry",
+    "detach_error": "success",
+    "finished_monotonic": 81836.671792
+  }
+}

@@ -1,0 +1,272 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass144/native-fn-667e0e4.asm",
+      "sha256": "519b3c80f0a04e25e7083017865e1a1eb24d0fe665a1f7aa62644a95bbd9f017",
+      "instructions": 316
+    },
+    {
+      "file": "text-contract-pass146/native-fn-667e734.asm",
+      "sha256": "cd00b26cd0d40020fcb4bc57b81dfb4715265b3c9531410401316f04dc796562",
+      "instructions": 95
+    },
+    {
+      "file": "text-contract-pass146/native-fn-667e8cc.asm",
+      "sha256": "82086e0467e532f57a1a0736d4f50e8e604b6419d1b3d1acc765e0da5b621ccc",
+      "instructions": 209
+    },
+    {
+      "file": "text-contract-pass147/native-fn-66738d4.asm",
+      "sha256": "1f02b5f1cf220b479161f37bbc1e8fd4cec3c3f38b6004c50b19bd79bb5dd581",
+      "instructions": 34
+    },
+    {
+      "file": "text-contract-pass147/native-fn-667f4d8.asm",
+      "sha256": "dc91502bd39c8a7b1d9a7ef5a758f5135e28e4b506d1abc86e57fbf41ca677ac",
+      "instructions": 23
+    },
+    {
+      "file": "text-contract-pass148/native-fn-6673990.asm",
+      "sha256": "77c12b11617537c264b4ff0e5269b07220f389ff9899ad41206690bada4650bf",
+      "instructions": 381
+    },
+    {
+      "file": "text-contract-pass148/native-fn-667a110.asm",
+      "sha256": "e6b7c50bac9d47a8c89c17db81040368cb466426cffa809c6044ca6a79f6e110",
+      "instructions": 63
+    },
+    {
+      "file": "text-contract-pass149/native-fn-667fc38.asm",
+      "sha256": "2e46b6d188d566886fe98f5560dec2d0874da8f206af8f1abf97a33e8520baf4",
+      "instructions": 43
+    },
+    {
+      "file": "text-contract-pass152/native-fn-668082c.asm",
+      "sha256": "76ee8689fda3a3d8edb3bf43e68b3e5e6f7ed8521ffa0c3708c8439a44574a25",
+      "instructions": 23
+    },
+    {
+      "file": "text-contract-pass153/native-fn-66741a4.asm",
+      "sha256": "905f8f0c321ffc84e6c229da99544ba9f32db9ab96635c4eed9cce23868e965c",
+      "instructions": 2
+    },
+    {
+      "file": "text-contract-pass153/native-fn-6674168.asm",
+      "sha256": "a23cd50f34c56a56d108ca5f6cbba2a520bc44dd279730a094d886b922d1100a",
+      "instructions": 3
+    },
+    {
+      "file": "text-contract-pass154/native-fn-66741ac.asm",
+      "sha256": "9f1180c1e542b005428797188d7dab14ed0f288112c54cb74d3119f485ebac22",
+      "instructions": 677
+    },
+    {
+      "file": "text-contract-pass251/native-fn-667a274.asm",
+      "sha256": "7adb8090ff085dd51534415ec05c6197a4a420f48f95a793f29cf54c39f17576",
+      "instructions": 281
+    },
+    {
+      "file": "text-contract-pass252/native-fn-667a264.asm",
+      "sha256": "a6666686528161c0f0dde3cdb881f6351e74f785c85f7b4dfa0729ae37dcad05",
+      "instructions": 2
+    },
+    {
+      "file": "text-contract-pass252/native-fn-6677a10.asm",
+      "sha256": "79f80b461d1bd970f6b1b537502449ed26ace17d4b79986668d7c2bd7fdb46df",
+      "instructions": 34
+    },
+    {
+      "file": "text-contract-pass252/native-fn-6677a98.asm",
+      "sha256": "957329b16f13f809235c1cff282715ea75eff21d855871b8e5739b71c7cc31b4",
+      "instructions": 2
+    },
+    {
+      "file": "text-contract-pass253/native-fn-6677b20.asm",
+      "sha256": "908296b4323a935d28e5420988149da4503ffbdd9f3d56801929d15cbda77bb2",
+      "instructions": 171
+    },
+    {
+      "file": "text-contract-pass253/native-fn-667b0e8.asm",
+      "sha256": "323a561bcf9fec6cc73cffeeacf45d1a893acf2321427629f63234103044edaa",
+      "instructions": 173
+    },
+    {
+      "file": "text-contract-pass254/native-fn-66761cc.asm",
+      "sha256": "c5d5576fee69153eda7c2c882228b644bbda4da2cc834ad6f7dc82fb400b7b08",
+      "instructions": 95
+    },
+    {
+      "file": "text-contract-pass260/native-fn-668272c.asm",
+      "sha256": "78f4a43e20d332df154f9420aecb75b52de0a615c7e9793cbf0730b15b6268db",
+      "instructions": 178
+    }
+  ],
+  "exports_checked": 20,
+  "instructions_matched": 2805,
+  "instruction_positions_checked": 69,
+  "independent_branch_decodes": [
+    {
+      "pc": "0x667e774",
+      "target": "0x713fc28"
+    },
+    {
+      "pc": "0x667e79c",
+      "target": "0x667378c"
+    },
+    {
+      "pc": "0x667e838",
+      "target": "0x66738d4"
+    },
+    {
+      "pc": "0x6673904",
+      "target": "0x6673990"
+    },
+    {
+      "pc": "0x6673da4",
+      "target": "0x6673db8"
+    },
+    {
+      "pc": "0x6677a9c",
+      "target": "0x6677b20"
+    },
+    {
+      "pc": "0x6677b4c",
+      "target": "0x6677b60"
+    },
+    {
+      "pc": "0x6677b5c",
+      "target": "0x6677be8"
+    },
+    {
+      "pc": "0x6677bb0",
+      "target": "0x66761cc"
+    },
+    {
+      "pc": "0x6680848",
+      "target": "0x66741a4"
+    },
+    {
+      "pc": "0x6680854",
+      "target": "0x6674168"
+    },
+    {
+      "pc": "0x6680868",
+      "target": "0x6680878"
+    },
+    {
+      "pc": "0x6680884",
+      "target": "0x667fc38"
+    },
+    {
+      "pc": "0x66741f8",
+      "target": "0x667468c"
+    },
+    {
+      "pc": "0x66741fc",
+      "target": "0x6674404"
+    },
+    {
+      "pc": "0x6674208",
+      "target": "0x667468c"
+    },
+    {
+      "pc": "0x66761e8",
+      "target": "0x667627c"
+    },
+    {
+      "pc": "0x66761f0",
+      "target": "0x6676334"
+    },
+    {
+      "pc": "0x667fc94",
+      "target": "0x66696dc"
+    },
+    {
+      "pc": "0x667fcb4",
+      "target": "0x667fd04"
+    },
+    {
+      "pc": "0x667a268",
+      "target": "0x667b0e8"
+    },
+    {
+      "pc": "0x6682978",
+      "target": "0x713fcf4"
+    },
+    {
+      "pc": "0x6682990",
+      "target": "0x713fd00"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9fb2c30",
+      "decoded": "0x667e734",
+      "chain_steps": 1296
+    },
+    {
+      "slot": "0x9fb2c38",
+      "decoded": "0x667e8cc",
+      "chain_steps": 1297
+    },
+    {
+      "slot": "0x9fb25b8",
+      "decoded": "0x6677a10",
+      "chain_steps": 1111
+    },
+    {
+      "slot": "0x9fb25c0",
+      "decoded": "0x6677a98",
+      "chain_steps": 1112
+    },
+    {
+      "slot": "0x9fb2730",
+      "decoded": "0x667a264",
+      "chain_steps": 1148
+    }
+  ],
+  "state_prefixes": [
+    {
+      "initial_state": 0,
+      "final_state": 3,
+      "visited": [
+        "0x66741f0",
+        "0x66741f4",
+        "0x66741f8",
+        "0x66741fc",
+        "0x6674200",
+        "0x6674204",
+        "0x6674208"
+      ],
+      "stop": "0x667468c",
+      "calls_in_prefix": 0
+    },
+    {
+      "initial_state": 3,
+      "final_state": 3,
+      "visited": [
+        "0x66761e4",
+        "0x66761e8",
+        "0x66761ec",
+        "0x66761f0"
+      ],
+      "stop": "0x6676334",
+      "calls_in_prefix": 0
+    }
+  ],
+  "contract_sha256": "c8bf809ee68edd681b7f638425dc116c6aeb86fb4000b2d4a15641c9137d356e",
+  "verifier_sha256": "07e4b6305bda5cde1bb8d39a8c747489ba89e1d74e2bfee0f693237c5a3f84dd",
+  "account_stop_sha256": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+  "limitations": [
+    "State prefixes assume TLS core differs and normal stack guard; no exception/alias proof.",
+    "Selected entry/epilogues only, no complete symbolic execution or concurrent schedule proof.",
+    "Capture identity follows selected ABI/layout and normal paths; not a native thread check.",
+    "Indirect completion/notification effects and all native callers remain unproved.",
+    "No observed leak, native execution, complete drain, sending or delivery verification."
+  ],
+  "target_attached": false,
+  "target_executed": false,
+  "send_verified": false,
+  "callable_for_send": false
+}

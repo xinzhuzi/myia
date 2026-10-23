@@ -1,0 +1,22 @@
+
+/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+0000000004de73fc <_SetWeixinCallbackFunc>:
+ 66703f8: a9be4ff4     	stp	x20, x19, [sp, #-0x20]!
+ 66703fc: a9017bfd     	stp	x29, x30, [sp, #0x10]
+ 6670400: 910043fd     	add	x29, sp, #0x10
+ 6670404: aa0103f3     	mov	x19, x1
+ 6670408: aa0003f4     	mov	x20, x0
+ 667040c: 52800300     	mov	w0, #0x18               ; =24
+ 6670410: 942b3f08     	bl	0x7140030 <_wxam_enc_uninit_10+0x7140030>
+ 6670414: d001ca08     	adrp	x8, 0x9fb2000 <_wxam_enc_uninit_10+0x9fb2000>
+ 6670418: 910a4108     	add	x8, x8, #0x290
+ 667041c: a9005008     	stp	x8, x20, [x0]
+ 6670420: f100027f     	cmp	x19, #0x0
+ 6670424: da9f1268     	csinv	x8, x19, xzr, ne
+ 6670428: f9000808     	str	x8, [x0, #0x10]
+ 667042c: a9417bfd     	ldp	x29, x30, [sp, #0x10]
+ 6670430: a8c24ff4     	ldp	x20, x19, [sp], #0x20
+ 6670434: d65f03c0     	ret

@@ -1,0 +1,3090 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass490/native-fn-268f370.asm",
+      "rows": 88,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass491/native-fn-454182c.asm",
+      "rows": 74,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass491/native-fn-4540bd8.asm",
+      "rows": 140,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass491/native-fn-21b3684.asm",
+      "rows": 39,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass491/native-fn-6676adc.asm",
+      "rows": 42,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass491/native-fn-6676b84.asm",
+      "rows": 27,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass492/native-fn-26c4024.asm",
+      "rows": 5,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass492/native-fn-26c4070.asm",
+      "rows": 7,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass493/native-fn-4541f78.asm",
+      "rows": 237,
+      "internal_holes": [
+        "0x4542324"
+      ]
+    },
+    {
+      "file": "text-contract-pass494/native-fn-21b3484.asm",
+      "rows": 23,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass221/native-fn-292d868.asm",
+      "rows": 45,
+      "internal_holes": []
+    },
+    {
+      "file": "text-contract-pass220/native-fn-292ef9c.asm",
+      "rows": 616,
+      "internal_holes": []
+    }
+  ],
+  "ghidra_and_builder_positions": 3562,
+  "complete_unwind_ranges": 9,
+  "llvm_positions": 782,
+  "distinct_instruction_positions_matched": 3662,
+  "exact_checks": 106,
+  "branches": [
+    {
+      "site": "0x268f3a4",
+      "target": "0x454182c"
+    },
+    {
+      "site": "0x268f3b4",
+      "target": "0x6676adc"
+    },
+    {
+      "site": "0x268f3c0",
+      "target": "0x268f414"
+    },
+    {
+      "site": "0x268f3c8",
+      "target": "0x66856fc"
+    },
+    {
+      "site": "0x268f3d0",
+      "target": "0x21b3684"
+    },
+    {
+      "site": "0x268f3d8",
+      "target": "0x268f478"
+    },
+    {
+      "site": "0x268f3f8",
+      "target": "0x268f47c"
+    },
+    {
+      "site": "0x268f410",
+      "target": "0x268f470"
+    },
+    {
+      "site": "0x268f428",
+      "target": "0x4540bd8"
+    },
+    {
+      "site": "0x268f434",
+      "target": "0x268f47c"
+    },
+    {
+      "site": "0x268f448",
+      "target": "0x268f47c"
+    },
+    {
+      "site": "0x268f458",
+      "target": "0x268f47c"
+    },
+    {
+      "site": "0x268f470",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x268f474",
+      "target": "0x268f47c"
+    },
+    {
+      "site": "0x268f480",
+      "target": "0x6676b84"
+    },
+    {
+      "site": "0x268f48c",
+      "target": "0x268f4c0"
+    },
+    {
+      "site": "0x268f494",
+      "target": "0x268f4c0"
+    },
+    {
+      "site": "0x268f4a4",
+      "target": "0x268f4c0"
+    },
+    {
+      "site": "0x268f4bc",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x4541860",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x454186c",
+      "target": "0x454194c"
+    },
+    {
+      "site": "0x4541878",
+      "target": "0x454188c"
+    },
+    {
+      "site": "0x4541884",
+      "target": "0x45418b4"
+    },
+    {
+      "site": "0x4541888",
+      "target": "0x45418c4"
+    },
+    {
+      "site": "0x45418a0",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x45418c0",
+      "target": "0x7140e94"
+    },
+    {
+      "site": "0x45418d0",
+      "target": "0x2aea564"
+    },
+    {
+      "site": "0x45418d8",
+      "target": "0x4541908"
+    },
+    {
+      "site": "0x45418dc",
+      "target": "0x4541928"
+    },
+    {
+      "site": "0x45418e8",
+      "target": "0x45418f8"
+    },
+    {
+      "site": "0x4541904",
+      "target": "0x4541930"
+    },
+    {
+      "site": "0x454191c",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x4541924",
+      "target": "0x45418e0"
+    },
+    {
+      "site": "0x4541950",
+      "target": "0x18d9c"
+    },
+    {
+      "site": "0x4540c24",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x4540c30",
+      "target": "0x4540dfc"
+    },
+    {
+      "site": "0x4540c3c",
+      "target": "0x4540c50"
+    },
+    {
+      "site": "0x4540c48",
+      "target": "0x4540c78"
+    },
+    {
+      "site": "0x4540c4c",
+      "target": "0x4540c88"
+    },
+    {
+      "site": "0x4540c64",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4540c84",
+      "target": "0x7140e94"
+    },
+    {
+      "site": "0x4540c94",
+      "target": "0x4541d70"
+    },
+    {
+      "site": "0x4540c9c",
+      "target": "0x4540ce8"
+    },
+    {
+      "site": "0x4540ca4",
+      "target": "0x4540d0c"
+    },
+    {
+      "site": "0x4540cb4",
+      "target": "0x4540cc4"
+    },
+    {
+      "site": "0x4540ce0",
+      "target": "0x4540da0"
+    },
+    {
+      "site": "0x4540ce4",
+      "target": "0x4540dc8"
+    },
+    {
+      "site": "0x4540cfc",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x4540d08",
+      "target": "0x4540ca8"
+    },
+    {
+      "site": "0x4540d18",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4540d3c",
+      "target": "0x666ab58"
+    },
+    {
+      "site": "0x4540d48",
+      "target": "0x4540d5c"
+    },
+    {
+      "site": "0x4540d4c",
+      "target": "0x4540d68"
+    },
+    {
+      "site": "0x4540d58",
+      "target": "0x4540d64"
+    },
+    {
+      "site": "0x4540d6c",
+      "target": "0x66856fc"
+    },
+    {
+      "site": "0x4540d74",
+      "target": "0x21b3684"
+    },
+    {
+      "site": "0x4540d88",
+      "target": "0x4540d98"
+    },
+    {
+      "site": "0x4540d9c",
+      "target": "0x4540dc8"
+    },
+    {
+      "site": "0x4540dac",
+      "target": "0x4540dc8"
+    },
+    {
+      "site": "0x4540dc4",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x4540ddc",
+      "target": "0x4540e04"
+    },
+    {
+      "site": "0x4540e00",
+      "target": "0x18d9c"
+    },
+    {
+      "site": "0x4540e04",
+      "target": "0x71401a4"
+    },
+    {
+      "site": "0x21b3694",
+      "target": "0x666a844"
+    },
+    {
+      "site": "0x21b3698",
+      "target": "0x21b36fc"
+    },
+    {
+      "site": "0x21b36a4",
+      "target": "0x21b36b8"
+    },
+    {
+      "site": "0x21b36b4",
+      "target": "0x21b36c0"
+    },
+    {
+      "site": "0x21b36dc",
+      "target": "0x7141998"
+    },
+    {
+      "site": "0x21b36e0",
+      "target": "0x21b36fc"
+    },
+    {
+      "site": "0x21b36ec",
+      "target": "0x21b36fc"
+    },
+    {
+      "site": "0x21b3700",
+      "target": "0x714006c"
+    },
+    {
+      "site": "0x21b3708",
+      "target": "0x2190098"
+    },
+    {
+      "site": "0x21b371c",
+      "target": "0x7140108"
+    },
+    {
+      "site": "0x6676b00",
+      "target": "0x6676b50"
+    },
+    {
+      "site": "0x6676b08",
+      "target": "0x6676b80"
+    },
+    {
+      "site": "0x6676b10",
+      "target": "0x713fc28"
+    },
+    {
+      "site": "0x6676b14",
+      "target": "0x6676b80"
+    },
+    {
+      "site": "0x6676b30",
+      "target": "0x6676b54"
+    },
+    {
+      "site": "0x6676b48",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x6676b4c",
+      "target": "0x6676b54"
+    },
+    {
+      "site": "0x6676b60",
+      "target": "0x6676b70"
+    },
+    {
+      "site": "0x6676b80",
+      "target": "0x283500"
+    },
+    {
+      "site": "0x6676b90",
+      "target": "0x6676ba0"
+    },
+    {
+      "site": "0x6676bb0",
+      "target": "0x6676be4"
+    },
+    {
+      "site": "0x6676bc0",
+      "target": "0x6676be4"
+    },
+    {
+      "site": "0x6676bdc",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x26c4074",
+      "target": "0x26c4084"
+    },
+    {
+      "site": "0x4541fa0",
+      "target": "0x4541fc0"
+    },
+    {
+      "site": "0x4541fbc",
+      "target": "0x4541fc8"
+    },
+    {
+      "site": "0x4541fd8",
+      "target": "0x4542474"
+    },
+    {
+      "site": "0x4541fe0",
+      "target": "0x454200c"
+    },
+    {
+      "site": "0x4541ff0",
+      "target": "0x454200c"
+    },
+    {
+      "site": "0x4542008",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x454203c",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x4542044",
+      "target": "0x454231c"
+    },
+    {
+      "site": "0x4542050",
+      "target": "0x4542064"
+    },
+    {
+      "site": "0x454205c",
+      "target": "0x454208c"
+    },
+    {
+      "site": "0x4542060",
+      "target": "0x454209c"
+    },
+    {
+      "site": "0x4542078",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4542098",
+      "target": "0x7140e94"
+    },
+    {
+      "site": "0x45420a8",
+      "target": "0x45420b8"
+    },
+    {
+      "site": "0x45420c8",
+      "target": "0x4540e80"
+    },
+    {
+      "site": "0x45420e8",
+      "target": "0x4542114"
+    },
+    {
+      "site": "0x45420f8",
+      "target": "0x4542114"
+    },
+    {
+      "site": "0x4542110",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x4542118",
+      "target": "0x454212c"
+    },
+    {
+      "site": "0x4542128",
+      "target": "0x45422f8"
+    },
+    {
+      "site": "0x4542130",
+      "target": "0x4542144"
+    },
+    {
+      "site": "0x4542140",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x454214c",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x4542154",
+      "target": "0x4542328"
+    },
+    {
+      "site": "0x4542160",
+      "target": "0x4542174"
+    },
+    {
+      "site": "0x454216c",
+      "target": "0x454219c"
+    },
+    {
+      "site": "0x4542170",
+      "target": "0x45421ac"
+    },
+    {
+      "site": "0x4542188",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x45421a8",
+      "target": "0x7140e94"
+    },
+    {
+      "site": "0x45421b8",
+      "target": "0x2aea564"
+    },
+    {
+      "site": "0x45421c0",
+      "target": "0x45421cc"
+    },
+    {
+      "site": "0x45421c8",
+      "target": "0x2aeab84"
+    },
+    {
+      "site": "0x45421d0",
+      "target": "0x45421e4"
+    },
+    {
+      "site": "0x45421e0",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x45421ec",
+      "target": "0x45421fc"
+    },
+    {
+      "site": "0x4542200",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x4542234",
+      "target": "0x66696dc"
+    },
+    {
+      "site": "0x454223c",
+      "target": "0x454224c"
+    },
+    {
+      "site": "0x4542250",
+      "target": "0x454227c"
+    },
+    {
+      "site": "0x4542260",
+      "target": "0x454227c"
+    },
+    {
+      "site": "0x4542278",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x4542280",
+      "target": "0x45422ac"
+    },
+    {
+      "site": "0x4542290",
+      "target": "0x45422ac"
+    },
+    {
+      "site": "0x45422a8",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x45422b0",
+      "target": "0x45422dc"
+    },
+    {
+      "site": "0x45422c0",
+      "target": "0x45422dc"
+    },
+    {
+      "site": "0x45422d8",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x454230c",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x4542314",
+      "target": "0x4542144"
+    },
+    {
+      "site": "0x4542318",
+      "target": "0x4542134"
+    },
+    {
+      "site": "0x4542320",
+      "target": "0x18d9c"
+    },
+    {
+      "site": "0x454232c",
+      "target": "0x18d9c"
+    },
+    {
+      "site": "0x21b348c",
+      "target": "0x21b34dc"
+    },
+    {
+      "site": "0x21b34a0",
+      "target": "0x21b34d4"
+    },
+    {
+      "site": "0x21b34b0",
+      "target": "0x21b34d4"
+    },
+    {
+      "site": "0x21b34cc",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x292d888",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x292d8b0",
+      "target": "0x292d8c8"
+    },
+    {
+      "site": "0x292d8c4",
+      "target": "0x292d8d0"
+    },
+    {
+      "site": "0x292d8cc",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0x292eff0",
+      "target": "0x292f000"
+    },
+    {
+      "site": "0x292f008",
+      "target": "0x317ded4"
+    },
+    {
+      "site": "0x292f010",
+      "target": "0x292f03c"
+    },
+    {
+      "site": "0x292f020",
+      "target": "0x292f03c"
+    },
+    {
+      "site": "0x292f038",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x292f048",
+      "target": "0x292f344"
+    },
+    {
+      "site": "0x292f050",
+      "target": "0x5e1d978"
+    },
+    {
+      "site": "0x292f054",
+      "target": "0x292f274"
+    },
+    {
+      "site": "0x292f060",
+      "target": "0x488143c"
+    },
+    {
+      "site": "0x292f07c",
+      "target": "0x292f100"
+    },
+    {
+      "site": "0x292f108",
+      "target": "0x292f134"
+    },
+    {
+      "site": "0x292f158",
+      "target": "0x5e1d050"
+    },
+    {
+      "site": "0x292f184",
+      "target": "0x23a403c"
+    },
+    {
+      "site": "0x292f1a8",
+      "target": "0x292f1fc"
+    },
+    {
+      "site": "0x292f1f0",
+      "target": "0x292f1c8"
+    },
+    {
+      "site": "0x292f238",
+      "target": "0x5e1d31c"
+    },
+    {
+      "site": "0x292f240",
+      "target": "0x292f254"
+    },
+    {
+      "site": "0x292f250",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292f258",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x292f260",
+      "target": "0x292f274"
+    },
+    {
+      "site": "0x292f270",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292f280",
+      "target": "0x23a403c"
+    },
+    {
+      "site": "0x292f28c",
+      "target": "0x292f2e0"
+    },
+    {
+      "site": "0x292f2d4",
+      "target": "0x292f2ac"
+    },
+    {
+      "site": "0x292f2f0",
+      "target": "0x713f838"
+    },
+    {
+      "site": "0x292f334",
+      "target": "0x292f3fc"
+    },
+    {
+      "site": "0x292f340",
+      "target": "0x292f40c"
+    },
+    {
+      "site": "0x292f374",
+      "target": "0x86e43c"
+    },
+    {
+      "site": "0x292f388",
+      "target": "0x292f3e0"
+    },
+    {
+      "site": "0x292f3a0",
+      "target": "0x7140e88"
+    },
+    {
+      "site": "0x292f3b8",
+      "target": "0x3190538"
+    },
+    {
+      "site": "0x292f3c4",
+      "target": "0x292f49c"
+    },
+    {
+      "site": "0x292f3d0",
+      "target": "0xac6290"
+    },
+    {
+      "site": "0x292f3dc",
+      "target": "0x292f4a4"
+    },
+    {
+      "site": "0x292f3f8",
+      "target": "0x292f4a8"
+    },
+    {
+      "site": "0x292f408",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0x292f418",
+      "target": "0x292f450"
+    },
+    {
+      "site": "0x292f440",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x292f448",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x292f450",
+      "target": "0x292f46c"
+    },
+    {
+      "site": "0x292f458",
+      "target": "0x292f46c"
+    },
+    {
+      "site": "0x292f468",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292f46c",
+      "target": "0x292f47c"
+    },
+    {
+      "site": "0x292f474",
+      "target": "0x292f878"
+    },
+    {
+      "site": "0x292f478",
+      "target": "0x292f490"
+    },
+    {
+      "site": "0x292f484",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292f48c",
+      "target": "0x292f878"
+    },
+    {
+      "site": "0x292f498",
+      "target": "0x292f8a4"
+    },
+    {
+      "site": "0x292f4ac",
+      "target": "0x5e1d978"
+    },
+    {
+      "site": "0x292f4b0",
+      "target": "0x292f7b8"
+    },
+    {
+      "site": "0x292f4bc",
+      "target": "0x488143c"
+    },
+    {
+      "site": "0x292f4d8",
+      "target": "0x292f55c"
+    },
+    {
+      "site": "0x292f564",
+      "target": "0x292f590"
+    },
+    {
+      "site": "0x292f5b4",
+      "target": "0x5e1d050"
+    },
+    {
+      "site": "0x292f618",
+      "target": "0x292f65c"
+    },
+    {
+      "site": "0x292f650",
+      "target": "0x292f628"
+    },
+    {
+      "site": "0x292f6a4",
+      "target": "0x292f674"
+    },
+    {
+      "site": "0x292f6a8",
+      "target": "0x292f6bc"
+    },
+    {
+      "site": "0x292f6cc",
+      "target": "0x292f6f8"
+    },
+    {
+      "site": "0x292f6f4",
+      "target": "0x292f6d8"
+    },
+    {
+      "site": "0x292f704",
+      "target": "0x292f750"
+    },
+    {
+      "site": "0x292f744",
+      "target": "0x292f71c"
+    },
+    {
+      "site": "0x292f794",
+      "target": "0x5e1d31c"
+    },
+    {
+      "site": "0x292f79c",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x292f7a4",
+      "target": "0x292f7b8"
+    },
+    {
+      "site": "0x292f7b4",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292f808",
+      "target": "0x292f85c"
+    },
+    {
+      "site": "0x292f830",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x292f838",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x292f840",
+      "target": "0x292f85c"
+    },
+    {
+      "site": "0x292f848",
+      "target": "0x292f85c"
+    },
+    {
+      "site": "0x292f858",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292f864",
+      "target": "0x292f878"
+    },
+    {
+      "site": "0x292f86c",
+      "target": "0x292f884"
+    },
+    {
+      "site": "0x292f874",
+      "target": "0x292f89c"
+    },
+    {
+      "site": "0x292f87c",
+      "target": "0x292f8b4"
+    },
+    {
+      "site": "0x292f880",
+      "target": "0x292f8c4"
+    },
+    {
+      "site": "0x292f890",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292f898",
+      "target": "0x292f878"
+    },
+    {
+      "site": "0x292f8a8",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292f8b0",
+      "target": "0x292f8c4"
+    },
+    {
+      "site": "0x292f8c0",
+      "target": "0x292f914"
+    },
+    {
+      "site": "0x292f8c8",
+      "target": "0x292f8dc"
+    },
+    {
+      "site": "0x292f8d8",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292f8f0",
+      "target": "0x292f938"
+    },
+    {
+      "site": "0x292f928",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x292f930",
+      "target": "0x292f8dc"
+    },
+    {
+      "site": "0x292f934",
+      "target": "0x292f8cc"
+    },
+    {
+      "site": "0x292f938",
+      "target": "0x71401a4"
+    },
+    {
+      "site": "0x291fbb8",
+      "target": "0x466aca8"
+    },
+    {
+      "site": "0x291fbc4",
+      "target": "0x1205740"
+    },
+    {
+      "site": "0x291fbd0",
+      "target": "0x230000c"
+    },
+    {
+      "site": "0x291fbe0",
+      "target": "0x2ab6388"
+    },
+    {
+      "site": "0x291fbe8",
+      "target": "0x291fc14"
+    },
+    {
+      "site": "0x291fbf8",
+      "target": "0x291fc14"
+    },
+    {
+      "site": "0x291fc10",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x291fc18",
+      "target": "0x291fc2c"
+    },
+    {
+      "site": "0x291fc28",
+      "target": "0x291fcdc"
+    },
+    {
+      "site": "0x291fc30",
+      "target": "0x291fc44"
+    },
+    {
+      "site": "0x291fc40",
+      "target": "0x291fd00"
+    },
+    {
+      "site": "0x291fc48",
+      "target": "0x291fd20"
+    },
+    {
+      "site": "0x291fc60",
+      "target": "0x291fc74"
+    },
+    {
+      "site": "0x291fc6c",
+      "target": "0x713f8e0"
+    },
+    {
+      "site": "0x291fc70",
+      "target": "0x292052c"
+    },
+    {
+      "site": "0x291fca8",
+      "target": "0x206bc"
+    },
+    {
+      "site": "0x291fcac",
+      "target": "0x2920040"
+    },
+    {
+      "site": "0x291fcd0",
+      "target": "0x713f8e0"
+    },
+    {
+      "site": "0x291fcd8",
+      "target": "0x2920504"
+    },
+    {
+      "site": "0x291fcf0",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x291fcf8",
+      "target": "0x291fc34"
+    },
+    {
+      "site": "0x291fcfc",
+      "target": "0x291fc44"
+    },
+    {
+      "site": "0x291fd14",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x291fd1c",
+      "target": "0x291fc4c"
+    },
+    {
+      "site": "0x291fd24",
+      "target": "0x5e1d978"
+    },
+    {
+      "site": "0x291fd28",
+      "target": "0x291ff48"
+    },
+    {
+      "site": "0x291fd34",
+      "target": "0x488143c"
+    },
+    {
+      "site": "0x291fd50",
+      "target": "0x291fdd4"
+    },
+    {
+      "site": "0x291fddc",
+      "target": "0x291fe08"
+    },
+    {
+      "site": "0x291fe2c",
+      "target": "0x5e1d050"
+    },
+    {
+      "site": "0x291fe68",
+      "target": "0x291fef4"
+    },
+    {
+      "site": "0x291ff24",
+      "target": "0x5e1d31c"
+    },
+    {
+      "site": "0x291ff2c",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x291ff34",
+      "target": "0x291ff48"
+    },
+    {
+      "site": "0x291ff44",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x291ff50",
+      "target": "0x291ff78"
+    },
+    {
+      "site": "0x291ff80",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x291ff90",
+      "target": "0x2921860"
+    },
+    {
+      "site": "0x291ff9c",
+      "target": "0x291ffb0"
+    },
+    {
+      "site": "0x291ffa8",
+      "target": "0x291ffd8"
+    },
+    {
+      "site": "0x291ffac",
+      "target": "0x291ffec"
+    },
+    {
+      "site": "0x291ffc4",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x291ffe8",
+      "target": "0x7140e88"
+    },
+    {
+      "site": "0x2920028",
+      "target": "0x292039c"
+    },
+    {
+      "site": "0x292003c",
+      "target": "0x29203a8"
+    },
+    {
+      "site": "0x292004c",
+      "target": "0x2920068"
+    },
+    {
+      "site": "0x292005c",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2920064",
+      "target": "0x291fcc8"
+    },
+    {
+      "site": "0x292006c",
+      "target": "0x5e1d978"
+    },
+    {
+      "site": "0x2920070",
+      "target": "0x29202b0"
+    },
+    {
+      "site": "0x292007c",
+      "target": "0x488143c"
+    },
+    {
+      "site": "0x2920098",
+      "target": "0x292011c"
+    },
+    {
+      "site": "0x2920124",
+      "target": "0x2920150"
+    },
+    {
+      "site": "0x2920174",
+      "target": "0x5e1d050"
+    },
+    {
+      "site": "0x2920198",
+      "target": "0x2920250"
+    },
+    {
+      "site": "0x292028c",
+      "target": "0x5e1d31c"
+    },
+    {
+      "site": "0x2920294",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x292029c",
+      "target": "0x29202b0"
+    },
+    {
+      "site": "0x29202ac",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29202b8",
+      "target": "0x2920364"
+    },
+    {
+      "site": "0x292036c",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x292037c",
+      "target": "0x292186c"
+    },
+    {
+      "site": "0x2920388",
+      "target": "0x2920404"
+    },
+    {
+      "site": "0x2920394",
+      "target": "0x292042c"
+    },
+    {
+      "site": "0x2920398",
+      "target": "0x2920440"
+    },
+    {
+      "site": "0x29203a4",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0x29203cc",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x29203d8",
+      "target": "0x29203f4"
+    },
+    {
+      "site": "0x29203e0",
+      "target": "0x29203f4"
+    },
+    {
+      "site": "0x29203f0",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29203f4",
+      "target": "0x29217b4"
+    },
+    {
+      "site": "0x2920400",
+      "target": "0x29217e0"
+    },
+    {
+      "site": "0x2920418",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x292043c",
+      "target": "0x7140e88"
+    },
+    {
+      "site": "0x292047c",
+      "target": "0x2920494"
+    },
+    {
+      "site": "0x2920490",
+      "target": "0x29204a0"
+    },
+    {
+      "site": "0x292049c",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0x29204c4",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x29204d0",
+      "target": "0x29204ec"
+    },
+    {
+      "site": "0x29204d8",
+      "target": "0x29204ec"
+    },
+    {
+      "site": "0x29204e8",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29204ec",
+      "target": "0x2920500"
+    },
+    {
+      "site": "0x29204fc",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292050c",
+      "target": "0x2920528"
+    },
+    {
+      "site": "0x2920514",
+      "target": "0x2920528"
+    },
+    {
+      "site": "0x2920524",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2920528",
+      "target": "0x29217ac"
+    },
+    {
+      "site": "0x2920530",
+      "target": "0x5e1d978"
+    },
+    {
+      "site": "0x2920534",
+      "target": "0x292083c"
+    },
+    {
+      "site": "0x2920540",
+      "target": "0x488143c"
+    },
+    {
+      "site": "0x292055c",
+      "target": "0x29205e0"
+    },
+    {
+      "site": "0x29205e8",
+      "target": "0x2920614"
+    },
+    {
+      "site": "0x2920638",
+      "target": "0x5e1d050"
+    },
+    {
+      "site": "0x2920684",
+      "target": "0x29206d0"
+    },
+    {
+      "site": "0x29206c4",
+      "target": "0x292069c"
+    },
+    {
+      "site": "0x2920708",
+      "target": "0x29206e0"
+    },
+    {
+      "site": "0x2920720",
+      "target": "0x292074c"
+    },
+    {
+      "site": "0x2920748",
+      "target": "0x292072c"
+    },
+    {
+      "site": "0x2920758",
+      "target": "0x29207e8"
+    },
+    {
+      "site": "0x2920818",
+      "target": "0x5e1d31c"
+    },
+    {
+      "site": "0x2920820",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x2920828",
+      "target": "0x292083c"
+    },
+    {
+      "site": "0x2920838",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2920850",
+      "target": "0x2920874"
+    },
+    {
+      "site": "0x2920884",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x292088c",
+      "target": "0x2921854"
+    },
+    {
+      "site": "0x2920898",
+      "target": "0x29208ac"
+    },
+    {
+      "site": "0x29208a4",
+      "target": "0x29208d4"
+    },
+    {
+      "site": "0x29208a8",
+      "target": "0x29208e8"
+    },
+    {
+      "site": "0x29208c0",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x29208e4",
+      "target": "0x7140e88"
+    },
+    {
+      "site": "0x29208f8",
+      "target": "0x2922400"
+    },
+    {
+      "site": "0x2920904",
+      "target": "0x2921fc8"
+    },
+    {
+      "site": "0x292090c",
+      "target": "0x292097c"
+    },
+    {
+      "site": "0x2920914",
+      "target": "0x2920994"
+    },
+    {
+      "site": "0x2920920",
+      "target": "0x2920954"
+    },
+    {
+      "site": "0x292095c",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x2920968",
+      "target": "0x29209a8"
+    },
+    {
+      "site": "0x2920970",
+      "target": "0x29209d0"
+    },
+    {
+      "site": "0x2920978",
+      "target": "0x29209c0"
+    },
+    {
+      "site": "0x2920988",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2920990",
+      "target": "0x2920918"
+    },
+    {
+      "site": "0x29209a0",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29209a4",
+      "target": "0x2920918"
+    },
+    {
+      "site": "0x29209b0",
+      "target": "0x29209d0"
+    },
+    {
+      "site": "0x29209b8",
+      "target": "0x2921878"
+    },
+    {
+      "site": "0x29209c8",
+      "target": "0x7140e7c"
+    },
+    {
+      "site": "0x29209cc",
+      "target": "0x2920a90"
+    },
+    {
+      "site": "0x29209d8",
+      "target": "0x29209fc"
+    },
+    {
+      "site": "0x2920a04",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x2920a0c",
+      "target": "0x2920a20"
+    },
+    {
+      "site": "0x2920a14",
+      "target": "0x2920a48"
+    },
+    {
+      "site": "0x2920a1c",
+      "target": "0x2920a38"
+    },
+    {
+      "site": "0x2920a28",
+      "target": "0x2920a48"
+    },
+    {
+      "site": "0x2920a30",
+      "target": "0x2921890"
+    },
+    {
+      "site": "0x2920a40",
+      "target": "0x7140e7c"
+    },
+    {
+      "site": "0x2920a44",
+      "target": "0x2920c9c"
+    },
+    {
+      "site": "0x2920a50",
+      "target": "0x2920b24"
+    },
+    {
+      "site": "0x2920a58",
+      "target": "0x2920abc"
+    },
+    {
+      "site": "0x2920a60",
+      "target": "0x2920b50"
+    },
+    {
+      "site": "0x2920a80",
+      "target": "0x29255e8"
+    },
+    {
+      "site": "0x2920a88",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2920a8c",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x2920aac",
+      "target": "0x292285c"
+    },
+    {
+      "site": "0x2920ab4",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2920ab8",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x2920ad0",
+      "target": "0x2920af4"
+    },
+    {
+      "site": "0x2920afc",
+      "target": "0x71419f8"
+    },
+    {
+      "site": "0x2920b04",
+      "target": "0x2921884"
+    },
+    {
+      "site": "0x2920b10",
+      "target": "0x2921000"
+    },
+    {
+      "site": "0x2920b1c",
+      "target": "0x292102c"
+    },
+    {
+      "site": "0x2920b20",
+      "target": "0x2921040"
+    },
+    {
+      "site": "0x2920b40",
+      "target": "0x292674c"
+    },
+    {
+      "site": "0x2920b48",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2920b4c",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x2920b54",
+      "target": "0x2920cc8"
+    },
+    {
+      "site": "0x2920b68",
+      "target": "0x77bdd0"
+    },
+    {
+      "site": "0x2920b80",
+      "target": "0x713f8e0"
+    },
+    {
+      "site": "0x2920b90",
+      "target": "0x713f8e0"
+    },
+    {
+      "site": "0x2920b9c",
+      "target": "0x2920ccc"
+    },
+    {
+      "site": "0x2920bac",
+      "target": "0x466aca8"
+    },
+    {
+      "site": "0x2920bb8",
+      "target": "0x1205740"
+    },
+    {
+      "site": "0x2920bc4",
+      "target": "0x268f370"
+    },
+    {
+      "site": "0x2920bcc",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2920bd4",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2920bdc",
+      "target": "0x29211d4"
+    },
+    {
+      "site": "0x2920be4",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x2920c18",
+      "target": "0x33c7c"
+    },
+    {
+      "site": "0x2920c20",
+      "target": "0x466aca8"
+    },
+    {
+      "site": "0x2920c2c",
+      "target": "0x1205740"
+    },
+    {
+      "site": "0x2920c38",
+      "target": "0x26870f0"
+    },
+    {
+      "site": "0x2920c4c",
+      "target": "0x2920c60"
+    },
+    {
+      "site": "0x2920c7c",
+      "target": "0x28562e4"
+    },
+    {
+      "site": "0x2920c88",
+      "target": "0x29214fc"
+    },
+    {
+      "site": "0x2920c8c",
+      "target": "0x2921508"
+    },
+    {
+      "site": "0x2920c98",
+      "target": "0x2921504"
+    },
+    {
+      "site": "0x2920cb8",
+      "target": "0x292385c"
+    },
+    {
+      "site": "0x2920cc0",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2920cc4",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x2920cd0",
+      "target": "0x5e1d978"
+    },
+    {
+      "site": "0x2920cd4",
+      "target": "0x2920f00"
+    },
+    {
+      "site": "0x2920ce0",
+      "target": "0x488143c"
+    },
+    {
+      "site": "0x2920cfc",
+      "target": "0x2920d80"
+    },
+    {
+      "site": "0x2920d88",
+      "target": "0x2920db4"
+    },
+    {
+      "site": "0x2920dd8",
+      "target": "0x5e1d050"
+    },
+    {
+      "site": "0x2920e1c",
+      "target": "0x3eccb4"
+    },
+    {
+      "site": "0x2920e2c",
+      "target": "0x2920eb0"
+    },
+    {
+      "site": "0x2920edc",
+      "target": "0x5e1d31c"
+    },
+    {
+      "site": "0x2920ee4",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x2920eec",
+      "target": "0x2920f00"
+    },
+    {
+      "site": "0x2920efc",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2920f08",
+      "target": "0x713ff28"
+    },
+    {
+      "site": "0x2920f14",
+      "target": "0x2920f7c"
+    },
+    {
+      "site": "0x2920f8c",
+      "target": "0x713f838"
+    },
+    {
+      "site": "0x2920fb0",
+      "target": "0x2921ee8"
+    },
+    {
+      "site": "0x2920fbc",
+      "target": "0x2921e94"
+    },
+    {
+      "site": "0x2920fc8",
+      "target": "0x2920fe4"
+    },
+    {
+      "site": "0x2920fd0",
+      "target": "0x2920fe4"
+    },
+    {
+      "site": "0x2920fe0",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2920fe8",
+      "target": "0x2921158"
+    },
+    {
+      "site": "0x2920ff0",
+      "target": "0x2921170"
+    },
+    {
+      "site": "0x2920ff8",
+      "target": "0x292177c"
+    },
+    {
+      "site": "0x2920ffc",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x2921014",
+      "target": "0x7140030"
+    },
+    {
+      "site": "0x292103c",
+      "target": "0x7140e88"
+    },
+    {
+      "site": "0x2921050",
+      "target": "0x2922400"
+    },
+    {
+      "site": "0x292105c",
+      "target": "0x2921fc8"
+    },
+    {
+      "site": "0x2921064",
+      "target": "0x2921078"
+    },
+    {
+      "site": "0x2921074",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292107c",
+      "target": "0x2921090"
+    },
+    {
+      "site": "0x292108c",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29210a4",
+      "target": "0x29210c0"
+    },
+    {
+      "site": "0x29210b0",
+      "target": "0x4b56844"
+    },
+    {
+      "site": "0x29210b8",
+      "target": "0x292118c"
+    },
+    {
+      "site": "0x29210bc",
+      "target": "0x2921130"
+    },
+    {
+      "site": "0x29210c8",
+      "target": "0x2921120"
+    },
+    {
+      "site": "0x292112c",
+      "target": "0xb0fd90"
+    },
+    {
+      "site": "0x2921150",
+      "target": "0x2928b44"
+    },
+    {
+      "site": "0x2921154",
+      "target": "0x29211b0"
+    },
+    {
+      "site": "0x2921164",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292116c",
+      "target": "0x2920ff4"
+    },
+    {
+      "site": "0x292117c",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921184",
+      "target": "0x292177c"
+    },
+    {
+      "site": "0x2921188",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x29211ac",
+      "target": "0x292799c"
+    },
+    {
+      "site": "0x29211b4",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x29211bc",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x29211cc",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29211d0",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x29211d8",
+      "target": "0x5e1d978"
+    },
+    {
+      "site": "0x29211dc",
+      "target": "0x29213ec"
+    },
+    {
+      "site": "0x29211e8",
+      "target": "0x488143c"
+    },
+    {
+      "site": "0x2921204",
+      "target": "0x2921288"
+    },
+    {
+      "site": "0x2921290",
+      "target": "0x29212bc"
+    },
+    {
+      "site": "0x29212e0",
+      "target": "0x5e1d050"
+    },
+    {
+      "site": "0x2921304",
+      "target": "0x292138c"
+    },
+    {
+      "site": "0x29213c8",
+      "target": "0x5e1d31c"
+    },
+    {
+      "site": "0x29213d0",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x29213d8",
+      "target": "0x29213ec"
+    },
+    {
+      "site": "0x29213e8",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29213f4",
+      "target": "0x2921498"
+    },
+    {
+      "site": "0x29214a4",
+      "target": "0x255b9c"
+    },
+    {
+      "site": "0x29214ac",
+      "target": "0x2921ee8"
+    },
+    {
+      "site": "0x29214b8",
+      "target": "0x2921e94"
+    },
+    {
+      "site": "0x29214c4",
+      "target": "0x29214e0"
+    },
+    {
+      "site": "0x29214cc",
+      "target": "0x29214e0"
+    },
+    {
+      "site": "0x29214dc",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29214e4",
+      "target": "0x292176c"
+    },
+    {
+      "site": "0x29214f4",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29214f8",
+      "target": "0x292176c"
+    },
+    {
+      "site": "0x292150c",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921514",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x292151c",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921524",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921538",
+      "target": "0x2921550"
+    },
+    {
+      "site": "0x292154c",
+      "target": "0x292155c"
+    },
+    {
+      "site": "0x2921558",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0x2921560",
+      "target": "0x4669774"
+    },
+    {
+      "site": "0x2921568",
+      "target": "0x466ad74"
+    },
+    {
+      "site": "0x2921574",
+      "target": "0x29215a0"
+    },
+    {
+      "site": "0x29215a8",
+      "target": "0x2921620"
+    },
+    {
+      "site": "0x292160c",
+      "target": "0x29215d0"
+    },
+    {
+      "site": "0x292163c",
+      "target": "0x3bb6c"
+    },
+    {
+      "site": "0x292164c",
+      "target": "0x292165c"
+    },
+    {
+      "site": "0x2921664",
+      "target": "0x292167c"
+    },
+    {
+      "site": "0x2921678",
+      "target": "0x2921688"
+    },
+    {
+      "site": "0x2921684",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0x292168c",
+      "target": "0x292169c"
+    },
+    {
+      "site": "0x29216a4",
+      "target": "0x29216bc"
+    },
+    {
+      "site": "0x29216b8",
+      "target": "0x29216c8"
+    },
+    {
+      "site": "0x29216c4",
+      "target": "0x18d20"
+    },
+    {
+      "site": "0x29216d4",
+      "target": "0x29216e4"
+    },
+    {
+      "site": "0x29216ec",
+      "target": "0x292d868"
+    },
+    {
+      "site": "0x2921708",
+      "target": "0x453cce8"
+    },
+    {
+      "site": "0x2921710",
+      "target": "0x218c0a0"
+    },
+    {
+      "site": "0x292171c",
+      "target": "0x2921730"
+    },
+    {
+      "site": "0x2921720",
+      "target": "0x292173c"
+    },
+    {
+      "site": "0x292172c",
+      "target": "0x2921738"
+    },
+    {
+      "site": "0x2921740",
+      "target": "0x292d940"
+    },
+    {
+      "site": "0x2921748",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921750",
+      "target": "0x2921764"
+    },
+    {
+      "site": "0x2921760",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921768",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921770",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921778",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x2921788",
+      "target": "0x29217a4"
+    },
+    {
+      "site": "0x29217a0",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x29217a8",
+      "target": "0x29217c0"
+    },
+    {
+      "site": "0x29217b0",
+      "target": "0x29217d8"
+    },
+    {
+      "site": "0x29217b8",
+      "target": "0x29217f0"
+    },
+    {
+      "site": "0x29217bc",
+      "target": "0x2921818"
+    },
+    {
+      "site": "0x29217cc",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29217d4",
+      "target": "0x29217b4"
+    },
+    {
+      "site": "0x29217e4",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29217ec",
+      "target": "0x2921818"
+    },
+    {
+      "site": "0x29217fc",
+      "target": "0x2921818"
+    },
+    {
+      "site": "0x2921814",
+      "target": "0x713fc1c"
+    },
+    {
+      "site": "0x292182c",
+      "target": "0x2921850"
+    },
+    {
+      "site": "0x2921850",
+      "target": "0x71401a4"
+    },
+    {
+      "site": "0x2921858",
+      "target": "0x18d9c"
+    },
+    {
+      "site": "0x292185c",
+      "target": "0x2921898"
+    },
+    {
+      "site": "0x2921864",
+      "target": "0x18d9c"
+    },
+    {
+      "site": "0x2921868",
+      "target": "0x2921898"
+    },
+    {
+      "site": "0x2921870",
+      "target": "0x18d9c"
+    },
+    {
+      "site": "0x2921874",
+      "target": "0x2921898"
+    },
+    {
+      "site": "0x292187c",
+      "target": "0x20edd0"
+    },
+    {
+      "site": "0x2921880",
+      "target": "0x2921898"
+    },
+    {
+      "site": "0x2921888",
+      "target": "0x18d9c"
+    },
+    {
+      "site": "0x292188c",
+      "target": "0x2921898"
+    },
+    {
+      "site": "0x2921894",
+      "target": "0x20edd0"
+    },
+    {
+      "site": "0x29218a4",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x29218ac",
+      "target": "0x29218c8"
+    },
+    {
+      "site": "0x29218bc",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x29218c0",
+      "target": "0x29218c8"
+    },
+    {
+      "site": "0x29218cc",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x29218d0",
+      "target": "0x29219a4"
+    },
+    {
+      "site": "0x29218d8",
+      "target": "0x2921a64"
+    },
+    {
+      "site": "0x29218e4",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x29218e8",
+      "target": "0x29218f0"
+    },
+    {
+      "site": "0x29218f4",
+      "target": "0x2921a6c"
+    },
+    {
+      "site": "0x2921900",
+      "target": "0x2921944"
+    },
+    {
+      "site": "0x2921908",
+      "target": "0x2921a6c"
+    },
+    {
+      "site": "0x2921918",
+      "target": "0x2921934"
+    },
+    {
+      "site": "0x2921920",
+      "target": "0x2921934"
+    },
+    {
+      "site": "0x2921928",
+      "target": "0x7112b64"
+    },
+    {
+      "site": "0x292192c",
+      "target": "0x2921934"
+    },
+    {
+      "site": "0x2921938",
+      "target": "0x2921a6c"
+    },
+    {
+      "site": "0x2921948",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x292194c",
+      "target": "0x2921a6c"
+    },
+    {
+      "site": "0x2921954",
+      "target": "0x2921a6c"
+    },
+    {
+      "site": "0x292195c",
+      "target": "0x2921a6c"
+    },
+    {
+      "site": "0x292196c",
+      "target": "0x292197c"
+    },
+    {
+      "site": "0x2921978",
+      "target": "0x2921988"
+    },
+    {
+      "site": "0x292197c",
+      "target": "0x2921994"
+    },
+    {
+      "site": "0x292198c",
+      "target": "0x2921994"
+    },
+    {
+      "site": "0x2921998",
+      "target": "0x292d940"
+    },
+    {
+      "site": "0x292199c",
+      "target": "0x29219a4"
+    },
+    {
+      "site": "0x29219a8",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x29219ac",
+      "target": "0x2921a4c"
+    },
+    {
+      "site": "0x29219bc",
+      "target": "0x29219d8"
+    },
+    {
+      "site": "0x29219c0",
+      "target": "0x70d343c"
+    },
+    {
+      "site": "0x29219c8",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x29219d0",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x29219d4",
+      "target": "0x29219ec"
+    },
+    {
+      "site": "0x29219e4",
+      "target": "0x29219c4"
+    },
+    {
+      "site": "0x29219f0",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x29219f4",
+      "target": "0x29219fc"
+    },
+    {
+      "site": "0x2921a00",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921a04",
+      "target": "0x2921a64"
+    },
+    {
+      "site": "0x2921a0c",
+      "target": "0x2921a64"
+    },
+    {
+      "site": "0x2921a14",
+      "target": "0x2921a6c"
+    },
+    {
+      "site": "0x2921a20",
+      "target": "0x2921b5c"
+    },
+    {
+      "site": "0x2921a2c",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921a30",
+      "target": "0x2921a38"
+    },
+    {
+      "site": "0x2921a3c",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921a40",
+      "target": "0x2921b48"
+    },
+    {
+      "site": "0x2921a44",
+      "target": "0x2921b44"
+    },
+    {
+      "site": "0x2921a50",
+      "target": "0x2921a64"
+    },
+    {
+      "site": "0x2921a60",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921a68",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921a70",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921a74",
+      "target": "0x2921b48"
+    },
+    {
+      "site": "0x2921a80",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x2921a84",
+      "target": "0x2921a8c"
+    },
+    {
+      "site": "0x2921a90",
+      "target": "0x2921b48"
+    },
+    {
+      "site": "0x2921a9c",
+      "target": "0x2921b34"
+    },
+    {
+      "site": "0x2921aa0",
+      "target": "0x2921b44"
+    },
+    {
+      "site": "0x2921aa4",
+      "target": "0x2921cd8"
+    },
+    {
+      "site": "0x2921ab4",
+      "target": "0x2921c68"
+    },
+    {
+      "site": "0x2921abc",
+      "target": "0x2921c68"
+    },
+    {
+      "site": "0x2921acc",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921ad0",
+      "target": "0x2921c68"
+    },
+    {
+      "site": "0x2921ad8",
+      "target": "0x2921b60"
+    },
+    {
+      "site": "0x2921ae8",
+      "target": "0x2921b04"
+    },
+    {
+      "site": "0x2921af0",
+      "target": "0x2921b04"
+    },
+    {
+      "site": "0x2921af8",
+      "target": "0x7112b64"
+    },
+    {
+      "site": "0x2921afc",
+      "target": "0x2921b04"
+    },
+    {
+      "site": "0x2921b08",
+      "target": "0x2921b24"
+    },
+    {
+      "site": "0x2921b18",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921b1c",
+      "target": "0x2921b24"
+    },
+    {
+      "site": "0x2921b28",
+      "target": "0x2921b48"
+    },
+    {
+      "site": "0x2921b38",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921b3c",
+      "target": "0x2921b48"
+    },
+    {
+      "site": "0x2921b40",
+      "target": "0x2921b44"
+    },
+    {
+      "site": "0x2921b4c",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921b50",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921b5c",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2921b64",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921b70",
+      "target": "0x2921bb4"
+    },
+    {
+      "site": "0x2921b7c",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2921b80",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921b84",
+      "target": "0x17050"
+    },
+    {
+      "site": "0x2921b90",
+      "target": "0x2921ba4"
+    },
+    {
+      "site": "0x2921b98",
+      "target": "0x70c8088"
+    },
+    {
+      "site": "0x2921b9c",
+      "target": "0x2921ba4"
+    },
+    {
+      "site": "0x2921ba8",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921bb8",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921bbc",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921bc8",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921bcc",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921bd8",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2921bdc",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921be8",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2921bec",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921bf8",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x2921bfc",
+      "target": "0x2921c04"
+    },
+    {
+      "site": "0x2921c08",
+      "target": "0x2921cf8"
+    },
+    {
+      "site": "0x2921c14",
+      "target": "0x2921c70"
+    },
+    {
+      "site": "0x2921c18",
+      "target": "0x2921cf4"
+    },
+    {
+      "site": "0x2921c24",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2921c28",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921c2c",
+      "target": "0x17050"
+    },
+    {
+      "site": "0x2921c30",
+      "target": "0x2921cd8"
+    },
+    {
+      "site": "0x2921c3c",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2921c48",
+      "target": "0x2921c64"
+    },
+    {
+      "site": "0x2921c50",
+      "target": "0x2921c64"
+    },
+    {
+      "site": "0x2921c60",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921c64",
+      "target": "0x2921cf8"
+    },
+    {
+      "site": "0x2921c74",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921c78",
+      "target": "0x2921cf8"
+    },
+    {
+      "site": "0x2921c88",
+      "target": "0x2921d64"
+    },
+    {
+      "site": "0x2921c90",
+      "target": "0x2921d64"
+    },
+    {
+      "site": "0x2921ca0",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921ca4",
+      "target": "0x2921d64"
+    },
+    {
+      "site": "0x2921ca8",
+      "target": "0x2921cf4"
+    },
+    {
+      "site": "0x2921cb4",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x2921cb8",
+      "target": "0x2921dc0"
+    },
+    {
+      "site": "0x2921cbc",
+      "target": "0x2921dbc"
+    },
+    {
+      "site": "0x2921cc4",
+      "target": "0x2921dd8"
+    },
+    {
+      "site": "0x2921cd0",
+      "target": "0x5e1d19c"
+    },
+    {
+      "site": "0x2921cd4",
+      "target": "0x2921cdc"
+    },
+    {
+      "site": "0x2921ce0",
+      "target": "0x2921dc0"
+    },
+    {
+      "site": "0x2921cec",
+      "target": "0x2921da4"
+    },
+    {
+      "site": "0x2921cf0",
+      "target": "0x2921dbc"
+    },
+    {
+      "site": "0x2921d00",
+      "target": "0x2921dc0"
+    },
+    {
+      "site": "0x2921d08",
+      "target": "0x2921dc0"
+    },
+    {
+      "site": "0x2921d14",
+      "target": "0x2921da4"
+    },
+    {
+      "site": "0x2921d20",
+      "target": "0x2921dc0"
+    },
+    {
+      "site": "0x2921d2c",
+      "target": "0x2921da4"
+    },
+    {
+      "site": "0x2921d38",
+      "target": "0x33d2c"
+    },
+    {
+      "site": "0x2921d44",
+      "target": "0x2921d60"
+    },
+    {
+      "site": "0x2921d4c",
+      "target": "0x2921d60"
+    },
+    {
+      "site": "0x2921d5c",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921d60",
+      "target": "0x2921dd8"
+    },
+    {
+      "site": "0x2921d6c",
+      "target": "0x2921dd0"
+    },
+    {
+      "site": "0x2921d74",
+      "target": "0x2921dd8"
+    },
+    {
+      "site": "0x2921d80",
+      "target": "0x2921d94"
+    },
+    {
+      "site": "0x2921d88",
+      "target": "0x70c8088"
+    },
+    {
+      "site": "0x2921d8c",
+      "target": "0x2921d94"
+    },
+    {
+      "site": "0x2921d98",
+      "target": "0x2921dc0"
+    },
+    {
+      "site": "0x2921da8",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921dac",
+      "target": "0x2921dc0"
+    },
+    {
+      "site": "0x2921db4",
+      "target": "0x2921dd8"
+    },
+    {
+      "site": "0x2921db8",
+      "target": "0x2921dbc"
+    },
+    {
+      "site": "0x2921dc4",
+      "target": "0x2921dd8"
+    },
+    {
+      "site": "0x2921dd4",
+      "target": "0x714000c"
+    },
+    {
+      "site": "0x2921ddc",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921de4",
+      "target": "0x713f1d8"
+    },
+    {
+      "site": "0x2921df0",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921df4",
+      "target": "0x2921dfc"
+    },
+    {
+      "site": "0x2921e00",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921e04",
+      "target": "0x2921e0c"
+    },
+    {
+      "site": "0x2921e10",
+      "target": "0x129f68"
+    },
+    {
+      "site": "0x2921e18",
+      "target": "0x713f1d8"
+    },
+    {
+      "site": "0x268f4d0",
+      "target": "0x268f4d4"
+    },
+    {
+      "site": "0x268f4dc",
+      "target": "0x6676b84"
+    },
+    {
+      "site": "0x268f4e0",
+      "target": "0x268f4e8"
+    },
+    {
+      "site": "0x268f4ec",
+      "target": "0x21b3484"
+    },
+    {
+      "site": "0x268f4f4",
+      "target": "0x713f1d8"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9da2010",
+      "decoded": "0x26c4024",
+      "chain_steps": 928
+    },
+    {
+      "slot": "0x9da2020",
+      "decoded": "0x26c4070",
+      "chain_steps": 930
+    },
+    {
+      "slot": "0x9ded308",
+      "decoded": "0x80000000088bc050",
+      "chain_steps": 550
+    },
+    {
+      "slot": "0x9e870d8",
+      "decoded": "0x4541f78",
+      "chain_steps": 1450
+    }
+  ],
+  "imports": [
+    {
+      "stub": "0x713fc28",
+      "slot": "0x9b36738",
+      "ordinal": 1254,
+      "symbol": "__ZNSt3__119__shared_weak_count4lockEv",
+      "chain_steps": 1256
+    },
+    {
+      "stub": "0x713fc1c",
+      "slot": "0x9b36730",
+      "ordinal": 1253,
+      "symbol": "__ZNSt3__119__shared_weak_count14__release_weakEv",
+      "chain_steps": 1255
+    },
+    {
+      "stub": "0x7141998",
+      "slot": "0x9b381b0",
+      "ordinal": 2088,
+      "symbol": "_strcmp",
+      "chain_steps": 55
+    },
+    {
+      "stub": "0x713f1d8",
+      "slot": "0x9b36000",
+      "ordinal": 1024,
+      "symbol": "__Unwind_Resume",
+      "chain_steps": 1025
+    }
+  ],
+  "exception_calls": [
+    {
+      "site": "0x268f3b4",
+      "start": "0x268f3b0",
+      "end_exclusive": "0x268f3b8",
+      "landing_pad": "0x268f4e4",
+      "action": 0,
+      "action_chain": []
+    },
+    {
+      "site": "0x268f3c8",
+      "start": "0x268f3c4",
+      "end_exclusive": "0x268f3d4",
+      "landing_pad": "0x268f4d4",
+      "action": 0,
+      "action_chain": []
+    },
+    {
+      "site": "0x268f3d0",
+      "start": "0x268f3c4",
+      "end_exclusive": "0x268f3d4",
+      "landing_pad": "0x268f4d4",
+      "action": 0,
+      "action_chain": []
+    },
+    {
+      "site": "0x268f428",
+      "start": "0x268f41c",
+      "end_exclusive": "0x268f42c",
+      "landing_pad": "0x268f4d0",
+      "action": 0,
+      "action_chain": []
+    }
+  ],
+  "findings": {
+    "getter_abi": "x0=registry, hidden x8=owned shared-pair result",
+    "descriptor_key": "_3d834e75",
+    "pending_result_type": "_62250804",
+    "current_core_guard": "unconditional 0x6676adc before optional pending-result branch",
+    "no_current_core_path": "zero pair at 0x6676b50, then unconditional core+0x288 load",
+    "normal_local_release": "0x6676b84 releases guard; optional future released separately",
+    "selected_exception_local_release": "post-guard wait/getter/fallback pads release guard, then optional future, then resume unwind",
+    "guard_constructor_failure": "landing pad releases optional future; no completed guard to release",
+    "service_capture": "builder sp+0x88 -> capture source+0x58 -> body+0x60; shared ownership retained",
+    "scope": "valid objects, completed guard construction and normally returning cleanup; selected local call sites only"
+  },
+  "native_thread_identity_verified": false,
+  "state_zero_final_cleanup_verified": false,
+  "complete_native_scheduling_and_drain_verified": false,
+  "whole_path_field_preservation_proven": false,
+  "complete_adapter_verified": false,
+  "runtime_observed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "full_goal_complete": false,
+  "remaining": [
+    "Actual admission, service lifetime across shutdown and external group cancellation",
+    "State-zero final parameter release and all queue/listener/weak-owner drain",
+    "Full business-field preservation and complete native adapter",
+    "Real send, independent receipt and deployment; account stop remains in effect"
+  ],
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-21b3484.asm": "228fde1075389bea12c50c9255f2b271ce27ef0ec9f77eb6bd00d1fcf030d74b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-21b3484.llvm.txt": "2cd233f707dece5f191603129456c771bba1d1f68ec5f0a8362d3930da45f656",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-21b3684.asm": "682f60f63f2a3e3cb88df54b9d661da9654a2cf8b468f97806701f8b5acc07b7",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-21b3684.llvm.txt": "af47dcaa76704254417c379a1cf8c2012ea98de57132a038493fa1c3068d4964",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-268f370.asm": "947d49053d8b83176e52fa472330c79ed30311bee78c83cac33e4e7a9f00c952",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-268f370.llvm.txt": "be7167a4092dcef4642fa446d44d2d45a113e150eb20e828cbac75315ba6f173",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-26c4018.asm": "a42fdf4cf697f1c7d7064b04462b0b9e5cad057ca39158930a317a682f47584c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-26c4018.llvm.txt": "b2eb8554391184158354ccae4e3cebe566fb23baba3562dd81bef8e3b36193f1",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-26c4070.asm": "9247264b0ef28de7dbdf9f32b60c29cebf0d30800f4f56dfbf3419a5ced9fba6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-26c4070.llvm.txt": "8867936868ad06914f621db4a8389b9d138e4e69c6281fe0dbb66cfb34680b60",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-4540bd8.asm": "50419c8f72bc89e86097e998622040006ae44acd06c493871a2d85badeeaa610",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-4540bd8.llvm.txt": "46d892ab827b324bea3f6315bb74c54db5f04c5a5ebcd40c76a49acd5df49b1d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-454182c.asm": "3b1fb4a7d7787ca39770005f6a03ebc763ae9f4a6d575aa909f237b6e124e07c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-454182c.llvm.txt": "035748ede846d785cb17aa680bbc05e4996b5f031cf2db567151e3913ae23f8c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-4541f78.asm": "4f81c5683ad418642a8c534ab58c4aad08db988732e662d8c087ed0f132e8a2b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-4541f78.llvm.txt": "40472e6c05e8c5936feec3209ae903d1613a4b84af46013f33883e4d27c8723f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-6676adc.asm": "c4546d0bf682d91a65e479c75f3012b384027857683c9142b1f1275fc2dee3d1",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/function-6676adc.llvm.txt": "a56b4b356ea8f4a8ec85b84ba9ccf829168b3e49991bdb581ee2f62b17166f56",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/service-acquisition-20261018-v2/unwind-lsda.json": "c881344c374b228e953a0f85b05657a4810a7b9d6df4012eb970fb7cbbb9c381",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass220/ghidra.log": "af8e6f070bd38692101a5ea9619a1e0fa3330b053e4fcfd318c34cb4976a4b78",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass220/headless-output.log": "33d79850013774c90d777c0fd9bdc23876378314cbe01c32848796024faa2747",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass220/native-fn-292ef9c.asm": "4875be249c5d7cb46b841282266a6b66bcb340950054520a7d1725f7e8562ad4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass220/native-fn-292ef9c.c": "9bc6943dc74d3afd30d3016ea9531cc3d3fd6862224603320762dfaad37c8df4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass220/run.json": "6b6a6ba3976d3e86618c7ac1d19ba9ec669578aaee98feb7f3c0bd73ef3e7d58",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass220/script.log": "083ae03aa19328dacde0a06a70b5f11127ea7316b6247cec7cd26006b1467dd8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass221/ghidra.log": "89756fc8621e1939e2cd5fef90a9b230e6290aaac62f66896abc0be726e75274",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass221/headless-output.log": "1286ae1bc2fc3fa02173a197de7aeff1f6d54b6be56da2e39de2b63fed42d5dc",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass221/native-fn-292d868.asm": "03768a5fd183295d1f4dba96963c15c7917c6a7db711721f4cc12a79bea35228",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass221/native-fn-292d868.c": "9f9fc55253dec3eab68dad369eb16ae3464cf94d30f3ce5c0bb520a4cd18bf83",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass221/run.json": "37094e6b78e7cfabc8b4a3a1ea84c3e4e2773869b83d5df89326bbf8f6fe4f63",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass221/script.log": "1993f5f513943ba05bc7bb1654d3a5ff540a756723d8c61d0500423638ad3bce",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass490/ghidra.log": "2f0ec51578a8111200d00f1df89e8877f5d1489cfd6d1b02e736069e3a58d334",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass490/headless-output.log": "cd08f0831bf748da99e9cf4208f67d37af678fb3b65160a499b4a5d712ce936c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass490/native-fn-268f370.asm": "5ff357df5e792338c0148aa0301a1ccd698f7bb94ba09fbbf38b32937a1c05f4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass490/native-fn-268f370.c": "b4d981f92602712b4fc2e30472a3a91cd5471d5cf9f34de5c7b9ec869ada2be6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass490/run.json": "295c27b90fd856091b449c44bc7581957bcfa857e84aa5b90ec84499a95beb0d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass490/script.log": "d08f3ca03d1ad6f6ef55757b992301f562e9dcab3b22db0b725fe249cafcc207",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/ghidra.log": "b85f9341f4c7ae04539dad3a88551b4798dd76b929ca4070ec5db6447243b650",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/headless-output.log": "c4f972a2725ae6defc646b738a64e759bca6e0421ac356c3f869a5b36080cace",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-21b3684.asm": "cb9ebf684a624bcf8fde711a7c5383a071d5ca3fde1095c91e6e662a311b1459",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-21b3684.c": "b96f4d7d038ef63d29d22c8f9b178b4d92cac59fb79cac479fb7475c0eba0793",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-4540bd8.asm": "f8c548bbc9dbab14cc3a20432ad1a5f343e1a7b299ee8624e9287c964013a2ec",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-4540bd8.c": "ea951552eade5f1250cfbd3dda18e6a37e7f1b5810777a1a413d62f6f7e5eb17",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-454182c.asm": "3fa04ab8a4d86d92afbaa30a71bf0387d53d58931f74e56dc4b90d126897c61f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-454182c.c": "f8af7bb46cd0bf92669b4f000d431d4ae4ae059b18b8db724cb40947aed7330f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-6676adc.asm": "9792904066c2c315817e710c2ac35900db8860d2c95958f44b236ca2edcdff80",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-6676adc.c": "fc7116056827568e888987ecbed278de4e42b86099684704880ea19dc884d797",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-6676b84.asm": "2ae4bc49f85dd2f145099ccd0466c797c372999596fcdce04635dbd812d70201",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/native-fn-6676b84.c": "138651dfceed0319c5597b0d45c7c6675128a3e4a2029b44bb1253b482163abf",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/run.json": "5cf461d8ec5b3a34bf1aac2f00e4fa58aa70866ee17bea6d4fe7280e250115dd",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass491/script.log": "b06343d390b65525a7207dfe349d049561b15bdc739d1e480572dc21dd2f1695",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass492/ghidra.log": "ff368ad0e84828df49220108f7d86259b375564fc4f093e4e65ac11591cc7795",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass492/headless-output.log": "f62c37a553220f799e53ca1afc715cdd6dde001bef83b06f788c962a37e7a8ce",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass492/native-fn-26c4024.asm": "079c59a2a6b5f3ff712b97b3ca011bc70a1f00a1a4feaec149ac7af294ed9ebe",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass492/native-fn-26c4024.c": "e7fd30f6521ecf866606f2b2aad34e424273ddbf09363aec126b1d0a0a7cee75",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass492/native-fn-26c4070.asm": "97764a1e77a758e4dec7708342f90f7a1ef537a33e4d05aefe3a8485d8d92601",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass492/native-fn-26c4070.c": "9c0a66fbf8f0cedb1f352ab0e4c07268a7de4764424c9d01172bc5a6c90c5984",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass492/run.json": "62c38b69c435eed64ad2523e2a545d86011b68ab9e4eab98c238c388ebe4bfa1",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass492/script.log": "ef2ff219162864d84904c7df8bcc969dadea678d8af04296e78d711557eb977e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass493/ghidra.log": "341ad1a99ddaed187dc4abfdcf3491eb097b501f6c20d1e86cf5f56c3f86b117",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass493/headless-output.log": "2033f29d2c1d4b20373c1e9a71040352798f25fe66f9660cba6518a28450e392",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass493/native-fn-4541f78.asm": "6b7fcfe6e467f8540e477cd9e59e9793e2d831f612acdf7021a7963ba47fd64b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass493/native-fn-4541f78.c": "6a96cbdaf21fa24a3aaf51ecc85b206bdecb20da7681641cc472edc702f940c8",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass493/run.json": "a8e518a4997e73c3ba0b381592b6ce985080fab79ac9142c145f22a77e667d24",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass493/script.log": "4bef64678666d376a7d6e5839fbc8a5c1d06e63aabb97417625ca41b92dc405f",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass494/ghidra.log": "62834222fabdf1e6b8bf3a75bb08c79c5d419e81a89307da8c737419e0e48121",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass494/headless-output.log": "5f58bdd4fb24adeddf6ebe4b5a4cd6e1e31d68eba0c253145f8e794d06f290d9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass494/native-fn-21b3484.asm": "c7ced2ddfc12de14acee5f458a91b4bddc4a96d3ab4770b109b355eb5fe78aff",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass494/native-fn-21b3484.c": "97339d23e3156758d8edfd2f586a7adc4b8346195d9cd074f5f7e1a300a706da",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass494/run.json": "e1b9e2e280fe845d32025c1d614ef412b85fd0bc05add9c9816bc1c2599dde4d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-contract-pass494/script.log": "a4c05e83ac99c129a39ad7c3907f8fbd1df5780fd9e18842a04ad64e4b26eecf",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-job-field2-20261018/function-291fb70.asm": "97af4d42e1a81beee72aba0650da7efe60e1239ee681611ebb3e179edc011636",
+    "Library/ai/inspect_wechat_unwind_20261017.py": "82cb22932b58299ac22e688d493402ebaffc4877a2b2af2d6d7de5e68db6fb4b",
+    "Library/ai/probe_wechat_lsda_20261017.py": "f07c5d35f27a55f5923118d3ae9dc158ddb4bca940196eb7ad1f86ceb54995be",
+    "Library/ai/verify_wechat_input_type_20261016.py": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+    "Library/ai/verify_wechat_launch_span_20261018.py": "4cf2214a655badc3fa8037dc6f3c7e646e5f4086d0487a6403a323304a55eec9",
+    "Library/ai/verify_wechat_service_acquisition_20261018.py": "8cf1a3fa4a23352e33877ec01d00eadab5f957db0b3bb169c5f22ab8a04d5766"
+  }
+}

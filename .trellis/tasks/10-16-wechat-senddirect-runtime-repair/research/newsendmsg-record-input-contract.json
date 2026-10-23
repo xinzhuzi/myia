@@ -1,0 +1,48 @@
+{
+  "evidence_kind": "offline_static_only",
+  "wechat_version": "4.1.15",
+  "build": "270135",
+  "arm64_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "record_construction": {
+    "context_constructor": "0x30ef9e0",
+    "context_vtable": "0x9de9528",
+    "record_factory": "0x30efce4",
+    "record_constructor": "0xac6038",
+    "record_vtable": "0x9eb04f0",
+    "record_bytes": 632,
+    "allocation_with_shared_control_bytes": 656,
+    "record_offset_in_allocation": "0x18",
+    "shared_result_abi": "hidden x8",
+    "context_record_pointer_offset": "0x18",
+    "context_record_control_offset": "0x20",
+    "producer": "0x30bda14",
+    "producer_record_access": "x1 points to context handle; dereference then load shared record at +0x18/+0x20",
+    "constructor_to_producer_dispatch_chain_fully_verified": false
+  },
+  "local_type_storage": {
+    "persistent_field_name": "local_type",
+    "persistent_offset": "0x108",
+    "persistent_bits": 64,
+    "low_component_offset": "0xc",
+    "high_component_offset": "0x10",
+    "component_bits": 32,
+    "low_setter": "0x4cbbd20",
+    "high_setter": "0x4cbcfd4",
+    "persistent_value": "(uint64(high_component) << 32) | uint32(low_component)",
+    "wire_field_3_component": "low_component only",
+    "input_object_offset_in_context": "0x8",
+    "input_low_value_vslot": "0x10",
+    "input_high_value_vslot": "0x18",
+    "high_component_business_name_verified": false,
+    "ordinary_text_low_value_verified": false,
+    "isolated_low_value_1_constructor": "0x3107930; insufficient to identify the ordinary-text route"
+  },
+  "verification": "newsendmsg-record-input-verification.json",
+  "runtime_observed": false,
+  "callable_for_send": false,
+  "limitations": [
+    "Construction and producer access have matching record storage; complete dispatch association is still missing.",
+    "No recipient-direction, ordinary-text-type, runtime thread or delivery proof.",
+    "Account-safety stop remains in force; no target execution or debugger operation."
+  ]
+}

@@ -1,0 +1,4 @@
+0x4a2964c	080c40b9	ldr w8,[x0, #0xc]
+0x4a29650	1f8d0071	cmp w8,#0x23
+0x4a29654	e0179f1a	cset w0,eq
+0x4a29658	c0035fd6	ret

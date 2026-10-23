@@ -1,0 +1,9 @@
+{
+  "args": [
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/body-gate-thread-20261021/green-v3/fixture-1",
+    "--owner-alive"
+  ],
+  "run_rc": 0,
+  "stdout": "{\"scenarios\":11,\"foreign_threads\":32,\"thread_id_reused\":false,\"host_erased_abi\":true,\"target_executed\":false,\"native_send_called\":false,\"sent\":false}\n",
+  "stderr": ""
+}

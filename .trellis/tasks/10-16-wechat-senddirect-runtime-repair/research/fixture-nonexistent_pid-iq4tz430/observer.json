@@ -1,0 +1,11 @@
+{
+  "outcome": "nonexistent_pid_rejected",
+  "detach_ack": true,
+  "attach_calls": 1,
+  "launch_calls": 0,
+  "detached": false,
+  "hit": false,
+  "invalid_pid_error": "success",
+  "detach_error": "error: Sending isconnect packet failed.",
+  "finished_monotonic": 113720.143928
+}

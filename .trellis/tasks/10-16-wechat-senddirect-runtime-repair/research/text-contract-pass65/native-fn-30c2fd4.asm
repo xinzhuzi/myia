@@ -1,0 +1,2 @@
+0x30c2fd4	00e00191	add x0,x0,#0x78
+0x30c2fd8	c0035fd6	ret

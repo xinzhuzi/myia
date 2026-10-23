@@ -1,0 +1,30 @@
+{
+  "mode": "fixture",
+  "case": "cancel",
+  "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-cancel-nw210rmt",
+  "deadline_seconds": 6.0,
+  "cancelled": true,
+  "watchdog_triggered": false,
+  "lldb_exit": -9,
+  "server_exit": 0,
+  "before": {
+    "pid": 35548,
+    "flags": 18436,
+    "state": 4,
+    "start_sec": 1792130437,
+    "start_usec": 187334,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cleanup_fixture"
+  },
+  "after": {
+    "pid": 35548,
+    "flags": 16388,
+    "state": 2,
+    "start_sec": 1792130437,
+    "start_usec": 187334,
+    "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cleanup_fixture"
+  },
+  "elapsed_seconds": 0.92,
+  "target_recovered": true,
+  "helpers_remaining": 0,
+  "cleanup_ok": true
+}

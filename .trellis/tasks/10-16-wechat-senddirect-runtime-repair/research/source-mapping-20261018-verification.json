@@ -1,0 +1,261 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass229/native-fn-32961a4.asm",
+      "instructions": 503,
+      "sha256": "c21db6d5e3a08789df4276c2e58376bbcb0bbee1ba5dc141489ff9666de25e84",
+      "pseudocode_sha256": "2b4ecb18c1b18d192abc995bc54c119bf5e2508b7bcca1186bf3fc6a5ebb2add"
+    },
+    {
+      "file": "text-contract-pass230/native-fn-4cbf820.asm",
+      "instructions": 21,
+      "sha256": "84431086bdc7b9087e31aeb40cc3a4df08141c46a3917dcce0cb6916aca4a47d",
+      "pseudocode_sha256": "fa11aa0ab74695b8d2caa750386385ef257cd7c520fcd7d57daf75245732540d"
+    },
+    {
+      "file": "text-contract-pass230/native-fn-4cbfb58.asm",
+      "instructions": 25,
+      "sha256": "45f0249854f3ced8b813f0a0c04c3a573ded58176bba6b35fc82507f430d46e8",
+      "pseudocode_sha256": "c2b27b55ca6075a3882154dcbe0699a8bbc6c3b7ccc5b188923a4bdfa49ac833"
+    },
+    {
+      "file": "text-contract-pass231/native-fn-4cbf994.asm",
+      "instructions": 61,
+      "sha256": "5339852f4a824052789a5e44e2c4f1eaa1e43d267276b2b05d8ec9049bacdbb9",
+      "pseudocode_sha256": "3f188cfd4da2025a2ee4e095f40d4f33f94a517d99812933af812482b111aa9d"
+    },
+    {
+      "file": "text-contract-pass287/native-fn-4d1dd74.asm",
+      "instructions": 893,
+      "sha256": "4eca5366f715b023369cf878004ce8e9496ee82384897a4a8c14fe0318781212",
+      "pseudocode_sha256": "e32d2b1407dae757b86b15fb2bc9875da98683f88091be784b5bc261cbdf7bdb"
+    },
+    {
+      "file": "text-contract-pass288/native-fn-571d610.asm",
+      "instructions": 76,
+      "sha256": "270b99e3836a81f5c6c5023bba34d7449fd4a764e0e1f26a486c40f1ae468cf3",
+      "pseudocode_sha256": "0a8037c8ef14cc6eaa79ed6d8b360fa8fd81bb0d2cfb30ea535438b653221cd8"
+    },
+    {
+      "file": "text-contract-pass288/native-fn-8a8b8.asm",
+      "instructions": 2,
+      "sha256": "ab18ff8e70e93f0ef537ce754bb9d45fa5b87be012c32d9b3fabe6d8f886a80f",
+      "pseudocode_sha256": "70894f173337d12a761626f21f5dfb8bb0afd293a6351bada8cbe226db62f609"
+    },
+    {
+      "file": "text-contract-pass288/native-fn-4af2fcc.asm",
+      "instructions": 4,
+      "sha256": "59c6a58c6cb0807bd4c7bf21a821a07e60ec3b4c2f3d4c8d75192c1d62cf3657",
+      "pseudocode_sha256": "087ed78a9d853bfe956104d6948eda167535a935b5a5fadad6114344bb0b6ffe"
+    },
+    {
+      "file": "text-contract-pass288/native-fn-5720378.asm",
+      "instructions": 20,
+      "sha256": "1abaa34126add02e6123bf7b1449027317f99969e25524ceef2f8532755c58c0",
+      "pseudocode_sha256": "64a14e73a95db459628e71bc08a25404ccc76c680b7f28102959de393a3ffff0"
+    },
+    {
+      "file": "text-contract-pass288/native-fn-571fc9c.asm",
+      "instructions": 61,
+      "sha256": "bd7279d2afa07a4188e46d518cc3aa131dda89943184e1e9060973631e9b4cb3",
+      "pseudocode_sha256": "5f7abc5b17f8d956d0184a19d09cad41a4a59217615ab812cb53a44f021d50a2"
+    },
+    {
+      "file": "text-contract-pass289/native-fn-572111c.asm",
+      "instructions": 20,
+      "sha256": "d492a4895462bf5dc9181e79234d6971684bb556d34820ed2fee0eb80d297927",
+      "pseudocode_sha256": "192a90fbab496fdba5457bc641f75eaac3c41918a73c15b33c55e9fcc22c71ce"
+    },
+    {
+      "file": "text-contract-pass289/native-fn-572116c.asm",
+      "instructions": 40,
+      "sha256": "38f027d69960dd72eb143d2166f8c3a1b39cbe32af5bbf7aa8e4359b14b2b3bb",
+      "pseudocode_sha256": "8294fffddfc90f3ed5842ab0fef1c3ef5da6698df868354548abc504ed6e6b5e"
+    },
+    {
+      "file": "text-contract-pass289/native-fn-57203c8.asm",
+      "instructions": 55,
+      "sha256": "4751df83b9883e670459f64c8a892fa9d24295f9313fddde06bcce4c9851c092",
+      "pseudocode_sha256": "b95e3d40666c3b57cfc694922af5584af66c21dd33cdb0edd9c1dfdcf6b845ab"
+    },
+    {
+      "file": "text-contract-pass289/native-fn-57204a4.asm",
+      "instructions": 50,
+      "sha256": "990ce7d0c67f123fb7a77ec3f72236c6398ad5b3625eef47d76c5b4cbe45dd80",
+      "pseudocode_sha256": "4c08480d9344809fff77d200a1bd568b68d6e876cd61e524a4249a9b56c0a67e"
+    },
+    {
+      "file": "text-contract-pass203/native-fn-3107b0c.asm",
+      "instructions": 1805,
+      "sha256": "9f1ff4c6e84862d3ecb73ea0c0122db16c6f88130274dd40b63230645761140d",
+      "pseudocode_sha256": "b4f1218b42e193c33d50664b0fbf895e25ab88091e622c5d0a377c71d077b431"
+    }
+  ],
+  "instructions_matched": 3636,
+  "instruction_positions_checked": 68,
+  "independently_decoded_branches": [
+    {
+      "address": "0x3296274",
+      "target": "0x4cbf820",
+      "kind": "BL"
+    },
+    {
+      "address": "0x329627c",
+      "target": "0x4cbfb58",
+      "kind": "BL"
+    },
+    {
+      "address": "0x4cbf86c",
+      "target": "0x4cbf994",
+      "kind": "B"
+    },
+    {
+      "address": "0x4cbfa50",
+      "target": "0x4d1dd74",
+      "kind": "BL"
+    },
+    {
+      "address": "0x4cbfa5c",
+      "target": "0x713f8e0",
+      "kind": "BL"
+    },
+    {
+      "address": "0x4d1ddcc",
+      "target": "0x572111c",
+      "kind": "BL"
+    },
+    {
+      "address": "0x4d1de14",
+      "target": "0x571d610",
+      "kind": "BL"
+    },
+    {
+      "address": "0x4d1eab4",
+      "target": "0x571fc9c",
+      "kind": "BL"
+    },
+    {
+      "address": "0x4d1eacc",
+      "target": "0x5f96e3c",
+      "kind": "BL"
+    },
+    {
+      "address": "0x4d1eb28",
+      "target": "0x572116c",
+      "kind": "BL"
+    },
+    {
+      "address": "0x31086f8",
+      "target": "0x713f8e0",
+      "kind": "BL"
+    },
+    {
+      "address": "0x4cbfb6c",
+      "target": "0x4eafe18",
+      "kind": "BL"
+    },
+    {
+      "address": "0x4cbfbb8",
+      "target": "0x5ab3f98",
+      "kind": "B"
+    }
+  ],
+  "literals": [
+    {
+      "tag": "msgsource",
+      "raw_hex": "6d7367736f75726365"
+    },
+    {
+      "tag": "atuserlist",
+      "raw_hex": "6174757365726c697374"
+    },
+    {
+      "tag": "img_file_name",
+      "raw_hex": "696d675f66696c655f6e616d65"
+    },
+    {
+      "tag": "alnode",
+      "raw_hex": "616c6e6f6465"
+    },
+    {
+      "tag": "sec_msg_node",
+      "raw_hex": "7365635f6d73675f6e6f6465"
+    },
+    {
+      "tag": "share_msg",
+      "raw_hex": "73686172655f6d7367"
+    },
+    {
+      "tag": "passthrough",
+      "raw_hex": "706173737468726f75676800"
+    },
+    {
+      "tag": "tmp_node",
+      "raw_hex": "746d705f6e6f6465"
+    },
+    {
+      "tag": "enterprise_info",
+      "raw_hex": "656e74657270726973655f696e666f00"
+    },
+    {
+      "tag": "strid",
+      "raw_hex": "7374726964"
+    },
+    {
+      "tag": "shareCardMessageStatus",
+      "raw_hex": "7368617265436172644d65737361676553746174757300"
+    },
+    {
+      "tag": "teenagerModeApplyAgree",
+      "raw_hex": "7465656e616765724d6f64654170706c79416772656500"
+    },
+    {
+      "tag": "teenagerModeHasBindGuardianRelationship",
+      "raw_hex": "7465656e616765724d6f646548617342696e64477561726469616e52656c6174696f6e7368697000"
+    },
+    {
+      "tag": "scene",
+      "raw_hex": "7363656e65"
+    },
+    {
+      "tag": "bizflag",
+      "raw_hex": "62697a666c616700"
+    },
+    {
+      "tag": "msg_cluster_type",
+      "raw_hex": "6d73675f636c75737465725f74797065"
+    },
+    {
+      "tag": "kefumenuid",
+      "raw_hex": "6b6566756d656e756964"
+    },
+    {
+      "tag": "greeting_flag",
+      "raw_hex": "6772656574696e675f666c6167"
+    },
+    {
+      "tag": "msg_wording",
+      "raw_hex": "6d73675f776f7264696e6700"
+    }
+  ],
+  "contract_sha256": "5cabbd7bcae704ae0f20574099faabc2d12041e084b9631d0bbb2f8d1a6c3608",
+  "verifier_sha256": "8f4c1d644cc83ebc4f13d3a68f613a0537776658ef28fd224dcbf6911809539c",
+  "reader_sha256": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+  "prior_sha256": {
+    "account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    "newsendmsg-record-database-contract.json": "c84f989aa14884e480902b2b528e1615c46da583c2e15c999bac557b2bd1c2c1",
+    "newsendmsg-4115-static-contract.json": "4c77ba9091cfb665fba02df8ab9b1191f326586ac6f5d22318f9266f4ff5e6d9"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limits": [
+    "Nested auxiliary serializers and exact XML rendering/escaping not fully verified.",
+    "Existing auxiliary implementations and complete record mutation/lookup and builder parameter origin remain open.",
+    "Real execution context, cancellation/final drain, complete native adapter and independent receipt remain open.",
+    "Account safety stop remains; no live target operations or deployment."
+  ]
+}

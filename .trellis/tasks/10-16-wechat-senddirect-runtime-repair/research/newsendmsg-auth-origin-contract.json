@@ -1,0 +1,74 @@
+{
+  "scope": "frozen 4.1.15 auth response numbered string origin and selected caller overwrite",
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "parent": {
+    "type_name": "micromsg.UnifyAuthResponse",
+    "vtable": "0x9edc360",
+    "default_pointer_slot": "0xa520ca0",
+    "name_getter": "0x50e1ab4",
+    "parser": "0x50e0fb0",
+    "section_flags": {"field": 2, "wire_type": 0, "offset": "0x30"},
+    "account_section": {"field": 4, "wire_type": 2, "offset": "0x18", "presence_offset": "0x38", "presence_mask": 8}
+  },
+  "child": {
+    "type_name": "micromsg.AcctSectResp",
+    "vtable": "0x9edc1f8",
+    "allocation_size": "0x90",
+    "name_getter": "0x50deef0",
+    "parser": "0x50ddaf4",
+    "selected_string": {"field": 1, "wire_type": 2, "offset": "0x8", "presence_offset": "0x8c", "presence_mask": 1},
+    "string_default_sentinel": "0xa524ad0",
+    "business_field_name_verified": false
+  },
+  "common_consumer": {
+    "function": "0x2fd7104",
+    "input_bundle_register": "x1",
+    "response_pointer_offset": "0x20",
+    "hidden_result_register": "x8",
+    "result_shared_pair_offset": "0x20",
+    "payload_offset_in_allocation": "0x18",
+    "success_entry_condition": "first two bundle uint32 values both zero",
+    "selected_gate": "response+0x30 bit1 set",
+    "destination_string_offset": "0x70",
+    "copy_instruction": "0x2fd7cf8",
+    "absent_section": "falls back to default response account-section pointer; does not prove a supplied field4",
+    "intermediate_origin": "UnifyAuthResponse.field4 -> AcctSectResp.field1",
+    "unconditional_final_account_origin_verified": false
+  },
+  "selected_caller": {
+    "function": "0x2fea968",
+    "capture_register": "x0",
+    "selector_offset": "0x48",
+    "selector_1": {
+      "branch_instruction": "0x2feaaa8",
+      "consumer_call": "0x2fead28",
+      "shared_result_copy": "0x2fead40 -> 0x2fead58",
+      "overwrite_source": "capture+0x50 std::string",
+      "overwrite_destination": "shared result payload+0x70",
+      "overwrite_instruction": "0x2feade0",
+      "response_field4_field1_preserved": false
+    },
+    "selector_0": "calls 0x2fd02c8 instead; not covered by selector1 overwrite proof",
+    "selected_success_gate": "result payload+0x4 == 1",
+    "selected_installation_input": "result payload+0x70 -> stack first string -> 0x466dfb8",
+    "capture_constructor_function": "0x2fc361c",
+    "capture_vtable": "0x9de0b00",
+    "capture_invoke_slot": "0x9de0b30",
+    "capture_structure_copy": "0x2fec014 copies uint32 at +0 and std::string at +8, including long-string copy branch",
+    "capture_structure_production": "selected x21 object at 0x2fc43b8 -> stack+0x40 -> stack+0x2b8 -> stack+0x1e0 -> functor+0x48; first string therefore at functor+0x50",
+    "capture_immediate_producer_verified": true,
+    "capture_source_object_identity_verified": false
+  },
+  "previous_contract": "newsendmsg-account-source-contract.json",
+  "remaining": [
+    "identity of the source object copied at 0x2fc43b8 and its string business meaning; selector0 route and all other overwrites",
+    "final sender/recipient direction and complete record mutation/schema mapping",
+    "actual executor/thread context, cancellation final cleanup and complete native adapter",
+    "real sending, independent receipt and deployment"
+  ],
+  "runtime_observed": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "deployed": false,
+  "account_safety_stop": true
+}

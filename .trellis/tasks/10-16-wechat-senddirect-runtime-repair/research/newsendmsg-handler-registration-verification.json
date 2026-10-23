@@ -1,0 +1,84 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass140/native-fn-30e3fb0.asm",
+      "instructions": 2971,
+      "sha256": "ea89220b9c67b6263b615c7fe3cdd71a6191f70181ac1a332fc2bec7c12a8fe2"
+    },
+    {
+      "file": "text-contract-pass189/native-fn-319a6a8.asm",
+      "instructions": 499,
+      "sha256": "02fd03b35393996609bc4d385d1ad4bf77ea704b201a2e83c4ebf6c0b337bc86"
+    },
+    {
+      "file": "text-contract-pass202/native-fn-30e7be8.asm",
+      "instructions": 244,
+      "sha256": "7125a156c469fbd9c8321ef9fa8b37d3db9a424e94ff9b0616a0c8dd41aa3860"
+    },
+    {
+      "file": "text-contract-pass206/native-fn-30e7fd4.asm",
+      "instructions": 229,
+      "sha256": "756ff0480148a4777bce7e2f1b1cdfe0422296a1bc3cf790c123c801a1e0a4fc"
+    },
+    {
+      "file": "text-contract-pass206/native-fn-3217130.asm",
+      "instructions": 99,
+      "sha256": "33239ebdcd4281b63288e964a7dd6a153ffcadbaf9d05007c76f2e93b469a42f"
+    },
+    {
+      "file": "text-contract-pass208/native-fn-317ba5c.asm",
+      "instructions": 546,
+      "sha256": "688f98219a23c64420bd1fca09a989d21ab0035e4e173d2bc8b4cb0d5afc6c32"
+    },
+    {
+      "file": "text-contract-pass209/native-fn-30e8380.asm",
+      "instructions": 45,
+      "sha256": "ffe76fc00ced66365cee84cbc59f26e430fb27ca369ec75928cf097d37160517"
+    },
+    {
+      "file": "text-contract-pass209/native-fn-317d1cc.asm",
+      "instructions": 147,
+      "sha256": "e675bc202bf8e2913c3992fa4b660eb158851da77895ce2179bfadc9cf83a51e"
+    },
+    {
+      "file": "text-contract-pass209/native-fn-317d4ac.asm",
+      "instructions": 2,
+      "sha256": "9fbe2252bfe6945dba6903174dd16fc52415ce0e39092aa1b20c6e4c4ce8bd96"
+    },
+    {
+      "file": "text-contract-pass209/native-fn-3213a30.asm",
+      "instructions": 7,
+      "sha256": "eb1be787a2a3e3aa6ca4a957a97ad61c5d63de8a567602fa1185d3af01198d58"
+    },
+    {
+      "file": "text-contract-pass209/native-fn-3213a74.asm",
+      "instructions": 8,
+      "sha256": "d98fede2c490a97ebe8aeb17d30d9ec09ef0edbce375d8a8b684d2aa804bb3d0"
+    },
+    {
+      "file": "text-contract-pass210/native-fn-30e3df8.asm",
+      "instructions": 81,
+      "sha256": "10bfcef95c039593a45ecd77c37e19900785d470d765288f393e7a4a0e575366"
+    },
+    {
+      "file": "text-contract-pass210/native-fn-319eef8.asm",
+      "instructions": 297,
+      "sha256": "d4de67ac662a5b1e816c79e07bea8b78b2a7903f24b4a5d03efebe6e9aae18a0"
+    },
+    {
+      "file": "text-contract-pass210/native-fn-da468c.asm",
+      "instructions": 99,
+      "sha256": "beea158f0622d24472f4bedf3020f38e54fd0ed6edf2d720a82d8b41706d36ec"
+    }
+  ],
+  "instructions_matched": 5274,
+  "instruction_positions_checked": 67,
+  "contract_sha256": "6911f2a4b1956576d0734a5c4f1c7f51687f7ccf772af235cc83ff39a4ef198f",
+  "stop_record_sha256": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "Static storage identity, selected register dataflow and subscriber targets only; matching all export bytes does not establish all function semantics or runtime dispatch, thread/drain correctness or delivery."
+}

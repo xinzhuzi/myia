@@ -1,0 +1,63 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_kind": "frozen_binary_and_owned_fixture",
+  "current_executor_getter": {
+    "entry": "0x6662530",
+    "size": 36,
+    "arguments": [],
+    "return": "x0 raw executor pointer or null",
+    "tlv_descriptor": "0xa24de50",
+    "section": "__DATA.__thread_vars",
+    "section_type": 19,
+    "bootstrap_import": "__tlv_bootstrap"
+  },
+  "setter_evidence_only": {
+    "entry": "0x6662554",
+    "size": 40,
+    "input": "x0 raw executor pointer",
+    "tlv_descriptor": "0xa24de50",
+    "warning": "Uses the special TLV bootstrap convention; x8 is not generally AAPCS64 callee-saved. Never set TLS to impersonate an executor."
+  },
+  "worker_normal_path": {
+    "entry": "0x6666628",
+    "size": 212,
+    "executor_input": "x0 copied to x19",
+    "pthread_self_call": "0x66666a4",
+    "pthread_self_stub": "0x7141590",
+    "pthread_self_import_slot": "0x9b37e80",
+    "pthread_storage_offset": "0x28",
+    "install_tls_call": "0x66666b0",
+    "looper_offset": "0x10",
+    "loop_virtual_slot": "0x10",
+    "loop_call": "0x66666c8",
+    "clear_tls_call": "0x66666d4",
+    "clear_pthread_storage": "0x66666d8"
+  },
+  "getter_consumer": {
+    "entry": "0x6666ec4",
+    "size": 52,
+    "getter_call": "0x6666ecc",
+    "behavior": "Null check, then dynamic_cast from RTTI 0x9fb1808 to 0x9fb1a78."
+  },
+  "research_component": {
+    "file": "newsendmsg_executor_operation_4115.hpp",
+    "class": "ExecutorResearchOperation",
+    "construct": "Reject missing getter/expected pointer, then reject null or mismatched current executor before NativeBody/factory.",
+    "control": "Check current executor on every cancel/expire, then retain ResearchOperation factory-thread lifecycle token check before state mutation/request cancel.",
+    "observation": "snapshot and task_id do not query TLS; callbacks can arrive on other threads.",
+    "destruction": "No implicit TLS query or native cancellation.",
+    "supplied_by_caller": "Proven expected executor raw base, service/options/module lifetime, function pointers and complete scheduler/cleanup contract."
+  },
+  "limitations": [
+    "Checks are entry guards, not an atomic lifetime or shutdown lease.",
+    "Pointer equality and a factory-thread token do not prove coroutine identity, core state, runtime readiness or that the expected pointer is live.",
+    "The worker proof covers the selected normal path, not exceptions or every shutdown path.",
+    "Group cancellation can still act outside these request-control guards; state-zero reachability and final argument cleanup remain unresolved.",
+    "No TLS setter, scheduler, loader, native address resolver, retry, attachment or product integration is provided.",
+    "Owned callback/response success never establishes independent delivery."
+  ],
+  "runtime_observed": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "account_safety_stop_unchanged": true
+}

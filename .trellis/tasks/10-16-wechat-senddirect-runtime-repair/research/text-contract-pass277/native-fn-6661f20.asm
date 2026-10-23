@@ -1,0 +1,9 @@
+0x6661f20	fd7bbfa9	stp x29,x30,[sp, #-0x10]!
+0x6661f24	fd030091	mov x29,sp
+0x6661f28	08a441a9	ldp x8,x9,[x0, #0x18]
+0x6661f2c	01a00091	add x1,x0,#0x28
+0x6661f30	e00308aa	mov x0,x8
+0x6661f34	20013fd6	blr x9
+0x6661f38	40008052	mov w0,#0x2
+0x6661f3c	fd7bc1a8	ldp x29,x30,[sp], #0x10
+0x6661f40	c0035fd6	ret

@@ -1,0 +1,1 @@
+{"mode": "fixture", "case": "prelaunch_error", "pid": null, "executable": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/cleanup_fixture", "library": "/Applications/WeChat.app/Contents/Resources/wechat.dylib", "observe_until": 82135.340104, "url": "connect://127.0.0.1:61360"}

@@ -1,0 +1,8 @@
+{
+  "args": [
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-input-owner-20261018/fixture"
+  ],
+  "returncode": 0,
+  "stdout": "{\"cases\":21,\"hidden_x8\":true,\"byte_preservation\":true,\"ownership_checked\":true,\"exception_cleanup\":true,\"guard_regions_intact\":true}\n",
+  "stderr": ""
+}

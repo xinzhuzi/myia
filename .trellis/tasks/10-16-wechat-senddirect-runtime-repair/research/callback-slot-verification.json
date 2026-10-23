@@ -1,0 +1,11 @@
+{
+  "slot": "0x9e91b40",
+  "raw": "0x1000000465756c",
+  "pointer_format": 6,
+  "chain_membership_verified": true,
+  "chain_steps": 815,
+  "decoded_target": "0x465756c",
+  "target_bytes": "00008052c0035fd6",
+  "sdk_contract": "/Library/Developer/CommandLineTools/SDKs/MacOSX26.4.sdk/usr/include/mach-o/fixup-chains.h:162",
+  "scope": "Static default registration only; no live callback object was observed."
+}

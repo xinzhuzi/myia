@@ -1,0 +1,196 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "full_unwind_dumps": [
+    {
+      "file": "exception-boundary-20261017-v1/full-unwind-667f534.asm",
+      "instructions": 314,
+      "sha256": "f09bd036a954b26c8448ecea142712e33a42f9eef755f562d2d37ce24c137804"
+    },
+    {
+      "file": "exception-boundary-20261017-v1/full-unwind-667fc38.asm",
+      "instructions": 51,
+      "sha256": "cad947127d5f48a4e2c56f5a158c2cf1bddd01592ce2c9e71f6a6f603af73485"
+    },
+    {
+      "file": "exception-boundary-20261017-v1/full-unwind-6678aa0.asm",
+      "instructions": 378,
+      "sha256": "5614fec9e39ad91b5562d5cbefcaa739f673db7ed24474d7b1f20abc7b1557f5"
+    },
+    {
+      "file": "exception-boundary-20261017-v1/full-unwind-66741ac.asm",
+      "instructions": 693,
+      "sha256": "1eac026c922933bfb0f8c75a32f9f0db14d68d633d0cd7f71a059a10957aa17f"
+    },
+    {
+      "file": "exception-boundary-20261017-v1/full-unwind-66798bc.asm",
+      "instructions": 213,
+      "sha256": "4db8892421d47ad06adeaaccb616462b5f5bf36af8bceeb545735f3556fe239e"
+    }
+  ],
+  "instructions_matched": 1649,
+  "instruction_positions_checked": 21,
+  "call_sites_checked": [
+    {
+      "function": "0x667f534",
+      "site": "0x667f584",
+      "landing_pad": "0x667f61c",
+      "action": 7
+    },
+    {
+      "function": "0x667fc38",
+      "site": "0x667fc94",
+      "landing_pad": "0x667fce4",
+      "action": 0
+    },
+    {
+      "function": "0x667fc38",
+      "site": "0x667fcb4",
+      "landing_pad": null,
+      "action": 0
+    },
+    {
+      "function": "0x667fc38",
+      "site": "0x667fcd0",
+      "landing_pad": null,
+      "action": 0
+    },
+    {
+      "function": "0x6678aa0",
+      "site": "0x6678cd4",
+      "landing_pad": null,
+      "action": 0
+    },
+    {
+      "function": "0x6678aa0",
+      "site": "0x6678d68",
+      "landing_pad": "0x6679074",
+      "action": 0
+    },
+    {
+      "function": "0x66741ac",
+      "site": "0x6674bfc",
+      "landing_pad": "0x6674c40",
+      "action": 0
+    },
+    {
+      "function": "0x66798bc",
+      "site": "0x6679950",
+      "landing_pad": null,
+      "action": 0
+    }
+  ],
+  "types": [
+    {
+      "filter": 1,
+      "type_info": "0x9fb24e8",
+      "name": "_257f487b"
+    },
+    {
+      "filter": 2,
+      "type_info": "0x9fb1c88",
+      "name": "_d0dea98e"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9b36a08",
+      "decoded": "0x9fb24e8",
+      "chain_steps": 1346
+    },
+    {
+      "slot": "0x9fb24f0",
+      "decoded": "0x8000000009684d00",
+      "chain_steps": 1088
+    },
+    {
+      "slot": "0x9b36a00",
+      "decoded": "0x9fb1c88",
+      "chain_steps": 1345
+    },
+    {
+      "slot": "0x9fb1c90",
+      "decoded": "0x8000000009683a74",
+      "chain_steps": 842
+    }
+  ],
+  "imports": [
+    {
+      "address": "0x714009c",
+      "symbol": "___cxa_begin_catch"
+    },
+    {
+      "address": "0x71400b4",
+      "symbol": "___cxa_end_catch"
+    },
+    {
+      "address": "0x713f1d8",
+      "symbol": "__Unwind_Resume"
+    },
+    {
+      "address": "0x9b36c48",
+      "symbol": "___gxx_personality_v0"
+    }
+  ],
+  "extra_exports": [
+    {
+      "file": "text-contract-pass260/native-fn-17050.asm",
+      "instructions": 22,
+      "sha256": "b9401a0c5a2fec236fe536081474d0a0996154ecf7b7e3ab24e6f5257b86831c"
+    },
+    {
+      "file": "text-contract-pass260/native-fn-668272c.asm",
+      "instructions": 178,
+      "sha256": "78f4a43e20d332df154f9420aecb75b52de0a615c7e9793cbf0730b15b6268db"
+    }
+  ],
+  "fixture": {
+    "cases": 8,
+    "erased_bool_invoke": true,
+    "std_and_nonstd_caught": true,
+    "first_failure_preserved": true,
+    "clone_lifetime_balanced": true,
+    "concurrent_faults": 32,
+    "cleanup_after_final_fault": true,
+    "native_scheduler_executed": false,
+    "sent": false
+  },
+  "source_sha256": {
+    "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/verify_wechat_exception_boundary_20261017.py": "0e83b6f4b276859d8daf618d87d23e1af5cdc3571ccee1c84ab5d686a8fb19f6",
+    "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/verify_wechat_input_type_20261016.py": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+    "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/probe_wechat_lsda_20261017.py": "f07c5d35f27a55f5923118d3ae9dc158ddb4bca940196eb7ad1f86ceb54995be",
+    "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/inspect_wechat_unwind_20261017.py": "82cb22932b58299ac22e688d493402ebaffc4877a2b2af2d6d7de5e68db6fb4b",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_job_finished_4115.cpp": "f2af568247179ee7ccd13c19aba692efb2ed13b2b8405230b4b5ea29e1991506",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_erasure_fixture_4115.S": "e19be46c110ae42ae0ff36004b382b59e3d28e09e130dff190a8779e592a2075",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_job_finished_4115.hpp": "3c6c5bd708f65db0e2aea1289b41987266a10dc5f18632c2562420cc5023a5a9",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_job_abi_4115.hpp": "646abe66de8b3859d2e158cefead1daece820365c817ed3b11a150cf78d22692",
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX26.4.sdk/usr/include/mach-o/compact_unwind_encoding.h": "0e6fff1fd9d0685a03be3bd1528c7a0ea041667c6fdb96ca085201fadca139af",
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX26.4.sdk/usr/include/mach-o/loader.h": "5862aeb7fbf183453080bc887c0d502fe25a86ff5bd81291bbcc408bd7fe6e74",
+    "/Library/Developer/CommandLineTools/SDKs/MacOSX26.4.sdk/usr/include/c++/v1/typeinfo": "4bff67081b793fbd416c0c6af99d4e3f5555ce43a754f7c334e1b4bf928214dd"
+  },
+  "artifact_sha256": {
+    "full-unwind-66741ac.txt": "2ce3610ab4467a8c97938e638c172a424811435da21358bd876d537eebbf727c",
+    "full-unwind-66741ac.asm": "1eac026c922933bfb0f8c75a32f9f0db14d68d633d0cd7f71a059a10957aa17f",
+    "fixture": "5998e9d3ef4cbbee03a483000ccbb9d706734d3f2b9e7a16a03ce2d599dc7e3d",
+    "verification_source.py": "0e83b6f4b276859d8daf618d87d23e1af5cdc3571ccee1c84ab5d686a8fb19f6",
+    "unwind-lsda.json": "e08aff0e4c923ac438dde2a0ae8c8f0930ac8b672005e87a90a7b383809e33cd",
+    "full-unwind-667f534.asm": "f09bd036a954b26c8448ecea142712e33a42f9eef755f562d2d37ce24c137804",
+    "full-unwind-6678aa0.txt": "3784a70fda7434b3bf1976fa4d18ce0b0b96bbb84bd6bb9bf6787327a49fb7bb",
+    "full-unwind-667f534.txt": "17c5b97cde714ba967040bda62bdee0a6fef7776b64806e44bed2c430892835a",
+    "full-unwind-6678aa0.asm": "5614fec9e39ad91b5562d5cbefcaa739f673db7ed24474d7b1f20abc7b1557f5",
+    "full-unwind-667fc38.asm": "cad947127d5f48a4e2c56f5a158c2cf1bddd01592ce2c9e71f6a6f603af73485",
+    "full-unwind-66798bc.asm": "4db8892421d47ad06adeaaccb616462b5f5bf36af8bceeb545735f3556fe239e",
+    "full-unwind-66798bc.txt": "b1d0d45bfca898b5a02bdbb5d747acd81625a176fb1ed80a293cd2ea40b6fa96",
+    "full-unwind-667fc38.txt": "da0146ed3eeb192b65ce8a66bc5b3d14359c8a6115a5d2d8ce5343023ce60166",
+    "run.json": "a88da71cf291f6a71bd64020dd72f514b7ec7fd3a776a6bb71f99108856fc97c",
+    "build.json": "0b1bc271b0ec5cb7b343182aa92141f1b3ecb74889f6939ceff42058f3283b17",
+    "contract.json": "c5afadcc5660df49523a9fed679763d2fefdc0a63033db2227f1cb6561df5c1a"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "limitations": "Frozen exception metadata and owned host ABI fixture; no actual executor/drain/receipt."
+}

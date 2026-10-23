@@ -1,0 +1,11 @@
+{
+  "passed": true,
+  "cases": 604,
+  "native_leaf_bytes": 208,
+  "native_leaf_sha256": "34d89b1e7b0b106b50a2de584018a7c01f2c0225f1ac3e4732f58fb7c483867b",
+  "port_sha256": "e7a0b720809b88ca9b3c7be4fae0e409a143e46622069a3da3515a17139a6c04",
+  "method": "Exact frozen relocation-free ARM64 leaf linked into a new standalone process; synthetic input only.",
+  "live_wechat_loaded": false,
+  "wechat_attached": false,
+  "sent": false
+}

@@ -1,0 +1,15 @@
+{
+  "standalone_version": "0.9.1",
+  "files_updated": [
+    "wechat_bridge/senddirect.py",
+    "wechat_bridge/cli.py",
+    "wechat_bridge/probe.py",
+    "wechat_bridge/__init__.py",
+    "pyproject.toml",
+    "component.json",
+    "README.md"
+  ],
+  "wheel": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/wheels/wechat_bridge-0.9.1-py3-none-any.whl",
+  "wheel_sha256": "cc0aea78d21834bf81e53c107f7b6d19b5253df02ab5f9947e70154ddcdada65",
+  "research_adapter_packaged": false
+}

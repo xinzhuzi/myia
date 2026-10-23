@@ -1,0 +1,16 @@
+0x66703f8	f44fbea9	stp	x20, x19, [sp, #-0x20]!
+0x66703fc	fd7b01a9	stp	x29, x30, [sp, #0x10]
+0x6670400	fd430091	add	x29, sp, #0x10
+0x6670404	f30301aa	mov	x19, x1
+0x6670408	f40300aa	mov	x20, x0
+0x667040c	00038052	mov	w0, #0x18               ; =24
+0x6670410	083f2b94	bl	0x7140030 <_wxam_enc_uninit_10+0x7140030>
+0x6670414	08ca01d0	adrp	x8, 0x9fb2000 <_wxam_enc_uninit_10+0x9fb2000>
+0x6670418	08410a91	add	x8, x8, #0x290
+0x667041c	085000a9	stp	x8, x20, [x0]
+0x6670420	7f0200f1	cmp	x19, #0x0
+0x6670424	68129fda	csinv	x8, x19, xzr, ne
+0x6670428	080800f9	str	x8, [x0, #0x10]
+0x667042c	fd7b41a9	ldp	x29, x30, [sp, #0x10]
+0x6670430	f44fc2a8	ldp	x20, x19, [sp], #0x20
+0x6670434	c0035fd6	ret

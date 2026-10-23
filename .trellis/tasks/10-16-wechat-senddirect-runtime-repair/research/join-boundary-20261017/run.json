@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\"scenarios\":2,\"result_before_callback\":true,\"entered_is_not_returned\":true,\"callback_return_is_not_capture_release\":true,\"queued_receiver_outlives_job\":true,\"balanced_owned_lifetime\":true,\"native_scheduler_executed\":false,\"sent\":false}\n",
+  "stderr": ""
+}

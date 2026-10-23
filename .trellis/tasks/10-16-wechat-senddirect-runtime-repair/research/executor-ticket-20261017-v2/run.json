@@ -1,0 +1,5 @@
+{
+  "returncode": 0,
+  "stdout": "{\"scenarios\":5,\"host_virtual_slots\":true,\"ticket_bits\":64,\"real_operation_component\":true,\"balanced_lifetime\":true,\"target_executed\":false,\"sent\":false}\n",
+  "stderr": ""
+}

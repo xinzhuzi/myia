@@ -1,0 +1,12 @@
+{
+  "passed": false,
+  "check": "export contiguous address assertion",
+  "observed_gaps": {
+    "text-contract-pass297/native-fn-3aef3f8.asm": {
+      "0x3af0ac8": "07000014",
+      "0x3af0ad4": "04000014"
+    }
+  },
+  "resolution": "verify raw gap bytes and independent branch targets; both point to exported brk0x3af0ae4; report export instructions separately from recovered gaps",
+  "target_executed": false
+}

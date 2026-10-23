@@ -1,0 +1,87 @@
+
+/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+000000000001986c <_WeChatMain>:
+ 454182c: d10183ff     	sub	sp, sp, #0x60
+ 4541830: a9025ff8     	stp	x24, x23, [sp, #0x20]
+ 4541834: a90357f6     	stp	x22, x21, [sp, #0x30]
+ 4541838: a9044ff4     	stp	x20, x19, [sp, #0x40]
+ 454183c: a9057bfd     	stp	x29, x30, [sp, #0x50]
+ 4541840: 910143fd     	add	x29, sp, #0x50
+ 4541844: aa0003f4     	mov	x20, x0
+ 4541848: aa0803f3     	mov	x19, x8
+ 454184c: f9400028     	ldr	x8, [x1]
+ 4541850: f9400908     	ldr	x8, [x8, #0x10]
+ 4541854: aa0103e0     	mov	x0, x1
+ 4541858: d63f0100     	blr	x8
+ 454185c: aa0003f6     	mov	x22, x0
+ 4541860: 94b00066     	bl	0x71419f8 <_wxam_enc_uninit_10+0x71419f8>
+ 4541864: b27defe8     	mov	x8, #0x7ffffffffffffff8 ; =9223372036854775800
+ 4541868: eb08001f     	cmp	x0, x8
+ 454186c: 54000702     	b.hs	0x454194c <_WeChatMain+0x45280e0>
+ 4541870: aa0003f5     	mov	x21, x0
+ 4541874: f1005c1f     	cmp	x0, #0x17
+ 4541878: 540000a2     	b.hs	0x454188c <_WeChatMain+0x4528020>
+ 454187c: 39007ff5     	strb	w21, [sp, #0x1f]
+ 4541880: 910023f7     	add	x23, sp, #0x8
+ 4541884: b5000195     	cbnz	x21, 0x45418b4 <_WeChatMain+0x4528048>
+ 4541888: 1400000f     	b	0x45418c4 <_WeChatMain+0x4528058>
+ 454188c: b2400aa8     	orr	x8, x21, #0x7
+ 4541890: f1005d1f     	cmp	x8, #0x17
+ 4541894: 52800329     	mov	w9, #0x19               ; =25
+ 4541898: 9a880538     	csinc	x24, x9, x8, eq
+ 454189c: aa1803e0     	mov	x0, x24
+ 45418a0: 94aff9e4     	bl	0x7140030 <_wxam_enc_uninit_10+0x7140030>
+ 45418a4: aa0003f7     	mov	x23, x0
+ 45418a8: b2410308     	orr	x8, x24, #0x8000000000000000
+ 45418ac: a90123f5     	stp	x21, x8, [sp, #0x10]
+ 45418b0: f90007e0     	str	x0, [sp, #0x8]
+ 45418b4: aa1703e0     	mov	x0, x23
+ 45418b8: aa1603e1     	mov	x1, x22
+ 45418bc: aa1503e2     	mov	x2, x21
+ 45418c0: 94affd75     	bl	0x7140e94 <_wxam_enc_uninit_10+0x7140e94>
+ 45418c4: 38356aff     	strb	wzr, [x23, x21]
+ 45418c8: 9100a280     	add	x0, x20, #0x28
+ 45418cc: 910023e1     	add	x1, sp, #0x8
+ 45418d0: 9796a325     	bl	0x2aea564 <_WeChatMain+0x2ad0cf8>
+ 45418d4: 39c07fe8     	ldrsb	w8, [sp, #0x1f]
+ 45418d8: 37f80188     	tbnz	w8, #0x1f, 0x4541908 <_WeChatMain+0x452809c>
+ 45418dc: b4000260     	cbz	x0, 0x4541928 <_WeChatMain+0x45280bc>
+ 45418e0: a942a009     	ldp	x9, x8, [x0, #0x28]
+ 45418e4: a9002269     	stp	x9, x8, [x19]
+ 45418e8: b4000088     	cbz	x8, 0x45418f8 <_WeChatMain+0x452808c>
+ 45418ec: 91002108     	add	x8, x8, #0x8
+ 45418f0: 52800029     	mov	w9, #0x1                ; =1
+ 45418f4: f8290108     	ldadd	x9, x8, [x8]
+ 45418f8: f9401c08     	ldr	x8, [x0, #0x38]
+ 45418fc: f9000a68     	str	x8, [x19, #0x10]
+ 4541900: 52800028     	mov	w8, #0x1                ; =1
+ 4541904: 1400000b     	b	0x4541930 <_WeChatMain+0x45280c4>
+ 4541908: f94007e8     	ldr	x8, [sp, #0x8]
+ 454190c: f9400fe9     	ldr	x9, [sp, #0x18]
+ 4541910: 9240f921     	and	x1, x9, #0x7fffffffffffffff
+ 4541914: aa0003f4     	mov	x20, x0
+ 4541918: aa0803e0     	mov	x0, x8
+ 454191c: 94aff9bc     	bl	0x714000c <_wxam_enc_uninit_10+0x714000c>
+ 4541920: aa1403e0     	mov	x0, x20
+ 4541924: b5fffde0     	cbnz	x0, 0x45418e0 <_WeChatMain+0x4528074>
+ 4541928: 52800008     	mov	w8, #0x0                ; =0
+ 454192c: 3900027f     	strb	wzr, [x19]
+ 4541930: 39006268     	strb	w8, [x19, #0x18]
+ 4541934: a9457bfd     	ldp	x29, x30, [sp, #0x50]
+ 4541938: a9444ff4     	ldp	x20, x19, [sp, #0x40]
+ 454193c: a94357f6     	ldp	x22, x21, [sp, #0x30]
+ 4541940: a9425ff8     	ldp	x24, x23, [sp, #0x20]
+ 4541944: 910183ff     	add	sp, sp, #0x60
+ 4541948: d65f03c0     	ret
+ 454194c: 910023e0     	add	x0, sp, #0x8
+ 4541950: 96eb5d13     	bl	0x18d9c <__text+0x1d9c>
+ 4541954: aa0003f3     	mov	x19, x0
+ 4541958: 39c07fe8     	ldrsb	w8, [sp, #0x1f]
+ 454195c: 36f80068     	tbz	w8, #0x1f, 0x4541968 <_WeChatMain+0x45280fc>
+ 4541960: 910023e0     	add	x0, sp, #0x8
+ 4541964: 94ae19c9     	bl	0x70c8088 <_SetWeixinCallbackFunc+0x22e0c8c>
+ 4541968: aa1303e0     	mov	x0, x19
+ 454196c: 94aff61b     	bl	0x713f1d8 <_wxam_enc_uninit_10+0x713f1d8>

@@ -1,0 +1,8 @@
+{
+  "args": [
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-service-abi-20261018/fixture-undefined"
+  ],
+  "returncode": 0,
+  "stdout": "{\"cases\":7,\"hidden_x8\":true,\"arguments_match\":true,\"result_size\":48,\"guard_regions_intact\":true,\"ownership_checked\":true,\"exception_cleanup\":true,\"wechat_loaded\":false,\"sent\":false}\n",
+  "stderr": ""
+}

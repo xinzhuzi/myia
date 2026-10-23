@@ -1,0 +1,21 @@
+{
+  "tests": {
+    "passed": 885,
+    "skipped": 14,
+    "log": "receipt-evidence-final-regression-20261018.log"
+  },
+  "source_sha256": {
+    "plugins/wechat-bridge/wechat_bridge/cli.py": "2c6810b6ffb6b50bc42f52bf7aaede560a8dc170ba81edf1b12f2472964f9e11",
+    "plugins/wechat-bridge/wechat_bridge/localdb.py": "c97f0f723a4f12bdbdf43d0bdac7075b450aeb1d6ccf66de8e810633b81228e2",
+    "plugins/wechat-bridge/wechat_bridge/localdb_query.py": "4ea8ac2d5cc07f2c3507a44b2b2e8f4c0aa1cef49d8303d1e4b92ba4843f6079",
+    "plugins/wechat-bridge/wechat_bridge/senddirect.py": "ff8d3662d355f7fd0366bdc9297a9853f1a0876ebc6ceba1c0a9c514f3875447",
+    "tests/wechat-bridge/test_direct_receipt_evidence.py": "b7bafabfce7020eb07c58d3e191f87f35bc3ecacb2f04479e4c52490389c90a5",
+    "tests/wechat-bridge/test_direct_receipt_exact_text.py": "293f9a05359bac0a65b1aee3b52465e80212755a748a013cccc0b67de8b71097",
+    "tests/wechat-bridge/test_direct_receipt_poll_states.py": "bfaa84c94543de51040a2ef66de8e912fccb2ec937c76a69ca38d1d81c5ab4b0",
+    "tests/wechat-bridge/test_send_direct.py": "23ca47763353cce07d7fdddcec6f8daf681d73ed7993abbab2e770747a5c1462"
+  },
+  "live_operations_performed": false,
+  "adapter_enabled": false,
+  "send_verified": false,
+  "full_goal_complete": false
+}

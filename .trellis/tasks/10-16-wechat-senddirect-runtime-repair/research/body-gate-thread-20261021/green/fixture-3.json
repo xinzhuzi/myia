@@ -1,0 +1,20 @@
+{
+  "source": "test_newsendmsg_job_config_4115.cpp",
+  "args": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "-pthread",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_job_config_4115.cpp",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job_erasure_fixture_4115.S",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/body-gate-thread-20261021/green/fixture-3"
+  ],
+  "build_rc": 1,
+  "build_stdout": "",
+  "build_stderr": "Undefined symbols for architecture arm64:\n  \"_probe_job_config_words\", referenced from:\n      _main in test_newsendmsg_job_config_4115-e96250.o\n  \"_probe_job_full\", referenced from:\n      _main in test_newsendmsg_job_config_4115-e96250.o\nld: symbol(s) not found for architecture arm64\nclang++: error: linker command failed with exit code 1 (use -v to see invocation)\n",
+  "source_sha256": "39c8650dcf77e648af38994a66cbbcccb29d7633210b0c284ffd52c9162700e2"
+}

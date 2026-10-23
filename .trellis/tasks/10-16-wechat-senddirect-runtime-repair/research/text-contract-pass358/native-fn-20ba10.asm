@@ -1,0 +1,58 @@
+0x20ba10	ff4301d1	sub sp,sp,#0x50
+0x20ba14	f85f01a9	stp x24,x23,[sp, #0x10]
+0x20ba18	f65702a9	stp x22,x21,[sp, #0x20]
+0x20ba1c	f44f03a9	stp x20,x19,[sp, #0x30]
+0x20ba20	fd7b04a9	stp x29,x30,[sp, #0x40]
+0x20ba24	fd030191	add x29,sp,#0x40
+0x20ba28	f30308aa	mov x19,x8
+0x20ba2c	e8230091	add x8,sp,#0x8
+0x20ba30	f1b0b395	bl 0x06ef7df4
+0x20ba34	f60740f9	ldr x22,[sp, #0x8]
+0x20ba38	d40680b9	ldrsw x20,[x22, #0x4]
+0x20ba3c	d70a40f9	ldr x23,[x22, #0x10]
+0x20ba40	9f020071	cmp w20,#0x0
+0x20ba44	e21a57fa	ccmp x23,#0x17,#0x2,ne
+0x20ba48	29050054	b.ls 0x0020baec
+0x20ba4c	3405f837	tbnz w20,#0x1f,0x0020baf0
+0x20ba50	9f5e0071	cmp w20,#0x17
+0x20ba54	82000054	b.cs 0x0020ba64
+0x20ba58	745e0039	strb w20,[x19, #0x17]
+0x20ba5c	94010035	cbnz w20,0x0020ba8c
+0x20ba60	0f000014	b 0x0020ba9c
+0x20ba64	880a40b2	orr x8,x20,#0x7
+0x20ba68	1f5d00f1	cmp x8,#0x17
+0x20ba6c	29038052	mov w9,#0x19
+0x20ba70	3505889a	csinc x21,x9,x8,eq
+0x20ba74	e00315aa	mov x0,x21
+0x20ba78	6ed1bc95	bl 0x07140030
+0x20ba7c	a80241b2	orr x8,x21,#-0x8000000000000000
+0x20ba80	74a200a9	stp x20,x8,[x19, #0x8]
+0x20ba84	600200f9	str x0,[x19]
+0x20ba88	f30300aa	mov x19,x0
+0x20ba8c	e102168b	add x1,x23,x22
+0x20ba90	e00313aa	mov x0,x19
+0x20ba94	e20314aa	mov x2,x20
+0x20ba98	ffd4bc95	bl 0x07140e94
+0x20ba9c	7f6a3438	strb wzr,[x19, x20]
+0x20baa0	e00740f9	ldr x0,[sp, #0x8]
+0x20baa4	080040b9	ldr w8,[x0]
+0x20baa8	1f050031	cmn w8,#0x1
+0x20baac	40010054	b.eq 0x0020bad4
+0x20bab0	c8000034	cbz w8,0x0020bac8
+0x20bab4	08008012	mov w8,#0xffffffff
+0x20bab8	0800e8b8	ldaddal w8,w8,[x0]
+0x20babc	1f050071	cmp w8,#0x1
+0x20bac0	a1000054	b.ne 0x0020bad4
+0x20bac4	e00740f9	ldr x0,[sp, #0x8]
+0x20bac8	21008052	mov w1,#0x1
+0x20bacc	02018052	mov w2,#0x8
+0x20bad0	7f56b295	bl 0x06ea14cc
+0x20bad4	fd7b44a9	ldp x29,x30,[sp, #0x40]
+0x20bad8	f44f43a9	ldp x20,x19,[sp, #0x30]
+0x20badc	f65742a9	ldp x22,x21,[sp, #0x20]
+0x20bae0	f85f41a9	ldp x24,x23,[sp, #0x10]
+0x20bae4	ff430191	add sp,sp,#0x50
+0x20bae8	c0035fd6	ret
+0x20baec	fd20bb95	bl 0x070d3ee0
+0x20baf0	e00313aa	mov x0,x19
+0x20baf4	aa34f897	bl 0x00018d9c

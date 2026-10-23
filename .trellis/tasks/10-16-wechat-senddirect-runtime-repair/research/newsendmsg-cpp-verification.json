@@ -1,0 +1,76 @@
+{
+  "passed": true,
+  "fixtures": [
+    {
+      "source": "test_newsendmsg_completion_4115.cpp",
+      "command": [
+        "clang++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_completion_4115.cpp",
+        "-o",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_completion_4115_plain"
+      ],
+      "result": {
+        "checks": 16,
+        "heap_transfer": true,
+        "invoke_vslot_0x30": true,
+        "first_result_preserved": true,
+        "capture_released": true,
+        "wechat_loaded": false,
+        "target_attached": false,
+        "sent": false
+      },
+      "binary_sha256": "97bda603ba48da21a8822083ad454853ecc127b3405f28755a192cfc5d916281"
+    },
+    {
+      "source": "test_newsendmsg_native_body_4115.cpp",
+      "command": [
+        "clang++",
+        "-std=c++17",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_native_body_4115.cpp",
+        "-o",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_native_body_4115"
+      ],
+      "result": {
+        "cases": 9,
+        "constructed": 3,
+        "destroyed": 3,
+        "parse_failures_cleaned": true,
+        "wechat_loaded": false,
+        "sent": false
+      },
+      "binary_sha256": "7430b05d609fa29694fd3dc51747a2890f97c77f0eaa711ccdc6df5d3c4243e2"
+    }
+  ],
+  "source_sha256": {
+    "newsendmsg_completion_4115.hpp": "657caf0781d8a2562fa6c35b69b64ea9569e373f5b0ebcea318e6b49e0a0c2ad",
+    "newsendmsg_native_body_4115.hpp": "90d0943eca268abdebadbfe0c00e3105d7e37d23774997c35f885af8064d4eec",
+    "test_newsendmsg_completion_4115.cpp": "cf015ddcfa28269cfd75947144a578e53cccd48a2e970cdcab3716de1af44f67",
+    "test_newsendmsg_native_body_4115.cpp": "04d6a3feeb5481ea7e88db7ad8db1c759a5578328d0a937e3627c14b170bbd4a"
+  },
+  "abi_probe": {
+    "function_size": 32,
+    "function_alignment": 8,
+    "string_size": 24,
+    "string_alignment": 8
+  },
+  "sanitizers_passed": false,
+  "sanitizer_limitation": "ASan+UBSan fixture spun with no output; stopped only that standalone fixture. An independent size-only ASan probe also timed out in 5 seconds. No sanitizer result claimed.",
+  "native_factory_executed": false,
+  "wechat_loaded": false,
+  "wechat_attached": false,
+  "sent": false,
+  "live_ready": false,
+  "limits": [
+    "Host libc++ ABI compatibility only; WeChat factory/callback were not executed.",
+    "Fixture thread safety does not prove WeChat can be called from an arbitrary thread.",
+    "NativeBody tests inject fixture functions, not native WeChat functions.",
+    "Response parsing, business inputs, scheduler integration and delivery remain open."
+  ]
+}

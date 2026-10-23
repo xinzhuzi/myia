@@ -1,0 +1,31 @@
+{
+  "prepared": true,
+  "authorization_present": false,
+  "target_attached": false,
+  "sent": false,
+  "live_ready": false,
+  "test_input_confirmed": {
+    "recipient": "filehelper",
+    "content": "今天真是个好日子"
+  },
+  "verification": {
+    "python": "75 passed, 122 subtests passed",
+    "cleanup_cases": 10,
+    "qualification_hashes_current": true
+  },
+  "source_sha256": {
+    "factory_observer_4115.py": "dea7c7c6ff3e79fd083ee08a12ba30c1691b589640fe6988ec9dc8d9d4771fc0",
+    "run_factory_observer_4115.py": "7cea4564dfb5a5bd4ea6b62e6f4f19bf18bbef82a3f83e81f6b31ec37cf56e9b",
+    "newsendmsg_factory_snapshot_4115.py": "e5d683a28776773d9156bf8825ca2cc748b7f7aa4f351911561663fb193ded55",
+    "test_newsendmsg_factory_snapshot_4115.py": "4429d659e25423ae460e486d2b78d2114b00354f4addb4f39b28ba08d942d668",
+    "test_factory_observer_authorization_4115.py": "5ea81c839f8a0dbedbf16395048aa338b56b3718436cf000c96d852c6abcd14d",
+    "factory_snapshot_fixture_4115.cpp": "300ac85d935cfe4baf1737f37e07da82377633bd762d701b73c625dff60df3b3",
+    "newsendmsg-factory-window-plan.md": "d26bb487dc10bd1ef4c162b2c5dd94edd25508a90fe525ed59d458973115c257",
+    "factory-cleanup-qualification.json": "3020ad289e6926c7727ef91399229ed8a6b10d0fce39a0e1758c6255e52f0503"
+  },
+  "remaining": [
+    "Fresh explicit one-window human authorization",
+    "Natural factory observation, no automatic sending",
+    "Native execution/cancellation lifetime and independent actual-send verification"
+  ]
+}

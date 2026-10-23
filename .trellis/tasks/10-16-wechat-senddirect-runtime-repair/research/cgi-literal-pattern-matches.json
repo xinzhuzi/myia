@@ -1,0 +1,112 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "span": [
+    "0x8750000",
+    "0x8920000"
+  ],
+  "addend": "0x8a",
+  "key_bytes": 16,
+  "matches": [
+    {
+      "key": "0x87d828f",
+      "cipher": "0x87d829f",
+      "literal": "/cgi-bin/micromsg-bin/searchopenimcontact"
+    },
+    {
+      "key": "0x87f5a2a",
+      "cipher": "0x87f5a3a",
+      "literal": "/cgi-bin/micromsg-bin/bypgetprofile"
+    },
+    {
+      "key": "0x87f5ae1",
+      "cipher": "0x87f5af1",
+      "literal": "/cgi-bin/micromsg-bin/openkefuchat"
+    },
+    {
+      "key": "0x87fa907",
+      "cipher": "0x87fa917",
+      "literal": "/cgi-bin/micromsg-bin/getappinfo"
+    },
+    {
+      "key": "0x883374f",
+      "cipher": "0x883375f",
+      "literal": "/cgi-bin/micromsg-bin/getchatroominfodetail"
+    },
+    {
+      "key": "0x883d29e",
+      "cipher": "0x883d2ae",
+      "literal": "/cgi-bin/micromsg-bin/getcontactlabellist"
+    },
+    {
+      "key": "0x883d2d8",
+      "cipher": "0x883d2e8",
+      "literal": "/cgi-bin/micromsg-bin/addcontactlabel"
+    },
+    {
+      "key": "0x883d30e",
+      "cipher": "0x883d31e",
+      "literal": "/cgi-bin/micromsg-bin/updatecontactlabel"
+    },
+    {
+      "key": "0x883d347",
+      "cipher": "0x883d357",
+      "literal": "/cgi-bin/micromsg-bin/modifycontactlabellist"
+    },
+    {
+      "key": "0x883d384",
+      "cipher": "0x883d394",
+      "literal": "/cgi-bin/micromsg-bin/delcontactlabel"
+    },
+    {
+      "key": "0x8848534",
+      "cipher": "0x8848544",
+      "literal": "/cgi-bin/micromsg-bin/oplog"
+    },
+    {
+      "key": "0x88875c9",
+      "cipher": "0x88875d9",
+      "literal": "/cgi-bin/micromsg-bin/bindteenagermodeguardian"
+    },
+    {
+      "key": "0x8887608",
+      "cipher": "0x8887618",
+      "literal": "/cgi-bin/micromsg-bin/agreeteenagermodeauthorization"
+    },
+    {
+      "key": "0x8899294",
+      "cipher": "0x88992a4",
+      "literal": "/cgi-bin/micromsg-bin/voipsynctipsbar"
+    },
+    {
+      "key": "0x88a10c0",
+      "cipher": "0x88a10d0",
+      "literal": "/cgi-bin/micromsg-bin/newocrtranslation"
+    },
+    {
+      "key": "0x88a61da",
+      "cipher": "0x88a61ea",
+      "literal": "/cgi-bin/micromsg-bin/sendappmsg"
+    },
+    {
+      "key": "0x88ada1e",
+      "cipher": "0x88ada2e",
+      "literal": "/cgi-bin/micromsg-bin/newsendmsg"
+    },
+    {
+      "key": "0x88b67aa",
+      "cipher": "0x88b67ba",
+      "literal": "/cgi-bin/micromsg-bin/downloadvoice"
+    },
+    {
+      "key": "0x890e9eb",
+      "cipher": "0x890e9fb",
+      "literal": "/cgi-bin/micromsg-bin/getconnectinfo"
+    },
+    {
+      "key": "0x8910b17",
+      "cipher": "0x8910b27",
+      "literal": "/cgi-bin/micromsg-bin/statusnotify"
+    }
+  ],
+  "limitation": "Data-pattern matches only; each requires native references and byte-verified decoding."
+}

@@ -1,0 +1,47 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_type": "offline frozen ARM64 control flow",
+  "scope": "server_id-gated callback, query return tag, cleanup and original-record publication",
+  "parent": {
+    "entry": "0x32cf5e8",
+    "gate": "record+0xf8 nonzero and original w4 nonzero after service gate",
+    "capture_size": "0x68",
+    "invoke": "0x335bfac",
+    "cleanup": "0x335c0f0",
+    "captures": {"server_id": "0x28", "selected_string": "0x30", "service_pair": "0x48/0x50", "future_pair": "0x58/0x60"}
+  },
+  "callback": {
+    "abi": "x0=capture; Ghidra phantom second parameter is not an ABI",
+    "move_service": "copies capture+0x48/+0x50 to stack then zeros source pair",
+    "query": "0x3274034 receives x0=moved service pointer,x1=capture+0x30,x2=server_id; x3 duplicates x0 but is not consumed in reviewed callee",
+    "result": "low byte of query x0 stored at allocated container+0x8, then published through future with0x66696dc",
+    "cleanup": "releases retained future pair and moved service pair; cleanup function also releases any pairs still present, destroys owned string and frees0x68 capture"
+  },
+  "query": {
+    "entry": "0x3274034",
+    "field_binding": "0x4cbaf80 initializes binding via0x4cc245c; query builds offset0xf8 expressions twice and combines one with supplied server_id",
+    "storage": "loads service+0x8 pointer; passes query objects through0x56f3a00",
+    "return_abi": "0x56f3a00 preserves hidden x8 and forwards it to0x56f3be0;0x3274034 reads result first byte and returns it in x0",
+    "result_tag": "0x56f3be0 initializes32-byte output through hidden x8; after0x5646028 bit0 set,0x5646030 nonzero and0x5646050 bit0 clear, transfers0x56460a8 vector and sets first byte1 if not already1",
+    "tag_business_meaning_proven": false,
+    "whole_database_query_semantics_proven": false
+  },
+  "future_consumer": {
+    "getter": "0x22d9f40 uses0x666a844 and container virtual+0x18 type name; compares masked name with exact bytes_10a3dae4, returns container+0x8 or throws",
+    "type_name_address": "0x87dfff0",
+    "type_name": "_10a3dae4",
+    "parent": "0x32d03cc loads byte into w24; zero routes to normal insertion, nonzero reaches0x32d0794",
+    "published_record": "0x32d0790 puts original record x20 in x1;0x335bddc copies via0xf57630 and moves via0x2a0cf30 before publication",
+    "query_returns_replacement_record": false,
+    "tag_is_network_receipt": false
+  },
+  "all_lookup_branches_verified": false,
+  "whole_path_content_preservation_proven": false,
+  "runtime_observed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "remaining": ["other parent branches and full database query/tag semantics", "builder arguments and recipient direction", "scheduler/config/thread, cancellation and final drain", "complete adapter and independent delivery receipt"],
+  "safety": "account-safety-stop-20261016.md remains authoritative; no live operation or new observation request"
+}

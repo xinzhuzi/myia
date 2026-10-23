@@ -1,0 +1,20 @@
+{
+  "args": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "-UNDEBUG",
+    "-fsanitize=undefined",
+    "-fno-sanitize-recover=all",
+    "-fno-omit-frame-pointer",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_text_input_4115.cpp",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text_input_abi_fixture_4115.S",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-input-owner-qualified-20261018-v2/fixture-undefined"
+  ],
+  "returncode": 0,
+  "stdout": "",
+  "stderr": ""
+}

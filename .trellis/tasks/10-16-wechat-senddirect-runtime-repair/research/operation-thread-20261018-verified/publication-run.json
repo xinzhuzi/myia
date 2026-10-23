@@ -1,0 +1,8 @@
+{
+  "args": [
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/operation-thread-20261018-verified/publication"
+  ],
+  "returncode": 0,
+  "stdout": "{\"cases\":1,\"callback_before_factory_return\":true,\"request_preserved_until_factory_return\":true,\"wechat_loaded\":false,\"sent\":false}\n",
+  "stderr": ""
+}

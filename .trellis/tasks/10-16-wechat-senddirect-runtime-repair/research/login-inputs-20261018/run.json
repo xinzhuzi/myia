@@ -1,0 +1,23 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "functions": [
+    {
+      "start": "0x2fc361c",
+      "end_exclusive": "0x2fc4f04",
+      "instructions": 1594,
+      "assembly": "function-2fc361c.asm",
+      "sha256": "244e3b7dee4cd40339ed47638e95a1ee0fd9b0b5d6c9ebab3cb6ccb1168b4282"
+    },
+    {
+      "start": "0x410dc54",
+      "end_exclusive": "0x41105c4",
+      "instructions": 2652,
+      "assembly": "function-410dc54.asm",
+      "sha256": "a9b3a49923236c51344e6129ee6b31d4fa6eeb24a0420f4258d62aa9f86cb0ce"
+    }
+  ],
+  "target_executed": false,
+  "target_attached": false,
+  "source_sha256": "76f9f7ceb17070e073783af70ca7231ef348f8d0851d72d1989d6f1f435f6b61"
+}

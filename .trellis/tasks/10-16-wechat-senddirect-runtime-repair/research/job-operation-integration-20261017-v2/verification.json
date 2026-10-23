@@ -1,0 +1,51 @@
+{
+  "passed": true,
+  "scope": "Owned host fixture integration, not the native scheduler",
+  "compiler": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.4.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+  "build": [
+    "clang++",
+    "-std=c++17",
+    "-Wall",
+    "-Wextra",
+    "-Werror",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_job_operation_4115.cpp",
+    "-o",
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/job-operation-integration-20261017-v2/fixture"
+  ],
+  "result": {
+    "cases": 10,
+    "job_completion_is_not_request_drain": true,
+    "job_cancel_is_not_request_cancel": true,
+    "late_callback_preserves_terminal_state": true,
+    "owned_wire_matches_factory_copy": true,
+    "balanced_lifetime": true,
+    "wechat_loaded": false,
+    "sent": false
+  },
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_job_operation_4115.cpp": "2acc4e937302c695b37db1733da729fa12c76e7e8d38be0f6adde26da0cdeb20",
+    "Library/ai/verify_wechat_job_operation_20261017.py": "5e0af7979ab65116c5edcc383e97b6c494f6b51c2331c68023739c63b6e08c16",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_newsendmsg_operation_4115.cpp": "54839f1a441768e930d296399b259e02ff90f4e385ee726e137949068cba2544",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_operation_4115.hpp": "e9d3c72dc372f3c66c10560a2e510bd0c4e3d54900722b34a33823f741e10fc9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_job_abi_4115.hpp": "646abe66de8b3859d2e158cefead1daece820365c817ed3b11a150cf78d22692",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_native_body_4115.hpp": "90d0943eca268abdebadbfe0c00e3105d7e37d23774997c35f885af8064d4eec",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_native_response_4115.hpp": "687f66733ed1a97e2fb5443ebdeabf771de9d38a47cf240f821d1ee5cb8c9f6c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_completion_4115.hpp": "657caf0781d8a2562fa6c35b69b64ea9569e373f5b0ebcea318e6b49e0a0c2ad",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg_wire_4115.py": "1d766a528d2d3b1946564b15987763901de160fb325658b9643019dbca867605",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d"
+  },
+  "binary_sha256": "543b551d1da5904772d39889f31fa614a1865151e9fb8f6328b989f4b6dcaa75",
+  "wire_sha256": "24a58a90f5437144c8410404207ea561b7299747b54021cb2b078fb5329b0af6",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "limitations": [
+    "Job/Group/Config and all service functions are owned fixtures with executable lifetime.",
+    "No recovered native group/config layouts, scheduler semantics or thread-affinity proof.",
+    "Body fixture copies bytes; it does not run the native protobuf parser.",
+    "Self-owned serialized control is not a native queue drain or module-unload barrier.",
+    "No real response correlation or independent delivery evidence."
+  ]
+}

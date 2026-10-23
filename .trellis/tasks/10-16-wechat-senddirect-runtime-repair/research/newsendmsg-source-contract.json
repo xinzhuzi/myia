@@ -1,0 +1,518 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_type": "offline frozen ARM64; source field mapping only",
+  "serializer": "0x4d1dd74",
+  "serializer_abi": {
+    "input_x0": "source auxiliary record+0x230",
+    "output_hidden_x8": "24-byte nontrivial std::string"
+  },
+  "ghidra_parameter_correction": "Pseudocode presents output as param_1 and input as param_2; raw x20=x0/x19=x8 establishes actual ABI. Do not call it as a two-normal-parameter function.",
+  "rebuild_gate": "0x4cbf820 only calls source rebuild when record+0x240==1 after optional auxiliary+0x220 virtual+0x10. This qualifier does not cover preexisting virtual implementations.",
+  "auxiliary_creation": "0x4cbf994 reuses nonnull record+0x230, otherwise allocates 0x128-byte shared block, zeroes 0x110-byte object at allocation+0x18 and installs pair at record+0x230/+0x238.",
+  "assignment": "serializer result replaces record+0x160, then temporary string is destroyed; prior source string is not preserved by this branch.",
+  "root": {
+    "tag": "msgsource",
+    "literal": {
+      "kind": "pieces",
+      "pieces": [
+        {
+          "address": "0x8507770",
+          "size": 8
+        },
+        {
+          "hex": "65"
+        }
+      ]
+    }
+  },
+  "fields": [
+    {
+      "tag": "atuserlist",
+      "auxiliary_offset": "0x18",
+      "gate": "nonempty libc++ string",
+      "gate_instruction": "0x4d1de1c",
+      "gate_assembly": "ldrsb x8,[x20, #0x2f]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade0b8",
+            "size": 8
+          },
+          {
+            "hex": "7374"
+          }
+        ]
+      },
+      "writer": "0x5720378"
+    },
+    {
+      "tag": "img_file_name",
+      "auxiliary_offset": "0x30",
+      "gate": "nonempty libc++ string",
+      "gate_instruction": "0x4d1deb4",
+      "gate_assembly": "ldrsb x8,[x20, #0x47]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade0c0",
+            "size": 8
+          },
+          {
+            "address": "0x84892f8",
+            "size": 4
+          },
+          {
+            "hex": "65"
+          }
+        ]
+      },
+      "writer": "0x5720378"
+    },
+    {
+      "tag": "alnode",
+      "auxiliary_offset": "0x48",
+      "gate": "nonnull nested object",
+      "gate_instruction": "0x4d1df54",
+      "gate_assembly": "ldr x8,[x20, #0x48]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade0c8",
+            "size": 4
+          },
+          {
+            "hex": "6465"
+          }
+        ]
+      },
+      "writer": "0x4d1b7e4"
+    },
+    {
+      "tag": "sec_msg_node",
+      "auxiliary_offset": "0x58",
+      "gate": "nonnull nested object",
+      "gate_instruction": "0x4d1dfb8",
+      "gate_assembly": "ldr x8,[x20, #0x58]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x88babc0",
+            "size": 8
+          },
+          {
+            "address": "0x84d78a8",
+            "size": 4
+          }
+        ]
+      },
+      "writer": "0x4d1b8f4"
+    },
+    {
+      "tag": "share_msg",
+      "auxiliary_offset": "0x68",
+      "gate": "nonnull nested object",
+      "gate_instruction": "0x4d1e020",
+      "gate_assembly": "ldr x8,[x20, #0x68]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade0d0",
+            "size": 8
+          },
+          {
+            "hex": "67"
+          }
+        ]
+      },
+      "writer": "0x4d1bbcc"
+    },
+    {
+      "tag": "passthrough",
+      "auxiliary_offset": "0x78",
+      "gate": "nonnull object; sec-hash child only if its first string nonempty",
+      "gate_instruction": "0x4d1e080",
+      "gate_assembly": "ldr x8,[x20, #0x78]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade0d8",
+            "size": 8
+          },
+          {
+            "address": "0x87287c8",
+            "size": 4
+          }
+        ]
+      },
+      "writer": "0x5720378"
+    },
+    {
+      "tag": "tmp_node",
+      "auxiliary_offset": "0x88",
+      "gate": "nonnull nested object",
+      "gate_instruction": "0x4d1e158",
+      "gate_assembly": "ldr x8,[x20, #0x88]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade0e0",
+            "size": 8
+          }
+        ]
+      },
+      "writer": "0x4d1bd38"
+    },
+    {
+      "tag": "enterprise_info",
+      "auxiliary_offset": "0x98",
+      "gate": "nonnull nested object",
+      "gate_instruction": "0x4d1e1b4",
+      "gate_assembly": "ldr x8,[x20, #0x98]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade150",
+            "size": 16
+          }
+        ]
+      },
+      "writer": "0x4d1bf44"
+    },
+    {
+      "tag": "strid",
+      "auxiliary_offset": "0x0",
+      "gate": "nonempty libc++ string",
+      "gate_instruction": "0x4d1e208",
+      "gate_assembly": "ldrsb x8,[x20, #0x17]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x84937d0",
+            "size": 4
+          },
+          {
+            "hex": "64"
+          }
+        ]
+      },
+      "writer": "0x5720378"
+    },
+    {
+      "tag": "shareCardMessageStatus",
+      "auxiliary_offset": "0xb8",
+      "gate": "nonzero int32",
+      "gate_instruction": "0x4d1e29c",
+      "gate_assembly": "ldr w8,[x20, #0xb8]",
+      "literal": {
+        "kind": "xor-add-8a",
+        "address": "0x8ade77f",
+        "key_address": "0x8ade76f",
+        "size": 23
+      },
+      "writer": "0x57203c8"
+    },
+    {
+      "tag": "teenagerModeApplyAgree",
+      "auxiliary_offset": "0xcc",
+      "gate": "byte exactly 1",
+      "gate_instruction": "0x4d1e338",
+      "gate_assembly": "ldrb w8,[x20, #0xcc]",
+      "literal": {
+        "kind": "xor-add-8a",
+        "address": "0x8ade7a6",
+        "key_address": "0x8ade796",
+        "size": 23
+      },
+      "writer": "0x57203c8"
+    },
+    {
+      "tag": "teenagerModeHasBindGuardianRelationship",
+      "auxiliary_offset": "0xcd",
+      "gate": "byte exactly 1",
+      "gate_instruction": "0x4d1e52c",
+      "gate_assembly": "ldrb w8,[x20, #0xcd]",
+      "literal": {
+        "kind": "xor-add-8a",
+        "address": "0x8ade7cd",
+        "key_address": "0x8ade7bd",
+        "size": 40
+      },
+      "writer": "0x57203c8"
+    },
+    {
+      "tag": "scene",
+      "auxiliary_offset": "0xbc",
+      "gate": "nonzero int32",
+      "gate_instruction": "0x4d1e6fc",
+      "gate_assembly": "ldr w8,[x20, #0xbc]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x84cc038",
+            "size": 4
+          },
+          {
+            "hex": "65"
+          }
+        ]
+      },
+      "writer": "0x57203c8"
+    },
+    {
+      "tag": "bizflag",
+      "auxiliary_offset": "0xc0",
+      "gate": "nonzero uint32",
+      "gate_instruction": "0x4d1e774",
+      "gate_assembly": "ldr w8,[x20, #0xc0]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade0e8",
+            "size": 8
+          }
+        ]
+      },
+      "writer": "0x57204a4"
+    },
+    {
+      "tag": "msg_cluster_type",
+      "auxiliary_offset": "0xc4",
+      "gate": "presence byte+0xc8 exactly 1; value zero still emitted",
+      "gate_instruction": "0x4d1e7e0",
+      "gate_assembly": "ldrb w8,[x20, #0xc8]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade190",
+            "size": 16
+          }
+        ]
+      },
+      "writer": "0x57203c8"
+    },
+    {
+      "tag": "kefumenuid",
+      "auxiliary_offset": "0xd0",
+      "gate": "nonempty libc++ string",
+      "gate_instruction": "0x4d1e860",
+      "gate_assembly": "ldrsb x8,[x20, #0xe7]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8598af8",
+            "size": 8
+          },
+          {
+            "hex": "6964"
+          }
+        ]
+      },
+      "writer": "0x5720378"
+    },
+    {
+      "tag": "greeting_flag",
+      "auxiliary_offset": "0x108",
+      "gate": "byte exactly 1",
+      "gate_instruction": "0x4d1e8f8",
+      "gate_assembly": "ldrb w8,[x20, #0x108]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade110",
+            "size": 8
+          },
+          {
+            "address": "0x87b86e0",
+            "size": 4
+          },
+          {
+            "hex": "67"
+          }
+        ]
+      },
+      "writer": "0x57203c8"
+    },
+    {
+      "tag": "msg_wording",
+      "auxiliary_offset": "0xa8",
+      "gate": "nonnull nested object",
+      "gate_instruction": "0x4d1e96c",
+      "gate_assembly": "ldr x8,[x20, #0xa8]",
+      "literal": {
+        "kind": "pieces",
+        "pieces": [
+          {
+            "address": "0x8ade118",
+            "size": 8
+          },
+          {
+            "address": "0x84a2f38",
+            "size": 4
+          }
+        ]
+      },
+      "writer": "0x4d1ecdc"
+    }
+  ],
+  "string_boundary": "0x5720378 obtains a text node then uses strlen, so string-valued text in these paths is NUL terminated; not an arbitrary byte span.",
+  "passthrough_child": {
+    "tag": "sec-hash",
+    "literal_address": "0x8ade080",
+    "size": 8,
+    "value": "first libc++ string of the object at auxiliary+0x78"
+  },
+  "format_call": {
+    "function": "0x571fc9c",
+    "x0": "local document address",
+    "x1": "local output stream",
+    "x2": "empty indentation string",
+    "w3": 4,
+    "w4": 0,
+    "w5": 0,
+    "exact_rendered_xml_proven": false
+  },
+  "wire_destination": {
+    "producer": "0x3107b0c ordinary newsendmsg branch",
+    "record_offset": "0x160",
+    "field_number": 6,
+    "wire_type": 2,
+    "entry_pointer_offset": "0x20",
+    "presence_mask": "0x20",
+    "gate": "source string nonempty; heap length+0x168 or short size byte+0x177; copies std::string with explicit size representation"
+  },
+  "distinct_metadata": "0x4cbfb58 sizes record+0x190 and serializes it into vector record+0x178/+0x180/+0x188. That byte vector is not the source string assigned to field6.",
+  "exports": [
+    "text-contract-pass229/native-fn-32961a4.asm",
+    "text-contract-pass230/native-fn-4cbf820.asm",
+    "text-contract-pass230/native-fn-4cbfb58.asm",
+    "text-contract-pass231/native-fn-4cbf994.asm",
+    "text-contract-pass287/native-fn-4d1dd74.asm",
+    "text-contract-pass288/native-fn-571d610.asm",
+    "text-contract-pass288/native-fn-8a8b8.asm",
+    "text-contract-pass288/native-fn-4af2fcc.asm",
+    "text-contract-pass288/native-fn-5720378.asm",
+    "text-contract-pass288/native-fn-571fc9c.asm",
+    "text-contract-pass289/native-fn-572111c.asm",
+    "text-contract-pass289/native-fn-572116c.asm",
+    "text-contract-pass289/native-fn-57203c8.asm",
+    "text-contract-pass289/native-fn-57204a4.asm",
+    "text-contract-pass203/native-fn-3107b0c.asm"
+  ],
+  "instruction_checks": {
+    "0x3296274": "bl 0x04cbf820",
+    "0x329627c": "bl 0x04cbfb58",
+    "0x4cbf828": "ldrb w8,[x0, #0x240]",
+    "0x4cbf82c": "cmp w8,#0x1",
+    "0x4cbf830": "b.ne 0x04cbf870",
+    "0x4cbf86c": "b 0x04cbf994",
+    "0x4cbf9a8": "ldr x0,[x0, #0x230]",
+    "0x4cbf9ac": "cbnz x0,0x04cbfa4c",
+    "0x4cbf9b0": "mov w0,#0x128",
+    "0x4cbfa0c": "str q0,[x0, #0x18]!",
+    "0x4cbfa10": "stp q0,q0,[x0, #0xf0]",
+    "0x4cbfa14": "str x0,[x19, #0x230]",
+    "0x4cbfa4c": "add x8,sp,#0x8",
+    "0x4cbfa50": "bl 0x04d1dd74",
+    "0x4cbfa54": "add x0,x19,#0x160",
+    "0x4cbfa58": "add x1,sp,#0x8",
+    "0x4cbfa5c": "bl 0x0713f8e0",
+    "0x4d1dd90": "mov x20,x0",
+    "0x4d1dd94": "mov x19,x8",
+    "0x4d1ddcc": "bl 0x0572111c",
+    "0x4d1de14": "bl 0x0571d610",
+    "0x4d1e33c": "cmp w8,#0x1",
+    "0x4d1e530": "cmp w8,#0x1",
+    "0x4d1e7e4": "cmp w8,#0x1",
+    "0x4d1e854": "ldr w1,[x20, #0xc4]",
+    "0x4d1e8fc": "cmp w8,#0x1",
+    "0x4d1eab4": "bl 0x0571fc9c",
+    "0x4d1eaa8": "mov w3,#0x4",
+    "0x4d1eaac": "mov w4,#0x0",
+    "0x4d1eab0": "mov w5,#0x0",
+    "0x4d1eac8": "mov x8,x19",
+    "0x4d1eacc": "bl 0x05f96e3c",
+    "0x4d1eb28": "bl 0x0572116c",
+    "0x8a8b8": "ldr x0,[x0]",
+    "0x4af2fd4": "cset w0,eq",
+    "0x5720410": "cmp w19,#0x0",
+    "0x5720414": "cneg w10,w19,mi",
+    "0x57204f8": "umull x13,w19,w10",
+    "0x3108698": "ldrsb x8,[x21, #0x177]",
+    "0x31086c0": "ldr x8,[x21, #0x168]",
+    "0x31086cc": "orr w8,w8,#0x20",
+    "0x31086d4": "ldr x0,[x23, #0x20]",
+    "0x31086f4": "add x1,x21,#0x160",
+    "0x31086f8": "bl 0x0713f8e0",
+    "0x4cbfb68": "add x0,x0,#0x190",
+    "0x4cbfb6c": "bl 0x04eafe18",
+    "0x4cbfb9c": "add x8,x1,x9",
+    "0x4cbfba0": "str x8,[x19, #0x180]",
+    "0x4cbfbac": "add x0,x19,#0x190",
+    "0x4cbfbb8": "b 0x05ab3f98",
+    "0x4d1de1c": "ldrsb x8,[x20, #0x2f]",
+    "0x4d1deb4": "ldrsb x8,[x20, #0x47]",
+    "0x4d1df54": "ldr x8,[x20, #0x48]",
+    "0x4d1dfb8": "ldr x8,[x20, #0x58]",
+    "0x4d1e020": "ldr x8,[x20, #0x68]",
+    "0x4d1e080": "ldr x8,[x20, #0x78]",
+    "0x4d1e158": "ldr x8,[x20, #0x88]",
+    "0x4d1e1b4": "ldr x8,[x20, #0x98]",
+    "0x4d1e208": "ldrsb x8,[x20, #0x17]",
+    "0x4d1e29c": "ldr w8,[x20, #0xb8]",
+    "0x4d1e338": "ldrb w8,[x20, #0xcc]",
+    "0x4d1e52c": "ldrb w8,[x20, #0xcd]",
+    "0x4d1e6fc": "ldr w8,[x20, #0xbc]",
+    "0x4d1e774": "ldr w8,[x20, #0xc0]",
+    "0x4d1e7e0": "ldrb w8,[x20, #0xc8]",
+    "0x4d1e860": "ldrsb x8,[x20, #0xe7]",
+    "0x4d1e8f8": "ldrb w8,[x20, #0x108]",
+    "0x4d1e96c": "ldr x8,[x20, #0xa8]"
+  },
+  "direct_branch_targets": {
+    "0x3296274": "0x4cbf820",
+    "0x329627c": "0x4cbfb58",
+    "0x4cbf86c": "0x4cbf994",
+    "0x4cbfa50": "0x4d1dd74",
+    "0x4cbfa5c": "0x713f8e0",
+    "0x4d1ddcc": "0x572111c",
+    "0x4d1de14": "0x571d610",
+    "0x4d1eab4": "0x571fc9c",
+    "0x4d1eacc": "0x5f96e3c",
+    "0x4d1eb28": "0x572116c",
+    "0x31086f8": "0x713f8e0",
+    "0x4cbfb6c": "0x4eafe18",
+    "0x4cbfbb8": "0x5ab3f98"
+  },
+  "prior_sha256": {
+    "account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    "newsendmsg-record-database-contract.json": "c84f989aa14884e480902b2b528e1615c46da583c2e15c999bac557b2bd1c2c1",
+    "newsendmsg-4115-static-contract.json": "4c77ba9091cfb665fba02df8ab9b1191f326586ac6f5d22318f9266f4ff5e6d9"
+  },
+  "exact_serialized_xml_bytes_proven": false,
+  "nested_object_schemas_complete": false,
+  "whole_business_path_proven": false,
+  "runtime_observed": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "remaining": [
+    "Nested auxiliary serializers and exact XML rendering/escaping not fully verified.",
+    "Existing auxiliary implementations and complete record mutation/lookup and builder parameter origin remain open.",
+    "Real execution context, cancellation/final drain, complete native adapter and independent receipt remain open.",
+    "Account safety stop remains; no live target operations or deployment."
+  ],
+  "excluded_export": "pass288/native-fn-571111c was an operator address transcription error; actual source call target is 0x572111c, independently decoded from BL and correctly exported in pass289. The excluded function is unrelated and supplies no source claims."
+}

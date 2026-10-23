@@ -1,0 +1,3 @@
+0x569a9ac	000440f9	ldr x0,[x0, #0x8]
+0x569a9b0	420040b9	ldr w2,[x2]
+0x569a9b4	8e1c0014	b 0x056a1bec

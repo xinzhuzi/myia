@@ -1,0 +1,54 @@
+{
+  "scope": "eight historical command sources only",
+  "files": [
+    {
+      "path": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/dis.cmd",
+      "backup": ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/legacy-command-guard-20261018/dis.cmd.original.txt",
+      "sha256": "c57b525bbeadcd84c8e10fe2d6da66405e26dec036b9c2fedc3e331ee244b34b",
+      "first_command_before": "process attach"
+    },
+    {
+      "path": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/post.cmd",
+      "backup": ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/legacy-command-guard-20261018/post.cmd.original.txt",
+      "sha256": "ebbe891070285c9a501b9e46b6f7256b82f66de47df4232f1eea7460fbecdaa3",
+      "first_command_before": "process attach"
+    },
+    {
+      "path": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/pre.cmd",
+      "backup": ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/legacy-command-guard-20261018/pre.cmd.original.txt",
+      "sha256": "c2560a391bd0dd5f3416a4d374a7098c605a6465685de1a2cb7decb434b4060f",
+      "first_command_before": "process attach"
+    },
+    {
+      "path": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap.cmd",
+      "backup": ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/legacy-command-guard-20261018/runcap.cmd.original.txt",
+      "sha256": "11e7d60e4813bb333749152fd7e48f6b768d7a7b3c7526f825f069b877c1a042",
+      "first_command_before": "process attach"
+    },
+    {
+      "path": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap2.cmd",
+      "backup": ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/legacy-command-guard-20261018/runcap2.cmd.original.txt",
+      "sha256": "330da0bc70d2c5e9b306878238c60fa44b57f36dd0e2fc566f53e4b75ec2d7e3",
+      "first_command_before": "process attach"
+    },
+    {
+      "path": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap3.cmd",
+      "backup": ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/legacy-command-guard-20261018/runcap3.cmd.original.txt",
+      "sha256": "6b19827585206dd45ee2016bb482303e8c2bc80a9678c6d1e1cfc53634f3875c",
+      "first_command_before": "process attach"
+    },
+    {
+      "path": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap4.cmd",
+      "backup": ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/legacy-command-guard-20261018/runcap4.cmd.original.txt",
+      "sha256": "503e559e46e6208a9c236e4e11b72fbdfd929c2f9558891cef0868142809803f",
+      "first_command_before": "process attach"
+    },
+    {
+      "path": ".trellis/tasks/10-15-wechat-senddirect-uicreate/research/community-adapt/truepath/runcap5.cmd",
+      "backup": ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/legacy-command-guard-20261018/runcap5.cmd.original.txt",
+      "sha256": "bbf34d3b0baaf8ca9dab218bbc08c27f3e8d20a9a6c420a767c2405ed91aa587",
+      "first_command_before": "process attach"
+    }
+  ],
+  "owned_quit_fixture_exit": 78
+}

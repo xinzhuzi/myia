@@ -1,0 +1,229 @@
+{
+  "passed": true,
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass220/native-fn-292ef9c.asm",
+      "instructions": 616,
+      "sha256": "4875be249c5d7cb46b841282266a6b66bcb340950054520a7d1725f7e8562ad4",
+      "pseudocode_sha256": "9bc6943dc74d3afd30d3016ea9531cc3d3fd6862224603320762dfaad37c8df4"
+    },
+    {
+      "file": "text-contract-pass291/native-fn-3190538.asm",
+      "instructions": 463,
+      "sha256": "89142d8c010bf734d5684a0357244e27ae157b9d1387b0fb1f5f03080a911106",
+      "pseudocode_sha256": "7cd9a041bbe0ad9392f5eada36a148c4e05a9b94156964d0c41ac562f8b2cd19"
+    },
+    {
+      "file": "text-contract-pass292/native-fn-32f26b8.asm",
+      "instructions": 677,
+      "sha256": "af846b266c66b83306872e924273f09c8acc989c2ead6c4fab42eb67f0a63c34",
+      "pseudocode_sha256": "3a513e6b29c2cd80d8a2d953fa961883a0fae5bd608313ac0444da62d0dcc899"
+    },
+    {
+      "file": "text-contract-pass292/native-fn-303fe7c.asm",
+      "instructions": 39,
+      "sha256": "0b98a4ed44ff7b321ba5d38426af9a54fd9e540e57a67f31c247890c1b06fe4e",
+      "pseudocode_sha256": "fc862f7e5a42ef9037165f01b35113076fb05c3245bc2ec4c47442bc7ecc98f9"
+    },
+    {
+      "file": "text-contract-pass292/native-fn-31b5470.asm",
+      "instructions": 61,
+      "sha256": "165698eb4213a7ca78cc11f4eecee2bbf8d50d19328f8230b3430661b16f7409",
+      "pseudocode_sha256": "593fa023c984c9245b84cdbede66d4f403c1ea26095a8db20a696a91b7474b69"
+    },
+    {
+      "file": "text-contract-pass293/native-fn-33677c4.asm",
+      "instructions": 80,
+      "sha256": "9ce1863907a780c3fbc8f625d7d091da865c016dc42abc8ecc452a7e632917bb",
+      "pseudocode_sha256": "94c6b108458566b21c4da8f0523ca85d9f710044f1e9d6d5beba081cdbdd8a14"
+    },
+    {
+      "file": "text-contract-pass293/native-fn-3bda648.asm",
+      "instructions": 66,
+      "sha256": "e8fe5fd9d50628f29cd27b62071202a14227a0bf96274dfe4420fa25da95bab3",
+      "pseudocode_sha256": "3b16d35461d5806173c07fe1c50bdef9cbe02ff4904f0b17cea9845e07655f59"
+    },
+    {
+      "file": "text-contract-pass293/native-fn-86e43c.asm",
+      "instructions": 41,
+      "sha256": "519f4c02cd845d8f623daf5547ebddfe7910ea8db561294de2293cc5254c130f",
+      "pseudocode_sha256": "b514d1dd4ad568999f2e64a0c3fdfe6f0c73404ac35eb242c8846f623c96d5dc"
+    },
+    {
+      "file": "text-contract-pass293/native-fn-335fcb0.asm",
+      "instructions": 62,
+      "sha256": "cf0260fe44b4ed44b50a93de8dcd0b50969f6450361604504735ad8cda8a4492",
+      "pseudocode_sha256": "90184b67143932ee2b6507af058c5a7bc1e25fc54dd511ca3838038be275dcdf"
+    },
+    {
+      "file": "text-contract-pass293/native-fn-3289264.asm",
+      "instructions": 33,
+      "sha256": "b0ec83efa09c87cbe9b06a021dbca96f00558c6bd26685dd2f3aec3a1233d51c",
+      "pseudocode_sha256": "d3b6b7438ee4c2119ffc6dd1eff406006ebdb6d8ee2c442a5c4c6de7bd365081"
+    },
+    {
+      "file": "text-contract-pass294/native-fn-3273830.asm",
+      "instructions": 52,
+      "sha256": "0bac6bc94075a41b3a93801b3fa6f1e08adb1c720894c7003180cfa85e56d813",
+      "pseudocode_sha256": "ff2cd2e3407ec3c7af7914b66ff9618735b5bd3b2a8421e6a0b48f5427d3ec28"
+    },
+    {
+      "file": "text-contract-pass294/native-fn-335fdd8.asm",
+      "instructions": 60,
+      "sha256": "d2b6bf9d5a617d5dc35c8d7bb5316d66c2c6ea71d729798c00e8e39b6897be66",
+      "pseudocode_sha256": "031aa5219ba4c77fc72dc574879546e74452024978fa2d6b0a54888e93a19071"
+    },
+    {
+      "file": "text-contract-pass295/native-fn-32aab0c.asm",
+      "instructions": 695,
+      "sha256": "cb04cfca0760e01abcd9d85e2c3a09ef666a99c0277b9e230edc83cb6148badf",
+      "pseudocode_sha256": "15eb85ee32ec9abcab58645c7fb660994e4bd94110552995c9272a89e7452c7f"
+    },
+    {
+      "file": "text-contract-pass295/native-fn-3360070.asm",
+      "instructions": 3,
+      "sha256": "89a79131ad140998aabfc716d10af6b26bd34ba076e1029712ff1aedb4f782cd",
+      "pseudocode_sha256": "88620564f5fb9144e165096028a00bd63d6ea803f235a5292f61896bc57b33c5"
+    }
+  ],
+  "instructions_matched": 2948,
+  "instruction_positions_checked": 126,
+  "independently_decoded_branches": [
+    {
+      "address": "0x292f008",
+      "target": "0x317ded4"
+    },
+    {
+      "address": "0x292f374",
+      "target": "0x86e43c"
+    },
+    {
+      "address": "0x292f3b8",
+      "target": "0x3190538"
+    },
+    {
+      "address": "0x3190588",
+      "target": "0x32f26b8"
+    },
+    {
+      "address": "0x31905ac",
+      "target": "0x66856fc"
+    },
+    {
+      "address": "0x31905b4",
+      "target": "0x303fe7c"
+    },
+    {
+      "address": "0x3190804",
+      "target": "0x3025b60"
+    },
+    {
+      "address": "0x3190818",
+      "target": "0x31b5470"
+    },
+    {
+      "address": "0x3190824",
+      "target": "0x2a0cf30"
+    },
+    {
+      "address": "0x32f2748",
+      "target": "0x3289264"
+    },
+    {
+      "address": "0x32f275c",
+      "target": "0x3bda648"
+    },
+    {
+      "address": "0x32f3010",
+      "target": "0x3c17870"
+    },
+    {
+      "address": "0x3367834",
+      "target": "0x3273830"
+    },
+    {
+      "address": "0x3367858",
+      "target": "0x335fdd8"
+    },
+    {
+      "address": "0x3367870",
+      "target": "0x335fdd8"
+    },
+    {
+      "address": "0x327389c",
+      "target": "0x3aeddb4"
+    },
+    {
+      "address": "0x32aabfc",
+      "target": "0x4cbaf80"
+    },
+    {
+      "address": "0x32aac0c",
+      "target": "0x56fa6fc"
+    },
+    {
+      "address": "0x32aac18",
+      "target": "0x26fc2c4"
+    },
+    {
+      "address": "0x32aac28",
+      "target": "0x56c9dac"
+    },
+    {
+      "address": "0x32aacbc",
+      "target": "0x328714c"
+    },
+    {
+      "address": "0x32aad30",
+      "target": "0x2a0eb88"
+    },
+    {
+      "address": "0x32aad4c",
+      "target": "0x3280514"
+    },
+    {
+      "address": "0x335fd04",
+      "target": "0x335fdd8"
+    }
+  ],
+  "dyld_slots": [
+    {
+      "slot": "0x9df24b0",
+      "decoded": "0x32aab0c",
+      "chain_steps": 1077
+    },
+    {
+      "slot": "0x9df3c18",
+      "decoded": "0x3360070",
+      "chain_steps": 1781
+    },
+    {
+      "slot": "0x9df3508",
+      "decoded": "0x80000000088cfaa4",
+      "chain_steps": 1568
+    }
+  ],
+  "contract_sha256": "6cc5b64f53e4a0d75ac632e347a2d563f1e6686f7c9f47be539ac6519d828816",
+  "verifier_sha256": "cbbe485310449385a87c1cd5206a34af85de977c2522b23461c7d862218315ea",
+  "reader_sha256": "3b08942b05af737f6b331974629526caaae98acd04d09571b361a044e55f2f17",
+  "prior_sha256": {
+    "account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    "newsendmsg-builder-json-contract.json": "c80a88b0bc623f80ee09984c9a39e1399bd89ebef60610507c0dffe720b32c5d",
+    "newsendmsg-record-database-contract.json": "c84f989aa14884e480902b2b528e1615c46da583c2e15c999bac557b2bd1c2c1",
+    "newsendmsg-business-field-investigation.md": "3ea0c1b2638660130a427dbcc273d298cd2fa226b16695f827ebc5cb2e443843",
+    "newsendmsg-source-contract.json": "5cabbd7bcae704ae0f20574099faabc2d12041e084b9631d0bbb2f8d1a6c3608"
+  },
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "deployed": false,
+  "limits": [
+    "origin and full business meaning of service result values before the selected caller",
+    "complete query comparator/post-query helper and post-lookup effect semantics",
+    "upstream extra string identity, full record mutations and source nested XML",
+    "native thread/group/config, cancellation and final drain",
+    "complete native adapter, genuine sending, independent receipt and deployment"
+  ]
+}

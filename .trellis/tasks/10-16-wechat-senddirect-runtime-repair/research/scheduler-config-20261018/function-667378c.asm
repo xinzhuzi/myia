@@ -1,0 +1,36 @@
+0x667378c	ff4301d1	sub	sp, sp, #0x50
+0x6673790	f44f03a9	stp	x20, x19, [sp, #0x30]
+0x6673794	fd7b04a9	stp	x29, x30, [sp, #0x40]
+0x6673798	fd030191	add	x29, sp, #0x40
+0x667379c	e40303aa	mov	x4, x3
+0x66737a0	f30308aa	mov	x19, x8
+0x66737a4	e18301a9	stp	x1, x0, [sp, #0x18]
+0x66737a8	e20b00f9	str	x2, [sp, #0x10]
+0x66737ac	e8030091	mov	x8, sp
+0x66737b0	a04700d1	sub	x0, x29, #0x11
+0x66737b4	e1830091	add	x1, sp, #0x20
+0x66737b8	e2630091	add	x2, sp, #0x18
+0x66737bc	e3430091	add	x3, sp, #0x10
+0x66737c0	541a0094	bl	0x667a110 <_SetWeixinCallbackFunc+0x1892d14>
+0x66737c4	e92340a9	ldp	x9, x8, [sp]
+0x66737c8	692200a9	stp	x9, x8, [x19]
+0x66737cc	080200b4	cbz	x8, 0x667380c <_SetWeixinCallbackFunc+0x188c410>
+0x66737d0	08210091	add	x8, x8, #0x8
+0x66737d4	29008052	mov	w9, #0x1                ; =1
+0x66737d8	080129f8	ldadd	x9, x8, [x8]
+0x66737dc	f30740f9	ldr	x19, [sp, #0x8]
+0x66737e0	730100b4	cbz	x19, 0x667380c <_SetWeixinCallbackFunc+0x188c410>
+0x66737e4	68220091	add	x8, x19, #0x8
+0x66737e8	09008092	mov	x9, #-0x1               ; =-1
+0x66737ec	0801e9f8	ldaddal	x9, x8, [x8]
+0x66737f0	e80000b5	cbnz	x8, 0x667380c <_SetWeixinCallbackFunc+0x188c410>
+0x66737f4	680240f9	ldr	x8, [x19]
+0x66737f8	080940f9	ldr	x8, [x8, #0x10]
+0x66737fc	e00313aa	mov	x0, x19
+0x6673800	00013fd6	blr	x8
+0x6673804	e00313aa	mov	x0, x19
+0x6673808	05312b94	bl	0x713fc1c <_wxam_enc_uninit_10+0x713fc1c>
+0x667380c	fd7b44a9	ldp	x29, x30, [sp, #0x40]
+0x6673810	f44f43a9	ldp	x20, x19, [sp, #0x30]
+0x6673814	ff430191	add	sp, sp, #0x50
+0x6673818	c0035fd6	ret

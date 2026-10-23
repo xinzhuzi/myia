@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "scope": "artifact integrity and updated task gates only; not live execution or delivery validation",
+  "exports": 16,
+  "instructions_matched": 3532,
+  "instruction_checks": 63,
+  "dyld_slots": 6,
+  "decoded_branches": 10,
+  "contract_sha256": "ba25beeb4ee3cf3c7056f6be68a0eeee563295ba8c358ef5f5733b71fcc8f9b1",
+  "verification_sha256": "029312ce69c5c21a82cdf6348eb7674019f8236fab8d80db50bff9cbf42a42a1",
+  "open_implementation_gates": [
+    11,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    55
+  ],
+  "A7_complete": false,
+  "account_stop_unchanged": true,
+  "send_verified": false,
+  "deployed": false,
+  "progress": "selected account child and borrowed comparison string provenance established; upstream semantic source remains open"
+}

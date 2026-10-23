@@ -1,0 +1,62 @@
+{
+  "passed": true,
+  "scope": "implementation80 conditional auxiliary provenance and current task gates",
+  "verified_evidence_source_hashes": 108,
+  "previous_goal_turn_classification": "no_progress_status_only",
+  "current_goal_turn_classification": "progress",
+  "completed_current_slice": [
+    80
+  ],
+  "open_implementation_items": [
+    11,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    55,
+    67
+  ],
+  "a7_complete": false,
+  "lint": {
+    "returncode": 0,
+    "stdout": "All checks passed!\n",
+    "stderr": ""
+  },
+  "task_validation": {
+    "returncode": 0,
+    "stdout": "\u001b[0;34m=== Validating Context Files ===\u001b[0m\nTarget dir: /Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair\n\n  \u001b[0;32mimplement.jsonl: ✓ (5 entries)\u001b[0m\n  \u001b[0;32mcheck.jsonl: ✓ (5 entries)\u001b[0m\n\n\u001b[0;32m✓ All validations passed\u001b[0m\n",
+    "stderr": ""
+  },
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task.json": "5a27767910ce9b4758ba1ace4b98ffac97b5857cc35cd9342912e27e8598998a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task-tiers.json": "4b406e26acbdf34c7f8db0b079e233212622cac717d50a8139a816672c2cffb5",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "6f8c3b174fdf584fbb9ca77d390a859c1276da55e329fc2a991aa48c910fd6a7",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/design.md": "c5219ece7fd3fe420bed941a8cf0883d5744e3e81c0be11aa0bab67210730497",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/prd.md": "d42502f8857a8d5263206a61f9abf44d338630031c65867081793c14e5ff397a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.jsonl": "d2885c6bcbb2e762d24cc75b277883059489ab242b64fa52a320bd528f619b8c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/check.jsonl": "d2885c6bcbb2e762d24cc75b277883059489ab242b64fa52a320bd528f619b8c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-auxiliary-20261018-v2/verification.json": "a425943c4eb733e9b83a83cd45ffc8370d1d1bac68e328b6f57a3aa13251e6b0",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-text-auxiliary-result.md": "79dc4e9db499ec5a021160325d7f1d28b4a8d1e74abe779ddfd10bcf117670cc",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/completion-gap-audit-20261017.md": "e22b6d9073563733719ba7285af4b402b8b6001ed53a4e4d61a8099a7bd0ed15",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-auxiliary-20261018/initial-verifier.py": "83d05ebc512d65db703654031e4a91d1b08712f8ff5bc67e59ead669ce6bda95",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-auxiliary-20261018/failure.json": "46a9a2fc68ac7323d23d25d1c22d4933f53f0883dc69e1732386ad59fb04d0d2",
+    "Library/ai/verify_wechat_text_auxiliary_20261018.py": "4d6740e7310ea02a6a61195d95855ead68358f664a149128c13a2c7cf57e512d",
+    "Library/ai/audit_wechat_text_auxiliary_20261018.py": "bf191281728cc76955cac677a59af8ba5804eaea15406eba5d88693159233dae"
+  },
+  "limitations": [
+    "Fresh frozen-byte verifier ran; existing native owned fixtures were not rerun this slice.",
+    "No whole-path field, native coroutine, final cleanup or complete adapter qualification.",
+    "Previous launch-span audit predates implementation80 document updates; retained as history.",
+    "ASan remains unqualified; no live target or installation status checked."
+  ],
+  "next_safe_action": "Verify factory metadata/name updates after setters, before text preparation; keep WeChat stopped.",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "deployed": false,
+  "full_objective_complete": false
+}

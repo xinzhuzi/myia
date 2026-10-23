@@ -1,0 +1,13 @@
+
+/Users/zhengbingjin/Downloads/微信反编译/ghidra-wxhunt/wechat_arm64.dylib:	file format mach-o arm64
+
+Disassembly of section __TEXT,__text:
+
+000000000001986c <_WeChatMain>:
+ 26c4070: a940242a     	ldp	x10, x9, [x1]
+ 26c4074: b4000089     	cbz	x9, 0x26c4084 <_WeChatMain+0x26aa818>
+ 26c4078: 9100212b     	add	x11, x9, #0x8
+ 26c407c: 5280002c     	mov	w12, #0x1               ; =1
+ 26c4080: f82c016b     	ldadd	x12, x11, [x11]
+ 26c4084: a900250a     	stp	x10, x9, [x8]
+ 26c4088: d65f03c0     	ret

@@ -1,0 +1,45 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "scope": "Frozen static join/publication ordering; owned counterexample only",
+  "promise_state_pair_offset": "job+0xb8",
+  "wait_state_pair_offset": "job+0xc8",
+  "same_state_pair_copied_at": "0x667e214",
+  "state_status_offset": "state+0x9c",
+  "state_result_offset": "state+0x90",
+  "completion_sequence": [
+    "0x667fc94 publishes result via promise",
+    "0x667fcb4 dispatches associated signals",
+    "0x667fcd0 invokes optional final user callback"
+  ],
+  "ordinary_wait": {
+    "entry": "0x2c620c8",
+    "state_wait": "0x666a844",
+    "pending_status": 0,
+    "exception_status": 2,
+    "typed_name": "_c7a25de5",
+    "result_read": "0x66810c4 reads 32-bit result"
+  },
+  "coroutine_ready_branch": {
+    "entry": "0x6674d5c",
+    "status_getter": "0x6668c3c",
+    "nonzero_branch": "0x667505c returns zero"
+  },
+  "join_is_callback_drain": false,
+  "join_is_request_drain": false,
+  "callback_return_is_capture_destruction": false,
+  "adapter_requirements": [
+    "Retain callback state, service lifetime and code past successful job join.",
+    "Do not use the completed flag, result readiness or callback entry as a release barrier.",
+    "Track request completion/cancellation independently from job completion/cancellation.",
+    "Require separate proof for queued signals, final callback and captured references.",
+    "Do not unload native code or enable product sending from this evidence."
+  ],
+  "unresolved": [
+    "Coroutine pending/resume/cancel paths and exact executor identity",
+    "Native job destructor and final strong/weak releases",
+    "Native queued receiver ownership and executor drain",
+    "Complete adapter, business inputs and independent sending receipt"
+  ],
+  "runtime_observed": false,
+  "callable_for_send": false
+}

@@ -1,0 +1,7 @@
+0x562fd20	681002d0	adrp x8,0x983d000
+0x562fd24	08412f91	add x8,x8,#0xbd0
+0x562fd28	3f0000f1	cmp x1,#0x0
+0x562fd2c	0801819a	csel x8,x8,x1,eq
+0x562fd30	080800a9	stp x8,x2,[x0]
+0x562fd34	1f0800f9	str xzr,[x0, #0x10]
+0x562fd38	c0035fd6	ret

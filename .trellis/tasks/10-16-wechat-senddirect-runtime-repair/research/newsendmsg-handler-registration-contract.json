@@ -1,0 +1,34 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "evidence_type": "offline frozen instructions; no WeChat execution",
+  "service_initializer": {
+    "entry": "0x317ba5c",
+    "registration_call": "0x317bc34",
+    "callee": "0x30e3fb0",
+    "registers": {"x0": "storage = *(service+0xb20)", "x1": "storage+0x28", "x2": "stack weak context parameters"},
+    "decompiler_correction": "No additional leading parameter; raw x0/x1/x2 establish actual call ABI"
+  },
+  "maps": {
+    "handler_map": {"base": "storage", "insert": "0x30e7be8", "lookup": "0x3217130", "node_key": "0x10", "node_shared_pair": ["0x28", "0x30"]},
+    "type_to_name_map": {"base": "storage+0x28", "insert": "0x30e7fd4", "node_constructor": "0x30e8380", "lookup": "0xda468c", "node_key": "0x10", "node_name_string": "0x28"},
+    "text_mapping": "integer 1 -> std::to_string -> TextMessageHandler; factory 0x30e7aa0 result moved into handler-map node+0x28/+0x30",
+    "lookup_key": "0x30e3df8: low type != 49 uses to_string(low); low type == 49 appends underscore and to_string(high)",
+    "selection": "0x319a6a8 builds key from low/high references, finds name in storage+0x28, finds handler node in storage, copies shared pair into hidden-x8 return and increments strong count",
+    "shared_storage_identity_proven": true
+  },
+  "notification_subscribers": {
+    "registration": "0x317ba5c iterates storage+0x10 nodes; payload=node+0x28",
+    "plain": {"container": "handler+0x18", "member_target": "0x317d1cc", "invoker": "0x3213a30", "registration_call": "0x317bcc8", "effects": ["copies record into one-element vector, invokes 0x319eef8(service+0xc0, vector)", "copies record into another vector, invokes 0x3960e34 through acquired service"]},
+    "flagged": {"container": "handler+0x90", "member_target": "0x317d4ac", "invoker": "0x3213a74", "registration_call": "0x317bd84", "effects": ["tail-calls 0x30d0a14(service+0x228, flags, record)"]},
+    "executor_source": "0x466ad74 result object+0x10; executor concrete type and drain semantics not established",
+    "producer_dispatch_proven": false
+  },
+  "complete_context_to_text_producer_dispatch_proven": false,
+  "runtime_observed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "send_verified": false,
+  "remaining": ["exact context to text producer virtual call", "ordinary input identity and recipient direction", "runtime group/config/thread and callback drain", "complete adapter and independent delivery receipt"],
+  "safety_boundary": "account-safety-stop-20261016.md remains authoritative; no live WeChat operation or new observation request"
+}

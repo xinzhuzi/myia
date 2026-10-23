@@ -1,0 +1,21 @@
+{
+ "schema": 3,
+ "wechat_version": "4.1.15",
+ "dylib_arm64_slice_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+ "anchor_offset": "0x490fb20",
+ "anchor_bytes_hex": "ffc305d1fc6f14a9f44f15a9fd7b16a9",
+ "note": "微信 4.1.15 (270135) ARM64：完整切片哈希及16字节锚点已与当前安装包匹配。本表仅供磁盘身份校验。旧 schema-3 模板直调配方已证伪，原生入口、服务指针、捕获不变量及参数布局均未获新适配验收，置 null；不得用其他版本地址回填。不存在可执行的4.1.15直发配方，活调试入口保持停用。",
+ "offsets": {
+  "send_entry": null,
+  "pump_resume": null,
+  "enqueue_a": null,
+  "enqueue_b": null,
+  "service_ptr_mode": null,
+  "service_global_off": null,
+  "queue_selector": "enqueue_a",
+  "queue_delta": "0x0",
+  "svc_vtable_off": null,
+  "svc_invariants_hex": null,
+  "arg_abi": null
+ }
+}

@@ -1,0 +1,8 @@
+{
+  "args": [
+    "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/operation-thread-20261018-verified/executor_ticket"
+  ],
+  "returncode": 0,
+  "stdout": "{\"scenarios\":5,\"host_virtual_slots\":true,\"ticket_bits\":64,\"real_operation_component\":true,\"balanced_lifetime\":true,\"target_executed\":false,\"sent\":false}\n",
+  "stderr": ""
+}

@@ -1,0 +1,64 @@
+{
+  "utc": "2026-10-16T05:03:08.803574+00:00",
+  "commands": [
+    {
+      "args": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_mmreq_base_4115.py"
+      ],
+      "returncode": 0,
+      "log": "mmreq-slice-validation-v2-0.log"
+    },
+    {
+      "args": [
+        "/Users/zhengbingjin/Project/Github/MYIA/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/wechat-bridge/test_send_direct_passive.py",
+        "-q"
+      ],
+      "returncode": 0,
+      "log": "mmreq-slice-validation-v2-1.log"
+    },
+    {
+      "args": [
+        "/Users/zhengbingjin/.local/bin/ruff",
+        "check",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/mmreq_base_4115.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/test_mmreq_base_4115.py",
+        "Library/ai/trace_wechat_text_contract_20261016.py",
+        "Library/ai/scan_wechat_request_stores_20261016.py",
+        "Library/ai/verify_wechat_text_contract_20261016.py",
+        "/Users/zhengbingjin/Project/Github/MYIA/Library/ai/validate_mmreq_slice_20261016.py"
+      ],
+      "returncode": 0,
+      "log": "mmreq-slice-validation-v2-2.log"
+    }
+  ],
+  "source_sha256": {
+    "mmreq_base_4115.py": "6d8983b31ca4c1636f5c9c626d0f85744a4feb59dcbfb9fc0ab5f617a1daae99",
+    "test_mmreq_base_4115.py": "a6b6ea4b80b5c213dbb61933ffa38fc03532dab732644de62c1408dc76b5210e"
+  },
+  "wechat": [
+    {
+      "pid": 33589,
+      "probe_returncode": 0,
+      "state": 2,
+      "traced": false
+    }
+  ],
+  "debuggers": {
+    "lldb": {
+      "returncode": 1,
+      "pids": []
+    },
+    "debugserver": {
+      "returncode": 1,
+      "pids": []
+    }
+  },
+  "attached": false,
+  "sent": false,
+  "all_checks_passed": true,
+  "native_sending_verified": false
+}

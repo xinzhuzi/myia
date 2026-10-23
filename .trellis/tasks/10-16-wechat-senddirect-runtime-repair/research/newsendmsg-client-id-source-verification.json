@@ -1,0 +1,49 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "verified_exports": [
+    {
+      "file": "text-contract-pass77/native-fn-30f2168.asm",
+      "instructions": 372,
+      "sha256": "63f02a633fe9833e2be0361cd9ff2b9c814d759446a317fd9c31c1878d531d18"
+    },
+    {
+      "file": "text-contract-pass114/native-fn-4cbe440.asm",
+      "instructions": 30,
+      "sha256": "b5ead7061db028b8db0c5064fdb188eb079989c2d169f8c01d3936a3c4176cd0"
+    },
+    {
+      "file": "text-contract-pass130/native-fn-4d310bc.asm",
+      "instructions": 38,
+      "sha256": "7cb5dbef1a73a31b6489103ad57a02c9a2b0942f4b20e1e4f1fda48a448366ae"
+    },
+    {
+      "file": "text-contract-pass155/native-fn-8ad29c.asm",
+      "instructions": 110,
+      "sha256": "ed526cc0aa23fe8a6987ca98746f1940adba6583baaacc47e1aa022c29cc698a"
+    },
+    {
+      "file": "text-contract-pass155/native-fn-3b1afc.asm",
+      "instructions": 70,
+      "sha256": "b579580a04be587d55fffcd7b31909be120a8f9e5dab478c8cf64d5812cdeb81"
+    },
+    {
+      "file": "text-contract-pass155/native-fn-5f96e3c.asm",
+      "instructions": 149,
+      "sha256": "4c0b1c338e7417ffa22e31fb6109ffc34dc1805a0d23c79f8bce99f061cb6c17"
+    }
+  ],
+  "instructions_matched": 769,
+  "instruction_positions_checked": 19,
+  "literal_suffix": "_xwechat_",
+  "record_identity_thunk_destination": "0x4d310bc",
+  "contract_sha256": "4c77ba9091cfb665fba02df8ab9b1191f326586ac6f5d22318f9266f4ff5e6d9",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "callable_for_send": false,
+  "limitations": [
+    "Byte provenance and static data flow only; no WeChat state was observed.",
+    "Counter initialization, serialization and record direction remain unproved.",
+    "No live ID, native send, delivery receipt or account-safety verification."
+  ]
+}

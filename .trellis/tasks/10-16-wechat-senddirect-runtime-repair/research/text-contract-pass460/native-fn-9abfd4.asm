@@ -1,0 +1,2 @@
+0x9abfd4	000440f9	ldr x0,[x0, #0x8]
+0x9abfd8	c0035fd6	ret

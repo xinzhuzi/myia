@@ -1,0 +1,22 @@
+{
+ "send": {
+  "target": {
+   "username": "filehelper",
+   "display_name": "文件传输助手"
+  },
+  "attempts": 1,
+  "elapsed_ms": 14573,
+  "channel": "cgevent_ocr",
+  "sent": true,
+  "readback": "clipboard_copy",
+  "title_verify": "ocr",
+  "composer_cleared": true,
+  "localdb_receipt": true,
+  "fingerprint_note": null,
+  "post_send_verified": true,
+  "post_send_note": null,
+  "chat": "filehelper"
+ }
+}
+
+--stderr--

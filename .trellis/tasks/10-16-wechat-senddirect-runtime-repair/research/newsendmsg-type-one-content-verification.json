@@ -1,0 +1,65 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass167/native-fn-69a714.asm",
+      "instructions": 61,
+      "sha256": "93cac9cb8f8acdc33b448f6118ff32ac1ec3371f3b4654df70ce87ebd18ae2b4"
+    },
+    {
+      "file": "text-contract-pass171/native-fn-4c6f030.asm",
+      "instructions": 72,
+      "sha256": "ed56354aeadf43f77600956c256e3410ac33a0219128c383d127513698312238"
+    },
+    {
+      "file": "text-contract-pass172/native-fn-4c6f204.asm",
+      "instructions": 41,
+      "sha256": "4541c4f533a390f94dbbcd6f5fdeaef568f91424443a938ee1ec257211fcf604"
+    },
+    {
+      "file": "text-contract-pass172/native-fn-4c6c5d0.asm",
+      "instructions": 15,
+      "sha256": "2012ae84e9fcb43f36b9ebba90dcf71982319486d8a816789b7e90cdaeba0415"
+    },
+    {
+      "file": "text-contract-pass173/native-fn-4c6f2c4.asm",
+      "instructions": 41,
+      "sha256": "700f100cde2cf84657426189264483ae04954c76568fa66e21b177e88d6b0fdd"
+    },
+    {
+      "file": "text-contract-pass166/native-fn-d6bf98.asm",
+      "instructions": 2,
+      "sha256": "4842fbe38339e9dafd9667626004c1c68e00eef2afe20c9d7d1a807f7495f4ca"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9eb2bc8",
+      "decoded": "0xd6bf98",
+      "chain_steps": 1311
+    },
+    {
+      "slot": "0x9eb2bd0",
+      "decoded": "0xd6bfa0",
+      "chain_steps": 1312
+    },
+    {
+      "slot": "0x9eb2bd8",
+      "decoded": "0xd6bfa8",
+      "chain_steps": 1313
+    },
+    {
+      "slot": "0x9eacf50",
+      "decoded": "0x4c6eff4",
+      "chain_steps": 463
+    }
+  ],
+  "instructions_matched": 232,
+  "instruction_positions_checked": 32,
+  "contract_sha256": "635ae383c479c8a9518d797ef4b69b15980df0416ad1d20de46c852d4e3ff5cf",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "Record-to-payload conversion only; ordinary send dispatch, account direction, thread safety and receipt unproved."
+}

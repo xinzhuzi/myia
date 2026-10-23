@@ -1,0 +1,81 @@
+{
+  "passed": true,
+  "scope": "implementation79 and current hashes of selected dependencies",
+  "verified_dependency_source_hashes": {
+    "scheduler-config-20261018/verification.json": 173,
+    "launch-cancel-order-20261018/verification.json": 62,
+    "group-switch-caller-20261018/verification.json": 83,
+    "recipient-lookup-20261018/verification.json": 91,
+    "recipient-lookup-20261018/typed-wait-supplement.json": 4,
+    "text-input-owner-qualified-20261018-v2/verification.json": 33,
+    "text-service-abi-20261018/verification.json": 43,
+    "launch-span-20261018/verification.json": 96
+  },
+  "completed_current_slice": [
+    79
+  ],
+  "open_implementation_items": [
+    11,
+    18,
+    20,
+    21,
+    22,
+    23,
+    24,
+    55,
+    67
+  ],
+  "a7_complete": false,
+  "previous_goal_turn_classification": "no_progress_status_only",
+  "current_goal_turn_classification": "progress",
+  "lint": {
+    "returncode": 0,
+    "stdout": "All checks passed!\n"
+  },
+  "task_validation": {
+    "returncode": 0,
+    "stdout": "\u001b[0;34m=== Validating Context Files ===\u001b[0m\nTarget dir: /Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair\n\n  \u001b[0;32mimplement.jsonl: \u2713 (5 entries)\u001b[0m\n  \u001b[0;32mcheck.jsonl: \u2713 (5 entries)\u001b[0m\n\n\u001b[0;32m\u2713 All validations passed\u001b[0m\n"
+  },
+  "source_sha256": {
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/check.jsonl": "d2885c6bcbb2e762d24cc75b277883059489ab242b64fa52a320bd528f619b8c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/design.md": "62dc5abf980894f604e2fd8229530deb08c92ccdfc01f216fcd654f7825b5f04",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.jsonl": "d2885c6bcbb2e762d24cc75b277883059489ab242b64fa52a320bd528f619b8c",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/implement.md": "3634fe7757f6ed26910ec6668ee75c346f4f772184aa945dd7ce26527b080935",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/prd.md": "d42502f8857a8d5263206a61f9abf44d338630031c65867081793c14e5ff397a",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/account-safety-stop-20261016.md": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/completion-gap-audit-20261017.md": "1a8a361cf4605517315df170fadf96ea1b4ebc8e8debd65677e4f67a4437d0d9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/group-switch-caller-20261018/verification.json": "7faffd5037b560ce1055d3335a1e5386465fd27b147ea4be6241b1333e3bf561",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/launch-cancel-order-20261018/verification.json": "d50bb6d0b6c949f0fcf0a94c1d8674384848a307e47cac2476f7e163dae45242",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/launch-span-20261018/verification.json": "57178d5d290962010fdde9b62a2626a19767ec3b07b86d5e3e36ebb644dc2264",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/newsendmsg-launch-span-result.md": "95438bc9c03010a844187cbfd7741612ca44625015dbeaf9350beecdaa41a0b4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/recipient-lookup-20261018/typed-wait-supplement.json": "67881918172485e82355d09755c1438252f97ee1c7a8e82ab1be596c61eebe1b",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/recipient-lookup-20261018/verification.json": "03543858f0bb6421b3db0207f0f6f07bf6ec8073c2293246a35c7239f4ece0a6",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/scheduler-config-20261018/verification.json": "27063ec45f91db37fcc049f5e14afc34c5abf5ca80fe43b8379a9ebd5d1d9295",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-input-owner-qualified-20261018-v2/strict-compile.json": "069febd87a111718139df7a4604eb64217d98455d3ad3645572c0c68c02d155d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-input-owner-qualified-20261018-v2/strict-run.json": "653320edb72d1a37576801dce7fdb893cc1f63d377b4f74e497e0b3a9ba1dc3d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-input-owner-qualified-20261018-v2/undefined-compile.json": "4d775fd4d58a056030eecc09cbbb400b9fd17d2a081b205e80f1dec71a422fd4",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-input-owner-qualified-20261018-v2/undefined-run.json": "b04c50b9517b550f1a28e5f73634a5d34cb4e3d6b67abf2207e2286316b43856",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-input-owner-qualified-20261018-v2/verification.json": "2cdd0d87714c5a2fa9f7775eb7ff091f0c7e92ecae059863ddc36b1bd6831500",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-service-abi-20261018/strict-compile.json": "51a0d04a5e814e3bf6b48b6cfe0cdd2a13d663ee58d76c46da041ed8eaf63be9",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-service-abi-20261018/strict-run.json": "91e0f67ba8cc05c69e2ab1560414660f3a28718c70242e90e2ffb7163ea52952",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-service-abi-20261018/undefined-compile.json": "3b3e7b5d60e5619f13504de7a4e7b62a61d2cc142929d4c3e1196eed8df4ae50",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-service-abi-20261018/undefined-run.json": "34d309690233f3ffb5a9f090d86338b70b07cc6e3af2d45c70aab479ddc32ba3",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/text-service-abi-20261018/verification.json": "2c132376ff2c3402324700a67713e7cb30dcf913cf7724fc8f48c6437dccb81d",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task-tiers.json": "6e9a29401e9b6ef17c46378ac09edfa821449e75ff74bf311b77750d0749239e",
+    ".trellis/tasks/10-16-wechat-senddirect-runtime-repair/task.json": "5a27767910ce9b4758ba1ace4b98ffac97b5857cc35cd9342912e27e8598998a",
+    "Library/ai/audit_wechat_launch_span_20261018.py": "410034bc12e3bf3a6a789d295474e2f4174e50e8dca340378926ee3426ca6c76"
+  },
+  "limits": [
+    "Saved strict/UBSan fixtures rechecked by hash; not rerun this slice.",
+    "ASan remains unqualified; no fresh target or installation status checked.",
+    "Historical text-components audit predates implementation79 document changes.",
+    "No native lifecycle qualification, full adapter, real send/receipt or deployment."
+  ],
+  "next_safe_action": "Prove native parameter final cleanup or concrete external lifecycle coordination; keep all WeChat operations stopped.",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "deployed": false,
+  "full_objective_complete": false
+}

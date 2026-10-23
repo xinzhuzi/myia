@@ -1,0 +1,25 @@
+{
+  "mode": "fixture",
+  "case": "nonexistent_pid",
+  "folder": "/Users/zhengbingjin/Project/Github/MYIA/.trellis/tasks/10-16-wechat-senddirect-runtime-repair/research/fixture-nonexistent_pid-p0zpjm8j",
+  "deadline_seconds": 6.0,
+  "lldb_exit": 0,
+  "server_exit": 0,
+  "before": null,
+  "after": null,
+  "elapsed_seconds": 0.253,
+  "target_recovered": false,
+  "helpers_remaining": 0,
+  "cleanup_ok": true,
+  "observer": {
+    "outcome": "nonexistent_pid_rejected",
+    "detach_ack": true,
+    "attach_calls": 1,
+    "launch_calls": 0,
+    "detached": false,
+    "hit": false,
+    "invalid_pid_error": "success",
+    "detach_error": "error: Sending isconnect packet failed.",
+    "finished_monotonic": 82050.132204
+  }
+}

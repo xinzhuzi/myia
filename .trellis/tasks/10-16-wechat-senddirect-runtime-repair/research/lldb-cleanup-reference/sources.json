@@ -1,0 +1,48 @@
+{
+  "commit": "821624a42136c1b0c6b18962540eb57fa68937e8",
+  "files": [
+    {
+      "path": "lldb/tools/debugserver/source/RNBContext.h",
+      "blob": "1abef6b17707a26d742c3ec297c6f895c6ea751f",
+      "bytes": 5704,
+      "sha256": "816b8fe9d03cbb94007711031385539caa4a9ae44d98c11b6210a5e6cc902940",
+      "url": "https://github.com/llvm/llvm-project/blob/821624a42136c1b0c6b18962540eb57fa68937e8/lldb/tools/debugserver/source/RNBContext.h"
+    },
+    {
+      "path": "lldb/tools/debugserver/source/RNBRemote.cpp",
+      "blob": "4318c16b5fda12562fab086e36a4811d2547984f",
+      "bytes": 246512,
+      "sha256": "f58e93922baabf54bb4eb354c5e441bd9fb9fb3b95f0d02dc03b554dfc982481",
+      "url": "https://github.com/llvm/llvm-project/blob/821624a42136c1b0c6b18962540eb57fa68937e8/lldb/tools/debugserver/source/RNBRemote.cpp"
+    },
+    {
+      "path": "lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp",
+      "blob": "ed269936d15bf02ee5091b22b182398941bfa8c2",
+      "bytes": 292466,
+      "sha256": "b0d1b2745a4a38677d2d1c5f0dfd3b05a770578f69a06832730c14e1f94bdd61",
+      "url": "https://github.com/llvm/llvm-project/blob/821624a42136c1b0c6b18962540eb57fa68937e8/lldb/source/Plugins/Process/gdb-remote/ProcessGDBRemote.cpp"
+    },
+    {
+      "path": "lldb/tools/debugserver/source/debugserver.cpp",
+      "blob": "2b8aaea191e80e02733a8f0e61e8bfde42eb0240",
+      "bytes": 61623,
+      "sha256": "14c1a0d0c765130ea9072d1a8dea38294ec6a35fb0b7e4cd5e91b5ee70c459f3",
+      "url": "https://github.com/llvm/llvm-project/blob/821624a42136c1b0c6b18962540eb57fa68937e8/lldb/tools/debugserver/source/debugserver.cpp"
+    },
+    {
+      "path": "lldb/source/API/SBProcess.cpp",
+      "blob": "53d8d3c3e5ddf88f08c4c305b97c6badd2c404e5",
+      "bytes": 47480,
+      "sha256": "1ccbea468d64719fc12355d15fe261efcefe0dbfdc758b4ced072972b339896e",
+      "url": "https://github.com/llvm/llvm-project/blob/821624a42136c1b0c6b18962540eb57fa68937e8/lldb/source/API/SBProcess.cpp"
+    },
+    {
+      "path": "lldb/include/lldb/Target/Process.h",
+      "blob": "226c58034dd655fb6d7661f51deaaf8266896a95",
+      "bytes": 147738,
+      "sha256": "9226f781c43e7de82afd75ca74bb5e249525e3e6077a3738ce5d7b50b7bc983c",
+      "url": "https://github.com/llvm/llvm-project/blob/821624a42136c1b0c6b18962540eb57fa68937e8/lldb/include/lldb/Target/Process.h"
+    }
+  ],
+  "limitation": "Upstream reference; installed Apple LLDB must be verified separately."
+}

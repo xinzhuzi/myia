@@ -1,0 +1,9 @@
+0x562fd3c	282440a9	ldp x8,x9,[x1]
+0x562fd40	082400a9	stp x8,x9,[x0]
+0x562fd44	280840f9	ldr x8,[x1, #0x10]
+0x562fd48	080800f9	str x8,[x0, #0x10]
+0x562fd4c	1f0900f1	cmp x8,#0x2
+0x562fd50	63000054	b.cc 0x0562fd5c
+0x562fd54	29008052	mov w9,#0x1
+0x562fd58	0801e9b8	ldaddal w9,w8,[x8]
+0x562fd5c	c0035fd6	ret

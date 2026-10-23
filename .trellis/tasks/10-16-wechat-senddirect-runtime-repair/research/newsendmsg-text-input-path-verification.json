@@ -1,0 +1,112 @@
+{
+  "binary_sha256": "6a5bd0cbb39ad3092c15e9debda2db4969eedf1b58caad244d88033a996833a7",
+  "exports": [
+    {
+      "file": "text-contract-pass164/native-fn-77bdd0.asm",
+      "instructions": 41,
+      "sha256": "e6890d73c6f7544e210079f8c46a0ac28dedfadc8c690e933f9415e90054bf9f"
+    },
+    {
+      "file": "text-contract-pass165/native-fn-77be90.asm",
+      "instructions": 35,
+      "sha256": "8b36fcdbcfd1efdeaa384378ef16fd77cbdf463e0de53da46cf98365cf33e33c"
+    },
+    {
+      "file": "text-contract-pass167/native-fn-69a714.asm",
+      "instructions": 61,
+      "sha256": "93cac9cb8f8acdc33b448f6118ff32ac1ec3371f3b4654df70ce87ebd18ae2b4"
+    },
+    {
+      "file": "text-contract-pass166/native-fn-d6bf98.asm",
+      "instructions": 2,
+      "sha256": "4842fbe38339e9dafd9667626004c1c68e00eef2afe20c9d7d1a807f7495f4ca"
+    },
+    {
+      "file": "text-contract-pass166/native-fn-d6bfa0.asm",
+      "instructions": 2,
+      "sha256": "dab34b28765a922d61ba8219fc4148ab9aa252908f49fbffe2e4bf132cea037f"
+    },
+    {
+      "file": "text-contract-pass166/native-fn-d6bfa8.asm",
+      "instructions": 2,
+      "sha256": "982628e838388328547ad9b5cc755e585c2d1c2723f86f39b73c552f2cd15a78"
+    },
+    {
+      "file": "text-contract-pass171/native-fn-2920b74.asm",
+      "instructions": 1861,
+      "sha256": "80005f2517c1627f0be958214ef457afe16ff9f8d3b96cf97241de331ad26f72"
+    },
+    {
+      "file": "text-contract-pass221/native-fn-292d868.asm",
+      "instructions": 45,
+      "sha256": "03768a5fd183295d1f4dba96963c15c7917c6a7db711721f4cc12a79bea35228"
+    },
+    {
+      "file": "text-contract-pass220/native-fn-292ef9c.asm",
+      "instructions": 616,
+      "sha256": "4875be249c5d7cb46b841282266a6b66bcb340950054520a7d1725f7e8562ad4"
+    },
+    {
+      "file": "text-contract-pass163/native-fn-317ded4.asm",
+      "instructions": 31,
+      "sha256": "def43b0968276a7d4aa94a4d379675ffa4d929c4cafc8cf559af5a635ebbaa52"
+    },
+    {
+      "file": "text-contract-pass161/native-fn-317df64.asm",
+      "instructions": 112,
+      "sha256": "266399337b806e9525c52ad6c59f760c11543f0dc7cf34033a1dd3474c94dab7"
+    },
+    {
+      "file": "text-contract-pass203/native-fn-3105a98.asm",
+      "instructions": 659,
+      "sha256": "d5f6911822079ee22866e87bc7ab3b5365973fa5098b31985dd3dfe14e77ca97"
+    }
+  ],
+  "slots": [
+    {
+      "slot": "0x9eb2698",
+      "decoded": "0x9eb2598",
+      "chain_steps": 1158
+    },
+    {
+      "slot": "0x9eb25a8",
+      "decoded": "0x9eb2580",
+      "chain_steps": 1130
+    },
+    {
+      "slot": "0x9eb26b0",
+      "decoded": "0xd6bf98",
+      "chain_steps": 1161
+    },
+    {
+      "slot": "0x9eb26b8",
+      "decoded": "0xd6bfa0",
+      "chain_steps": 1162
+    },
+    {
+      "slot": "0x9eb26c0",
+      "decoded": "0xd6bfa8",
+      "chain_steps": 1163
+    },
+    {
+      "slot": "0x9db39a8",
+      "decoded": "0x292ef9c",
+      "chain_steps": 1694
+    }
+  ],
+  "instructions_matched": 3467,
+  "instruction_positions_checked": 75,
+  "contract_sha256": "ffa7abe710f241e7a70d655db85c0bc0e52e632c0b2482cbac5a9b1831ff1941",
+  "prior_contract_sha256": {
+    "newsendmsg-text-handler-contract.json": "75995ef81a55770aac6463f2f51c810e75f4b840fea77997b6c45297f84e2c65",
+    "newsendmsg-handler-registration-contract.json": "6911f2a4b1956576d0734a5c4f1c7f51687f7ccf772af235cc83ff39a4ef198f",
+    "newsendmsg-forward-queue-contract.json": "ed693e5b498e2c44862d7906d30cd20694277dc520109eaec4ab0952d748734f",
+    "newsendmsg-producer-dispatch-contract.json": "ffaa6f7febf780f90bde5eee6078f71ecb08c5993913b3afd4800ff4a86e7cd8"
+  },
+  "stop_record_sha256": "b720bc05887b89181171e54997b0e470c32186bfef4014fb680132bb8757ca5d",
+  "target_executed": false,
+  "target_attached": false,
+  "native_function_called": false,
+  "send_verified": false,
+  "limitations": "One reviewed static numeric-one construction and captured-object route only; builder preconditions/argument meanings, post-replacement record identity, runtime thread/drain safety and delivery remain unproved."
+}

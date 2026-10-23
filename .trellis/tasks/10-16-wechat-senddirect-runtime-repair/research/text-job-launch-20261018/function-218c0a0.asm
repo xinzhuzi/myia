@@ -1,0 +1,20 @@
+0x218c0a0	f44fbea9	stp	x20, x19, [sp, #-0x20]!
+0x218c0a4	fd7b01a9	stp	x29, x30, [sp, #0x10]
+0x218c0a8	fd430091	add	x29, sp, #0x10
+0x218c0ac	130440f9	ldr	x19, [x0, #0x8]
+0x218c0b0	b30100b4	cbz	x19, 0x218c0e4 <_WeChatMain+0x2172878>
+0x218c0b4	68220091	add	x8, x19, #0x8
+0x218c0b8	09008092	mov	x9, #-0x1               ; =-1
+0x218c0bc	0801e9f8	ldaddal	x9, x8, [x8]
+0x218c0c0	280100b5	cbnz	x8, 0x218c0e4 <_WeChatMain+0x2172878>
+0x218c0c4	680240f9	ldr	x8, [x19]
+0x218c0c8	080940f9	ldr	x8, [x8, #0x10]
+0x218c0cc	f40300aa	mov	x20, x0
+0x218c0d0	e00313aa	mov	x0, x19
+0x218c0d4	00013fd6	blr	x8
+0x218c0d8	e00313aa	mov	x0, x19
+0x218c0dc	d0ce3e95	bl	0x713fc1c <_wxam_enc_uninit_10+0x713fc1c>
+0x218c0e0	e00314aa	mov	x0, x20
+0x218c0e4	fd7b41a9	ldp	x29, x30, [sp, #0x10]
+0x218c0e8	f44fc2a8	ldp	x20, x19, [sp], #0x20
+0x218c0ec	c0035fd6	ret
