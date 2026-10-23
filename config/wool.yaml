@@ -27,8 +27,11 @@ timezone: Asia/Shanghai
 sources:
   - name: linuxsb
     engine: static_html
-    url: "https://linux.sb/"      # homepage = latest topic list
-    method: GET
+    url: "https://linux.sb/forum/2"   # 福利放送版块页(2026-10-24 对齐生产
+    method: GET                       # wf_crawl 源面:首页=全站混合流被讨论帖
+                                      # 稀释,/forum/2=定向福利区。实测(10-24)
+                                      # 50 帖/页,div.post-body / a.post-title
+                                      # 与首页同构,选择器零改直用。
     headers:
       User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
     extract:
@@ -38,19 +41,24 @@ sources:
         title: "a.post-title"
         url: "a.post-title@href"  # /topic/<id>, resolved against the page URL
     rate_limit:                   # robots only blocks admin/login/search pages
+                                  # (10-24 复核:/forum/ 路径放行)
       qps: 0.5
       jitter: "2s"
       backoff: exponential
       respect_robots: true
     proxy: direct
     retry: 3
-    # No pagination: the site's page-2 URL pattern could not be verified
-    # (only the homepage is guaranteed) — single-page walk until confirmed.
+    # No pagination: /forum/2 的翻页 URL 形态未实测(50 帖/页已够羊毛
+    # 窗口),单页走查;翻页需求出现时先实测再开。
 
-  # bbsbtsb 已移除(2026-10-17 判死):域名迁移 bbs.bt.sb→bt.sb(301),新域
-  # /latest 挂长亭雷池 WAF(waf.chaitin.com 拦截页),直连/Clash 出口/firecrawl
-  # 云渲染三通道全 468/拦截页(证据:/tmp 实测 2026-10-17)。若站方日后撤 WAF
-  # 或开放 API 再复源;华为云线同源同样受阻,非遗漏。
+  # bbsbtsb 已移除(2026-10-17 判死;2026-10-24 复活复测维持判死):域名迁移
+  # bbs.bt.sb→bt.sb(301),两域 /latest 均挂长亭雷池 WAF。10-24 复测(本步
+  # 2.3 测试矩阵:MYIA firecrawl 云端 × {bbs.bt.sb/latest, bt.sb/latest}):
+  # 两域均「成功」返回 92 字节 WAF 拦截页(markdown 全文即 SafeLine
+  # "Security Detection / Client Verifying" 告示,零主题链接)——云渲染也过
+  # 不去 Client Verifying 挑战,与 10-17 直连/Clash/firecrawl 三通道全拦同型。
+  # 生产线 bbs 域活着走的是云 FC 海外出口纯 HTTP GET(无头浏览器指纹可躲),
+  # MYIA 无等价出口通道。若站方撤 WAF 或开放 API 再复源。
   - name: dalao                # dalao.net(Xiuno BBS;2026-10-17 实测直连 200,
     engine: static_html        # 首页 26 帖/页,thread-N.htm 相对链)
     url: "https://www.dalao.net/"
@@ -76,6 +84,12 @@ sources:
   # CF 挑战墙:直连与 Clash 出口均 403「Just a moment」,唯一活路=firecrawl 云
   # 渲染(实测 33 主题链接/页;引擎选择器 span.item_title 系 V2EX 经典标记)。
   # 云兜底凭据走钥匙串引用(本地 3002 后端已死,colima 退役在案)。
+  # 官方 API 路实测记档(2026-10-24 本步 2.4,结论=维持 firecrawl):生产用
+  # api/topics/show.json?node_name=<n> 纯 HTTP 云出口;MYIA 直连该 API=403 CF
+  # interactive 挑战(连 robots.txt 都被挑战,robots 面无从取证);firecrawl
+  # 云渲染能拿到 API JSON 本体(26KB,浏览器过 CF)但引擎 json_path 提取不
+  # 支持(SUPPORTED_EXTRACT_TYPES 仅 list/item,JSON 裹在 markdown 代码栏里)。
+  # 换 API 免 credits 需先给 firecrawl 引擎开 json_path 解包能力——记翻案点。
   - name: v2ex-free
     engine: firecrawl
     url: "https://www.v2ex.com/go/free"
@@ -177,7 +191,16 @@ sources:
 
   - name: cocoloop
     engine: static_html
-    url: "https://www.cocoloop.cn/latest?page={page}"
+    # 福利专区(category id=19;2026-10-24 对齐生产 wf_crawl 10-20 改造:
+    # /latest 首页混合流全是讨论帖稀释福利)。实测(10-24):
+    # - SSR 直出 30 帖/页,tr.topic-list-item / a.raw-topic-link 既有选择器
+    #   直用;?page=2 翻页有效(不同主题集)。
+    # - 别名路径 /c/welfare/19 会 301 到本 canonical /c/19-category/19——
+    #   主管线 httpx 不跟随重定向(pipeline.py 主客户端缺省
+    #   follow_redirects=False),直接落 canonical 免空跑。
+    # - 不走生产同款 /c/welfare/19/l/latest.json:该站 robots 禁 /*.json
+    #   (10-24 实读 robots.txt),HTML 页零冲突。
+    url: "https://www.cocoloop.cn/c/19-category/19?page={page}"
     method: GET
     headers:
       User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
@@ -194,8 +217,9 @@ sources:
       qps: 0.5
       jitter: "2s"
       backoff: exponential
-      respect_robots: true        # robots allows /latest; blocks /u/, /my/,
-                                  # *.json and admin paths
+      respect_robots: true        # robots blocks /u/, /my/, *.json and admin
+                                  # paths; /c/<category> HTML pages allowed
+                                  # (10-24 实读 robots.txt)
     proxy: direct
     retry: 3
 
