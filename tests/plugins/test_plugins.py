@@ -181,10 +181,9 @@ def test_ai_news_carries_firecrawl_semantics_and_discourse_list():
         "key 走钥匙链(键名随 10-18 魔搭切换同步)"
     )
     assert config.enrich.batch == 10, "实测批宽:glm-5.3-flash 单批 20 条超 60s completion 上限,10 条留余量"
-    cocoloop = by_name["cocoloop"]
-    assert cocoloop.engine == "static_html"
-    assert cocoloop.pagination is not None and cocoloop.pagination.max_pages >= 1
-    assert "{page}" in cocoloop.url
+    # cocoloop 源已删(2026-10-24 主人裁决 Q2):讨论帖混进 AI 资讯的根治=
+    # 删源(生产 AI 资讯无 cocoloop);情报价值由 wool 侧福利专区承接。
+    assert "cocoloop" not in by_name, "ai-news 的 cocoloop 讨论流源应已删除(Q2)"
 
 
 def test_ai_news_images_ring_local_hint_comment_ships_startup_guide():
@@ -754,11 +753,8 @@ _SNIPPETS = {
         "expect_title": "公开演示标题",
         "expect_image": "https://aihot.news/assets/cover-abc.jpg",
     },
-    ("ai-news", "cocoloop"): {
-        "html": '<table><tr class="topic-list-item"><td><a class="title raw-topic-link" href="https://www.cocoloop.cn/t/topic/1">公开演示标题</a></td></tr></table>',
-        "expect_url": "https://www.cocoloop.cn/t/topic/1",
-        "expect_title": "公开演示标题",
-    },
+    # ("ai-news", "cocoloop") snippet 已随源删除(2026-10-24 Q2):讨论流源
+    # 退役,情报价值由 wool 侧福利专区源承接(wool 侧 cocoloop 源仍在)。
     ("wool", "linuxsb"): {
         "html": '<div class="post-body"><div class="post-title-row"><a class="post-title" href="/topic/1">公开演示标题</a></div></div>',
         "base": "https://linux.sb/",

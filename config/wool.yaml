@@ -321,26 +321,11 @@ classify:                       # 羊毛 is one of the seven builtin categories;
     - name: 同主体合成条目
       when: "aggregated_from and len(aggregated_from) >= 1"
       tag: aggregated
-    # ── 形态否决(10-19-wool-quality-gate;drop 先于 builtin 裁决)──
-    # 案发:提问帖「…可以再免费开一台…吗」/「什么时候开放呀」因标题带「免费」
-    # 被 FREE_KW 判 freebie;促销广告「超值大促|限时特惠…+免费」同理。标题含
-    # 免费二字 ≠ 羊毛——提问/求索/广告形态零情报,直接否决不进流。
-    - name: 提问帖过滤
-      drop: true
-      when: >-
-        '吗' in title or '呢?' in title or '呢？' in title or '请问' in title
-        or '想问' in title or '问一下' in title or '请教' in title
-        or '求助' in title or '求教' in title or '什么时候' in title
-    - name: 提问帖过滤·怎么如何
-      drop: true
-      when: >-
-        ('怎么' in title and ('?' in title or '？' in title))
-        or ('如何' in title and ('?' in title or '？' in title))
-    - name: 促销广告帖过滤
-      drop: true
-      when: >-
-        '超值' in title or '大促' in title or '秒杀' in title or '特惠' in title
-        or '低价' in title or '元起' in title or '刀起' in title
+    # ── 形态否决三条 drop 规则已删(10-24-huawei-ai-news-absorb Step 1.5)──
+    # 10-19 试错版的「提问帖过滤/提问帖过滤·怎么如何/促销广告帖过滤」与
+    # 词表 v2 的 builtin noise 五刀(求助帖族+吗$|呢$ 尾缀)和付费/拉客砍
+    # (Q1)重叠——否决上收进 myssia-classifier 全局生效,品类不再叠床架屋。
+    # 案发标题回归验证:tests/pipeline/test_wool_quality_gate.py。
 
 dedup:
   key: "{url}"                  # one slot-window per topic (AM/PM boundary at
@@ -365,8 +350,10 @@ push:
         mode: immediate
       - when: "category in ['freebie', 'proxy-node', 'buying-agent']"   # v0.1:
         mode: immediate         # 白给型 (freebie/node/buying-agent) -> push now
-      - when: "category in ['server', 'token', 'credit-card', 'channel', 'ai-news']"
+      - when: "category in ['server', 'token', 'credit-card', 'ai-news']"
         mode: digest            # paid/ad-like categories -> daily digest
+                                # channel 分支已删(10-24 Q1 渠道砍):付费/拉客
+                                # 帖在 classify 层即丢弃,None 永不进路由层
     template: |
       **羊毛速报 · {{ date }}**
       {% for item in items %}

@@ -1,14 +1,18 @@
-"""羊毛质量治理(task 10-19-wool-quality-gate):drop 否决 + 源级同主体合成。
+"""羊毛质量治理(task 10-19-wool-quality-gate → 10-24 词表 v2 上收):
+drop 否决机制 + 源级同主体合成。
 
 案发线(2026-10-19 主人报障):
 - sb.sb 提问帖「甲骨文账号升级后…可以再免费开一台 2c12g100g 的实例吗」因标题
   含「免费」被 FREE_KW 判 freebie 混进羊毛流(items.id=8547;同型 7616/8060);
 - TapNow 活动列表整页 8+ 行同主体,逐条进情报流=刷屏,须合成一条。
 
-本文件钉三件事:
-1. drop 规则先于内置免费信号否决提问/广告帖,且丢弃路径单独计数
-   (classify_rule_drop ≠ classify_unmatched);
-2. 仓库真实 config/wool.yaml 的规则装载后否决真实案发标题、放行真羊毛;
+2026-10-24 演进(10-24-huawei-ai-news-absorb Step 1.5):wool.yaml 的三条
+品类级 drop 规则(10-19 试错版)已删——提问帖/广告帖否决上收进
+myssia-classifier 词表 v2(builtin noise 五刀求助族+`吗$|呢$` 尾缀、fake
+假信号、付费/拉客砍),全局生效。本文件钉三件事:
+1. 品类级 drop 规则机制本身照旧可用且先于内置裁决(合成配置单测,
+   classify_rule_drop ≠ classify_unmatched 分开计数);
+2. 词表 v2 对真实案发标题的否决(经 builtin,不经品类规则)与真羊毛放行;
 3. 源级 aggregate 把整页条目合成单条(标题/正文/metadata/URL 身份契约)。
 """
 
@@ -33,17 +37,24 @@ WOOL_YAML = REPO_ROOT / "config" / "wool.yaml"
 # 真实案发标题(装机库 items 实录,2026-10-19)
 QUESTION_TITLE = "甲骨文账号升级后，需要做些什么呢？另外升级后可以再免费开一台 2c12g100g 的实例吗"
 QUESTION_TITLE_2 = "听说这个论坛可以获得免费域名啊 冲着 edu.ax 这个后缀来的 什么时候开放呀"
+# 促销广告案发标题:词表 v2/生产 v3.1 实测均归 proxy-node(「Proxy」先命中主循环,
+# 付费砍只杀主循环零命中的标题——生产同款语义,cat_of 实测在案)。10-19 的
+# 品类级促销 drop 规则已按 10-24 裁决删除;品类要再收紧可按本文件下方合成
+# 配置单测的机制自行声明 drop 规则(机制保留,语义上收)。
 AD_TITLE = "🔥 B2Proxy 超值大促 | 限时特惠 3GB 仅 $2.99 | 最高 25%OFF + 免费"
-# 真羊毛(同库同源实录,不该被误杀)
+# 真羊毛(同库同源实录;v2 硬门槛语义下仍须放行)
 LEGIT_TITLES = [
     "腾讯地图打车无门槛 10 元",
-    "京东 plus 的免费家政清洁还不错",
     "免费送 NAS 券",
 ]
+# 10-19 旧判「真羊毛」中的宽松形态:标题光带「免费」无量化/动作信号,
+# v2 硬门槛(生产 10-20 主人令)下按设计收紧为丢弃——主人 10-20 生产令,
+# 收量下降是预期,不算误杀(交付汇报说明)。
+LOOSE_FREEBIE_NOW_DROPPED = "京东 plus 的免费家政清洁还不错"
 
 
 # ---------------------------------------------------------------------------
-# drop veto: unit level (classifier) against the real wool.yaml rules
+# unit level: 词表 v2 builtin 否决案发标题(品类 drop 规则已上收,10-24)
 # ---------------------------------------------------------------------------
 
 
@@ -52,34 +63,40 @@ def _wool_rules():
 
 
 def test_wool_yaml_loads_through_schema_with_new_fields():
-    """整份 wool.yaml 过 load_category:drop 规则字段与占位注释里的 aggregate
-    形态都要在 schema 白名单内(drop 在 ClassifyRuleConfig,aggregate 在
-    SourceConfig——后者由占位注释承载,装载面只验证 drop 生效)。"""
+    """整份 wool.yaml 过 load_category:三条品类级 drop 规则已删(否决上收
+    进词表 v2 builtin,10-24 Step 1.5),两条打标规则(免费AI端点/合成条目)
+    留守;占位注释里的 aggregate 形态照旧在 schema 白名单内。"""
     from myssia.schema import load_category_file
 
     config = load_category_file(WOOL_YAML)
     drops = [rule for rule in config.classify.rules if rule.drop]
-    assert [rule.name for rule in drops] == [
-        "提问帖过滤",
-        "提问帖过滤·怎么如何",
-        "促销广告帖过滤",
-    ]
+    assert drops == [], "品类级 drop 规则应已上收进词表 v2(wool.yaml 不再叠床架屋)"
+    assert [rule.name for rule in config.classify.rules] == ["免费AI端点", "同主体合成条目"]
 
 
-def test_wool_yaml_rules_veto_real_offenders():
-    rules = _wool_rules()
-    for title in (QUESTION_TITLE, QUESTION_TITLE_2, AD_TITLE):
-        result = classify_item({"title": title, "url": "https://sb.sb/t/x"}, rules=rules)
-        assert result.category is None, f"案发标题应被否决: {title}"
-        assert result.dropped_by, "否决须留 dropped_by 规则名(观测面)"
+def test_builtin_table_vetoes_real_offenders():
+    """案发标题经词表 v2 builtin 否决(不再依赖品类 drop 规则):提问帖走
+    noise 五刀(需要做些什么),听说帖走 fake(听说)。促销广告案发标题例外:
+    「Proxy」先命中主循环 → proxy-node(生产 v3.1 cat_of 实测同判,五刀只砍
+    主循环零命中的标题),单列断言留档——品类要拦可自行声明 drop 规则。"""
+    for title in (QUESTION_TITLE, QUESTION_TITLE_2):
+        result = classify_item({"title": title, "url": "https://sb.sb/t/x"})
+        assert result.category is None, f"案发标题应被词表 v2 否决: {title}"
+        assert result.matched, f"否决须有命中追溯(观测面): {title}"
+    ad_result = classify_item({"title": AD_TITLE, "url": "https://sb.sb/t/x"})
+    assert ad_result.category == "proxy-node", (
+        "促销广告案发标题:主循环 Proxy 命中在付费砍之前(生产 v3.1 实测同判)"
+    )
 
 
-def test_wool_yaml_rules_keep_real_freebies():
-    rules = _wool_rules()
+def test_builtin_table_keeps_hard_threshold_freebies():
+    """真羊毛(带硬门槛量化/动作信号)不被误杀;宽松「免费」形态按 v2 收紧丢弃。"""
     for title in LEGIT_TITLES:
-        result = classify_item({"title": title, "url": "https://sb.sb/t/y"}, rules=rules)
+        result = classify_item({"title": title, "url": "https://sb.sb/t/y"})
         assert result.category == "freebie", f"真羊毛不该被误杀: {title}"
-        assert result.dropped_by == ""
+    assert classify_item({"title": LOOSE_FREEBIE_NOW_DROPPED}).category is None, (
+        "宽松免费形态按 10-20 硬门槛收紧为丢弃(预期行为,非回归)"
+    )
 
 
 def test_wool_yaml_g4f_rule_still_tags_without_veto():

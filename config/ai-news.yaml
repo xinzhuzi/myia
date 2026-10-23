@@ -64,37 +64,12 @@ sources:
         endpoint: keychain:myia/firecrawl/url  # 优先→下载层→云端;嵌套块形态
         api_key: keychain:myia/firecrawl/api-key  # (点键不被加载链支持,注释模板纠偏)
 
-  # CocoLoop — Discourse community (AI/agent sections). L2 static_html over
-  # the standard Discourse topic list; template pagination walks /latest.
-  - name: cocoloop
-    engine: static_html
-    url: "https://www.cocoloop.cn/latest?page={page}"
-    method: GET
-    headers:
-      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
-    pagination:                   # template mode: {page} in the URL is mandatory
-      mode: template
-      max_pages: 2                # walk stops early on unchanged/empty pages
-    extract:                      # standard Discourse list markup
-      type: list
-      item: "tr.topic-list-item"
-      fields:
-        title: "a.raw-topic-link"
-        url: "a.raw-topic-link@href"   # already absolute on this site
-    rate_limit:
-      qps: 0.5
-      jitter: "2s"
-      backoff: exponential
-      respect_robots: true          # robots allows /latest; blocks /u/, /my/,
-                                    # *.json and admin paths
-    proxy: direct
-    retry: 3
-    # 详情页取图(10-03-detail-images):本源列表页只有头像/emoji,条目元数据
-    # 常无图可进 images: 环;开此开关后 fetch 尾部对无图条目追抓其详情页
-    # (帖页服务端渲染,静态可抓),同域 <img> 收进 metadata.images 喂同一
-    # OCR 环。礼貌上限:每 run 至多 detail_max_items(缺省 10)条、串行、
-    # 每请求间隔 ≥1s、单页超时 10s;品类级缺省 false,仅本源示范。
-    images_detail_fetch: true
+  # CocoLoop /latest 讨论流源已删(2026-10-24 主人裁决 Q2,10-24-huawei-ai-
+  # news-absorb):讨论帖(「哪个大模型最强呢」「报错怎么办」类)混进 AI 资讯
+  # 的根治=删源——生产 AI 资讯无 cocoloop,只用 aihot+厂商官方源;五刀
+  # noise 只能杀带求助词形态,无边缀讨论帖根治靠删源。cocoloop 的情报
+  # 价值由 wool 侧福利专区源承接(config/wool.yaml);daily-digest 分区一
+  # sources/labels 清单已同步删。
 
   # ──────────────────────────────────────────────────────────────────────
   # 厂商官方 RSS 源(10-06-ai-news-sources S1)。探查证据(2026-10-06,直连
