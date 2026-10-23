@@ -64,6 +64,87 @@ sources:
         endpoint: keychain:myia/firecrawl/url  # 优先→下载层→云端;嵌套块形态
         api_key: keychain:myia/firecrawl/api-key  # (点键不被加载链支持,注释模板纠偏)
 
+  # ── aihot /daily 与 /hot 两源(10-24-huawei-ai-news-absorb Step 5.1,生产
+  #    三路合流对齐:生产 ai_daily_report.py 除首页外还吃 /daily 站方昨日
+  #    回顾(25 条+分类+X 原文直链)与 /hot 48h 热榜)──
+  # 改版哨兵(条目数):aihot 09-30 改版判例=站点改版解析静默归零不报错,
+  #   生产巡检口径「看条目数」。MYIA 承载:两源**不设 empty_ok**(缺省
+  #   false)→ 健康度对「指纹未跳过却产出 0 条」判 degraded(cli.py
+  #   evaluate_source_health),myssia doctor 源健康度面直接可见——改版
+  #   归零不再静默。
+  # 双格式兼容(/daily,09-30 改版判例):现行格式=「### [标题](items链)+
+  #   摘要+[原文](直链)+来源」(生产 parse_daily pat_new);09-30 前旧版=
+  #   「编号NN+分类+[标题](items链)+---」(pat_old)。两格式的条目恒等锚
+  #   都是 /items/<id> 链接(两正则共用的判据)。CSS 落法按现行 HTML 实测
+  #   (2026-10-24 抓样):条目卡 article id=r-<slug> 恰等于 items slug、
+  #   标题 h3 a、摘要 p、原文直链 div.mt-auto a、来源名 span.truncate;
+  #   旧版 HTML 形态已不可考(wayback 4 轮全 429,留档)——若站方回滚旧
+  #   版,选择器脱靶 → 0 条 → 上方哨兵 degraded 可见,修法按本注释所记
+  #   生产双正则形状对表新 HTML 即可。
+  - name: aihot-daily              # aihot /daily 站方昨日回顾(11-25 条/日)
+    engine: static_html
+    url: "https://aihot.news/daily"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "article[id^='r-']"    # 报告条目卡(id=r-<items slug>,数据模型
+                                    # 锚非版面猜测;外层壳 article 无 id 天然
+                                    # 排除,2026-10-24 实测 11/11 条全字段)
+      fields:
+        title: "h3 a"
+        url: "h3 a@href"           # /items/<id>,urljoin 绝对化
+        summary: "p"               # 摘要段 → metadata.summary
+        origin_url: "div.mt-auto a@href"   # [原文] 直链(x.com/status 或厂商
+                                    # 官网)→ metadata.origin_url;渲染优先
+                                    # 于 aihot 转述页(X 直抓全死判例下唯一
+                                    # 路径,design §6;见 push 模板
+                                    # origin_url or url)
+        source_label: "span.truncate"   # 来源名(Claude/Replit:Blog)→
+                                    # metadata.source_label
+    rate_limit:
+      qps: 0.5
+      jitter: "2s"
+      backoff: exponential
+      respect_robots: true          # robots * 组:/daily 不在任何 Disallow 面
+    proxy: direct
+    retry: 3
+
+  - name: aihot-hot                # aihot /hot 48h 热榜(与 /daily 互补视角)
+    engine: static_html
+    url: "https://aihot.news/hot"
+    method: GET
+    headers:
+      User-Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+    extract:
+      type: list
+      item: "a[href^='/story/'], a[href^='/items/']"   # 生产 parse_hot 正则的
+                                    # CSS 形态:story/<uuid36> 与 items/<id>
+                                    # 两链接形态并收(10-24 实测 10 条全
+                                    # story 形态,两区块「热度前三」+「其余
+                                    # 热点」各 3/7)
+      fields:
+        title: ""                   # item 即锚:空选择器=锚自身文本
+                                    # (extract_html 空 css 落 [root] 取 text,
+                                    # 10-24 实测 10/10)
+        url: "@href"                # 自引用取属性;相对路径 urljoin
+    rate_limit:
+      qps: 0.5
+      jitter: "2s"
+      backoff: exponential
+      respect_robots: true          # robots 明文「/hot 已于 2026-08-02 正式
+                                    # 开放…两者允许抓取并由 sitemap 发现」
+    proxy: direct
+    retry: 3
+
+  # url 键分流核验(Step 5.2,记档):aihot(首页)与本 aihot-daily 同用
+  #   /items/<id> URL 空间,dedup {url} 对同文两路自然合一(先入库者胜);
+  #   aihot-hot 用 /story/<uuid> 独立 URL 空间——同文在 hot 与 daily 双现
+  #   时会是两条(2026-10-24 实测两页标题指纹交集 0)。生产以 16 字标题指
+  #   纹跨路合一,MYIA 铁律永不标题指纹(dedup.py _BANNED_KEY_FIELDS),
+  #   此重叠为已知取舍:日报分区一按源名分区呈现,双现时可辨视角。
+
   # CocoLoop /latest 讨论流源已删(2026-10-24 主人裁决 Q2,10-24-huawei-ai-
   # news-absorb):讨论帖(「哪个大模型最强呢」「报错怎么办」类)混进 AI 资讯
   # 的根治=删源——生产 AI 资讯无 cocoloop,只用 aihot+厂商官方源;五刀
@@ -421,7 +502,189 @@ watchlist:
 
 classify:                       # AI 资讯 is one of the seven builtin categories
   builtin: true                 # keyword pre-filter; unmatched titles drop
-  rules: []                     # (visible skip: classify_unmatched)
+  # 公司/大V 标签库迁入(10-24-huawei-ai-news-absorb Step 5.3,AC12):
+  #   数据源 = 华为云关停前快照 cloud-snapshot-20261017/{companies,influencers}
+  #   .json(20 公司+22 大V,version 2026-09-24);一次性生成脚本产物固化
+  #   进本文件(自包含,免新资源机制;生成=每实体 keywords 以 | 连一 match()
+  #   正则,镜像生产 load_matches 的 re.compile('|'.join(words)) 逐字形态,
+  #   含 马克星.*Grok/微软.*AI 等跨字距形态;大小写敏感同生产,未加 (?i))。
+  #   tag = <name>·🇨🇳/🌍(region cn→🇨🇳 否则 🌍);x_accounts 字段弃用
+  #   (无 X 抓取线)。规则在 builtin 存活者上打标(tags 进 metadata.tags,
+  #   模板/日报可读),不救回 builtin 未命中条目。
+  #   未移植(记档可翻案):大V min_score 分数门槛(白名单表达式无属性访
+  #   问,scores.value 不可达)、按公司分组渲染与优先级排序(digest 层机制,
+  #   design §6 后续项)、生产 max_labels=2 上限(MYIA 多 tag 并存,标题同
+  #   提公司与人物时双标)。
+  rules:
+    # OpenAI(global;5 词)
+    - name: tag-company-01
+      when: "match('OpenAI|GPT-|ChatGPT|Sam Altman|Greg Brockman', title)"
+      tag: "OpenAI·🌍"
+    # Anthropic(global;7 词)
+    - name: tag-company-02
+      when: "match('Anthropic|Claude|Dario Amodei|Opus|Sonnet|Haiku|MCP', title)"
+      tag: "Anthropic·🌍"
+    # Google DeepMind(global;6 词)
+    - name: tag-company-03
+      when: "match('DeepMind|Gemini|Google AI|Veo|NotebookLM|Antigravity', title)"
+      tag: "Google DeepMind·🌍"
+    # Meta AI(global;4 词)
+    - name: tag-company-04
+      when: "match('Meta AI|Llama|FAIR|Yann LeCun', title)"
+      tag: "Meta AI·🌍"
+    # xAI(global;4 词)
+    - name: tag-company-05
+      when: "match('xAI|Grok|Colossus|马斯克.*Grok', title)"
+      tag: "xAI·🌍"
+    # Microsoft(global;5 词)
+    - name: tag-company-06
+      when: "match('Microsoft Copilot|微软.*AI|Azure AI|Phi-|MAI', title)"
+      tag: "Microsoft·🌍"
+    # NVIDIA(global;7 词)
+    - name: tag-company-07
+      when: "match('NVIDIA|英伟达|黄仁勋|CUDA|Blackwell|B200|GB300', title)"
+      tag: "NVIDIA·🌍"
+    # Mistral(global;3 词)
+    - name: tag-company-08
+      when: "match('Mistral|Codestral|Magistral', title)"
+      tag: "Mistral·🌍"
+    # Perplexity(global;2 词)
+    - name: tag-company-09
+      when: "match('Perplexity|Aravind Srinivas', title)"
+      tag: "Perplexity·🌍"
+    # Amazon AGI(global;4 词)
+    - name: tag-company-10
+      when: "match('Amazon.*AGI|Nova.*模型|Bedrock|Amazon Robotics', title)"
+      tag: "Amazon AGI·🌍"
+    # DeepSeek(cn;3 词)
+    - name: tag-company-11
+      when: "match('DeepSeek|深度求索|梁文锋', title)"
+      tag: "DeepSeek·🇨🇳"
+    # 阿里通义(cn;4 词)
+    - name: tag-company-12
+      when: "match('Qwen|通义|千问|阿里.*大模型', title)"
+      tag: "阿里通义·🇨🇳"
+    # 智谱GLM(cn;4 词)
+    - name: tag-company-13
+      when: "match('智谱|GLM|Zhipu|AutoGLM', title)"
+      tag: "智谱GLM·🇨🇳"
+    # 月之暗面Kimi(cn;4 词)
+    - name: tag-company-14
+      when: "match('Kimi|月之暗面|Moonshot|K2', title)"
+      tag: "月之暗面Kimi·🇨🇳"
+    # 字节豆包(cn;5 词)
+    - name: tag-company-15
+      when: "match('豆包|Doubao|字节.*大模型|Seed|即梦', title)"
+      tag: "字节豆包·🇨🇳"
+    # 百度文心(cn;4 词)
+    - name: tag-company-16
+      when: "match('文心|ERNIE|百度.*大模型|文小言', title)"
+      tag: "百度文心·🇨🇳"
+    # 腾讯混元(cn;4 词)
+    - name: tag-company-17
+      when: "match('混元|Hunyuan|腾讯.*大模型|元宝', title)"
+      tag: "腾讯混元·🇨🇳"
+    # 阶跃星辰(cn;5 词)
+    - name: tag-company-18
+      when: "match('阶跃|StepFun|Step Fun|Step-|姜大昕', title)"
+      tag: "阶跃星辰·🇨🇳"
+    # 小米MiMo(cn;4 词)
+    - name: tag-company-19
+      when: "match('小米.*MiMo|MiMo-|罗福莉|小米.*大模型', title)"
+      tag: "小米MiMo·🇨🇳"
+    # MiniMax(cn;4 词)
+    - name: tag-company-20
+      when: "match('MiniMax|海螺|Hailuo|MiniMax-M', title)"
+      tag: "MiniMax·🇨🇳"
+    # Sam Altman(global;2 词)
+    - name: tag-person-01
+      when: "match('Sam Altman|sama', title)"
+      tag: "Sam Altman·🌍"
+    # Greg Brockman(global;2 词)
+    - name: tag-person-02
+      when: "match('Greg Brockman|gdb', title)"
+      tag: "Greg Brockman·🌍"
+    # Dario Amodei(global;1 词)
+    - name: tag-person-03
+      when: "match('Dario Amodei', title)"
+      tag: "Dario Amodei·🌍"
+    # Elon Musk(global;2 词)
+    - name: tag-person-04
+      when: "match('马斯克|Elon Musk', title)"
+      tag: "Elon Musk·🌍"
+    # Demis Hassabis(global;2 词)
+    - name: tag-person-05
+      when: "match('Demis Hassabis|哈萨比斯', title)"
+      tag: "Demis Hassabis·🌍"
+    # Yann LeCun(global;2 词)
+    - name: tag-person-06
+      when: "match('Yann LeCun|杨立昆', title)"
+      tag: "Yann LeCun·🌍"
+    # Yoshua Bengio(global;2 词)
+    - name: tag-person-07
+      when: "match('Yoshua Bengio|本吉奥', title)"
+      tag: "Yoshua Bengio·🌍"
+    # Andrej Karpathy(global;2 词)
+    - name: tag-person-08
+      when: "match('Karpathy|卡帕西', title)"
+      tag: "Andrej Karpathy·🌍"
+    # Jim Fan(global;1 词)
+    - name: tag-person-09
+      when: "match('Jim Fan', title)"
+      tag: "Jim Fan·🌍"
+    # Aravind Srinivas(global;1 词)
+    - name: tag-person-10
+      when: "match('Aravind Srinivas', title)"
+      tag: "Aravind Srinivas·🌍"
+    # Emad Mostaque(global;1 词)
+    - name: tag-person-11
+      when: "match('Emad Mostaque', title)"
+      tag: "Emad Mostaque·🌍"
+    # Rohan Paul(global;1 词)
+    - name: tag-person-12
+      when: "match('Rohan Paul', title)"
+      tag: "Rohan Paul·🌍"
+    # Ethan Mollick(global;1 词)
+    - name: tag-person-13
+      when: "match('Ethan Mollick', title)"
+      tag: "Ethan Mollick·🌍"
+    # 梁文锋(cn;1 词)
+    - name: tag-person-14
+      when: "match('梁文锋', title)"
+      tag: "梁文锋·🇨🇳"
+    # 罗福莉(cn;1 词)
+    - name: tag-person-15
+      when: "match('罗福莉', title)"
+      tag: "罗福莉·🇨🇳"
+    # 杨植麟(cn;1 词)
+    - name: tag-person-16
+      when: "match('杨植麟', title)"
+      tag: "杨植麟·🇨🇳"
+    # 李开复(cn;1 词)
+    - name: tag-person-17
+      when: "match('李开复', title)"
+      tag: "李开复·🇨🇳"
+    # 周鸿祎(cn;1 词)
+    - name: tag-person-18
+      when: "match('周鸿祎', title)"
+      tag: "周鸿祎·🇨🇳"
+    # 王小川(cn;1 词)
+    - name: tag-person-19
+      when: "match('王小川', title)"
+      tag: "王小川·🇨🇳"
+    # 姜大昕(cn;1 词)
+    - name: tag-person-20
+      when: "match('姜大昕', title)"
+      tag: "姜大昕·🇨🇳"
+    # 姚顺雨(global;1 词)
+    - name: tag-person-21
+      when: "match('姚顺雨', title)"
+      tag: "姚顺雨·🌍"
+    # 何恺明(global;1 词)
+    - name: tag-person-22
+      when: "match('何恺明', title)"
+      tag: "何恺明·🌍"
+
 
 dedup:
   key: "{url}"                  # default semantics, spelled out for clarity
@@ -496,10 +759,15 @@ push:
       - when: "url != ''"       # 兜底封边:规则未命中的其余分类(server/token/
         mode: archive           # channel 等)同样仅入库——route 层保守缺省是
                                 # digest,不封边会残留逐品类日报单发出口
+                                # X 直链渲染优先(Step 5.1):aihot-daily 条目
+                                # 带 metadata.origin_url(x.com/status 原文直
+                                # 链)时链接挂原文而非 aihot 转述页——X 直抓
+                                # 全死判例下唯一可行路径(design §6);其余源
+                                # 无该字段,Jinja or 回退 item.url 零影响。
     template: |
       **AI 资讯 · {{ date }}**
       {% for item in items %}
-      - [{{ item.title }}]({{ item.url }})
+      - [{{ item.title }}]({% if item.origin_url is defined %}{{ item.origin_url }}{% else %}{{ item.url }}{% endif %})
       {% endfor %}
 
 storage:

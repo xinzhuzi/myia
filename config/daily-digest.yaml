@@ -49,6 +49,11 @@ sources:
           - title: AI 资讯
             sources:
               - aihot
+              - aihot-daily          # aihot 三路合流之二:/daily 站方昨日回顾
+              - aihot-hot            # 之三:/hot 48h 热榜(10-24-huawei-ai-
+                                    # news-absorb Step 5.1;两源条目入分区一
+                                    # 编号流,aihot-daily 的 X 原文直链在条目
+                                    # metadata.origin_url 供渲染优先)
               - openai-news
               - deepmind-blog
               - google-research

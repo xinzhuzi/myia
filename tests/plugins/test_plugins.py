@@ -753,6 +753,45 @@ _SNIPPETS = {
         "expect_title": "公开演示标题",
         "expect_image": "https://aihot.news/assets/cover-abc.jpg",
     },
+    ("ai-news", "aihot-daily"): {
+        # 10-24-huawei-ai-news-absorb Step 5.1:/daily 报告条目卡(现行
+        # 「### 标题+摘要+[原文]」格式的 HTML 形态,2026-10-24 实测 11/11
+        # 全字段;外层壳 article 无 id 天然排除)。origin_url=X 原文直链
+        # 经 Item.from_extracted 落 metadata 供渲染优先(design §6)。
+        "html": (
+            '<article class="@container"><header><h1>AI 日报</h1></header>'
+            '<article id="r-abc"><div class="flex"><span class="truncate">Claude</span></div>'
+            '<h3><a href="/items/abc">Claude 默认启用 auto mode</a></h3>'
+            '<p>官方宣布会话将默认以 auto mode 运行。</p>'
+            '<div class="mt-auto pt-3">'
+            '<a href="https://x.com/claudeai/status/1">原文</a></div>'
+            "</article></article>"
+        ),
+        "base": "https://aihot.news/daily",
+        "expect_url": "https://aihot.news/items/abc",
+        "expect_title": "Claude 默认启用 auto mode",
+        "expect_fields": {
+            "origin_url": "https://x.com/claudeai/status/1",
+            "summary": "官方宣布会话将默认以 auto mode 运行。",
+            "source_label": "Claude",
+        },
+    },
+    ("ai-news", "aihot-hot"): {
+        # Step 5.1:/hot 双链接形态锚(story/<uuid> 与 items/<id> 并收,镜像
+        # 生产 parse_hot 正则);item 即锚,title 空选择器=锚自身文本。第二
+        # 形状钉住 items/ 臂(expect_second)。
+        "html": (
+            '<section aria-label="热度前三"><h2>'
+            '<a href="/story/6cbe9dba">月之暗面发布 Kimi K3.1 Pro</a></h2></section>'
+            '<section aria-label="其余热点"><h2>'
+            '<a href="/items/xyz987">MiniMax 开源 M3.1 Flash</a></h2></section>'
+        ),
+        "base": "https://aihot.news/hot",
+        "expect_url": "https://aihot.news/story/6cbe9dba",
+        "expect_title": "月之暗面发布 Kimi K3.1 Pro",
+        "expect_second": {"url": "https://aihot.news/items/xyz987",
+                          "title": "MiniMax 开源 M3.1 Flash"},
+    },
     # ("ai-news", "cocoloop") snippet 已随源删除(2026-10-24 Q2):讨论流源
     # 退役,情报价值由 wool 侧福利专区源承接(wool 侧 cocoloop 源仍在)。
     ("wool", "linuxsb"): {
@@ -1006,6 +1045,12 @@ def test_plugin_extract_matches_recorded_markup(plugin, source_name):
     if "expect_image" in spec:
         assert items[0].get("image") == spec["expect_image"], (
             f"{plugin}/{source_name}: image 字段(img@src)解析形状漂移"
+        )
+    # 附加字段逐个钉(10-24-huawei-ai-news-absorb Step 5.1:aihot-daily 的
+    # origin_url/summary/source_label 三字段,非保留 extract 字段→metadata)。
+    for key, value in spec.get("expect_fields", {}).items():
+        assert items[0].get(key) == value, (
+            f"{plugin}/{source_name}: {key} 字段解析形状漂移"
         )
     # 第二差异形状(opt-in):钉住逐元素提取不错位与字段省略行为,防 fixture
     # 付出的形状成本只被「首条断言」覆盖(games 质检 low 修复)
