@@ -166,11 +166,12 @@ def test_fetch_first_run_fold_folds_and_traces(store):
     assert len(items) == 1
     item = items[0]
     markdown = item["report_markdown"]
-    # 首跑条目不占编号席位:编号行只数两条存量要闻,编号 1、2 连续。
+    # 首跑条目不占编号席位:编号行只数两条存量要闻,编号 1、2 连续
+    # (D6 新契约:链接挂标题,行形 = ``N. [标题](url)``)。
     heads = numbered(markdown)
     assert len(heads) == 2
-    assert heads[0].startswith("1. 存量要闻甲")
-    assert heads[1].startswith("2. 存量要闻乙")
+    assert heads[0].startswith("1. [存量要闻甲]")
+    assert heads[1].startswith("2. [存量要闻乙]")
     # 首跑标题不进正文,逐字折叠行留痕(N=2)。
     assert "新源首跑甲" not in markdown
     assert "新源首跑乙" not in markdown
@@ -248,8 +249,8 @@ def test_fetch_first_run_show_default_keeps_current(store, explicit):
     markdown = items[0]["report_markdown"]
     heads = numbered(markdown)
     assert len(heads) == 2  # 首跑照常占编号席位(store newest-first 既有判例)
-    assert heads[0].startswith("1. 新源首跑甲")  # 最新(IN_WINDOW_PM)→ 编号 1
-    assert heads[1].startswith("2. 存量要闻")
+    assert heads[0].startswith("1. [新源首跑甲]")  # 最新(IN_WINDOW_PM)→ 编号 1
+    assert heads[1].startswith("2. [存量要闻]")
     assert "首轮建档条目" not in markdown
     assert items[0]["report_entries"] == 2
 
@@ -348,7 +349,7 @@ def test_render_report_first_run_fold_line():
     rendered = render_report(
         sections, title="情报日报", date="2026-10-18", slot="pm", generated_at=NOW_PM
     )
-    assert "1. 要闻" in rendered
+    assert "1. [要闻](https://x/1)" in rendered
     assert "   ……(另有 1 条省略)" in rendered
     assert "   ……(另有 2 条低价值条目,价值分<3)" in rendered
     assert FOLD_LINE.format(count=4) in rendered

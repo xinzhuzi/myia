@@ -344,6 +344,39 @@ def test_renderer_exposes_date_slot_count_category_context():
     assert rendered == "2026-10-01 pm 1 羊毛"
 
 
+def test_renderer_category_label_global_and_wool_template_form():
+    """``category_label`` 模板全局(10-24-huawei-ai-news-absorb Step 4.5.5):
+    分类 id → 词表展示名(🎁羊毛/🔑token);wool.yaml 速报模板(immediate
+    同轮合并/digest 合并卡同走)渲染出生产羊毛区块定稿
+    ``N. [类别emoji] [标题](链接)`` 形态;未知 id/None fail-quiet 退空串。"""
+    config_dir = Path(__file__).resolve().parents[2] / "config"
+    template = load_category_file(config_dir / "wool.yaml").push[0].template
+    items = [
+        {"title": "免费送 NAS 券", "url": "https://linux.sb/t/1", "category": "freebie"},
+        {"title": "某站 API 额度", "url": "https://v2ex.com/t/9", "category": "token"},
+    ]
+    rendered = TemplateRenderer().render(
+        template, items, SendContext(slot="am", date="2026-10-24", category="羊毛情报")
+    )
+    lines = rendered.splitlines()
+    assert lines[0] == "**羊毛速报 · 2026-10-24**"
+    assert lines[1] == "1. 🎁羊毛 [免费送 NAS 券](https://linux.sb/t/1)"
+    assert lines[2] == "2. 🔑token [某站 API 额度](https://v2ex.com/t/9)"
+    # fail-quiet:None / 未知 id → 空串,不渲染 None 字样(分类器对
+    # builtin 关闭的品类 category 恒 None,模板不炸)。
+    quiet = TemplateRenderer().render(
+        "[{% for item in items %}{{ category_label(item.category) }}{% endfor %}]",
+        [{"title": "x"}],
+        SendContext(slot="am", date="2026-10-24"),
+    )
+    assert quiet == "[]"
+    assert TemplateRenderer().render(
+        "[{{ category_label('no-such-cat') }}]",
+        [],
+        SendContext(slot="am", date="2026-10-24"),
+    ) == "[]"
+
+
 # ---------------------------------------------------------------------------
 # feishu_card:卡片结构 + mock 请求体 + 结构化错误(真实推送不做)
 # ---------------------------------------------------------------------------

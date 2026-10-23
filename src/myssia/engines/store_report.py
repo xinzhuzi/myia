@@ -13,7 +13,7 @@ PM = 本地 12:00 起,``SLOT_BOUNDARY_HOUR`` 同一边界),按 ``sections``
 
     <总标题> · <日期> · <AM|PM>
     <分区一标题>
-    1. <一句话条目>(可带来源前缀,链接附句尾)
+    1. <[一句话条目](url)>(链接挂标题,渲染后只见标题文字)
     2. …
     --
     <分区二标题>
@@ -27,10 +27,14 @@ PM = 本地 12:00 起,``SLOT_BOUNDARY_HOUR`` 同一边界),按 ``sections``
 保留即时推送;本报表把窗口内全部新条目(含 immediate 已推的)合并成
 **一条**飞书 markdown 文本消息发送,成为唯一日报出口。
 
-布局纪律(主人令,照抄 Hermes 产线原文):
+布局纪律(2026-10-24 主人令「要一行富文本,不加 [] 原文等额外内容」,
+10-24-huawei-ai-news-absorb D6;纠正 10-06-hermes-align 批次4 对产线的
+误读——生产 ``ai_daily_report.py:503`` 实为 ``f"{n}. [{t}]({url})"``,
+链接挂标题本身,无原文尾注、无来源前缀):
 
-- **条目 = 编号 + 一句话**,不是链接列表——链接以 ``[原文](url)`` 附在
-  句尾;``labels`` 可给条目带来源前缀(如 ``[OpenAI]``);
+- **条目 = ``N. [标题](url)`` 一行富文本**——链接挂标题本身,渲染后只见
+  「N. 标题」;**不带**``[原文](url)`` 尾注、``[来源]`` 方括号前缀、裸
+  URL;``suffix`` 句尾附注(游戏价格)是信息不是链接装饰,缀在链接之后;
 - **detail 分区** = 编号子标题 + 缩进明细行(``style: detail``;LLM 摘要
   条目的 content 逐行归一后缩进,markdown 结构符 ``#``/``-``/``**`` 剥除,
   防飞书 md 把缩进行渲染成标题/列表破坏版式);
@@ -51,13 +55,12 @@ URL = 新去重键,同槽重跑幂等,跨槽必新。
 
 配置形状(``engine_options.store_report``):
 
-- ``sections``(必填):分区清单,每项 ``{title, sources, labels?, style?,
+- ``sections``(必填):分区清单,每项 ``{title, sources, style?,
   suffix_fields?, max_entries?, max_lines?, min_score?, first_run?}``;
   - ``title``(必填):分区标题;
   - ``sources``(必填):纳入该分区的**源名**清单(store items.source 的
     匹配键——分类器 category 对 builtin 关闭的品类恒 None,games/
     ai-vendor-watch 无从按 category 查,源名是稳定锚);
-  - ``labels``(可选):源名 → 条目前缀映射(如 ``openai-news: OpenAI``);
   - ``style``(可选,缺省 ``list``):``list`` = 编号一句话;``detail`` =
     编号子标题 + 缩进明细行;
   - ``suffix_fields``(可选):raw metadata 键清单,第一个非空值作句尾
@@ -132,14 +135,12 @@ DEFAULT_MAX_ENTRIES = 12
 DEFAULT_MAX_DETAIL_LINES = 10
 
 #: 一句话条目标题截断(字符;标题精炼是版式纪律,超长条目截断保可读)。
-DEFAULT_TITLE_CHARS = 80
+#: 2026-10-24 80→60:对齐产线一行纪律(生产 ``ai_daily_report.py:501``
+#: 同为 60;D6 判例,可调非硬门)。
+DEFAULT_TITLE_CHARS = 60
 
 #: 明细单行截断(字符;LLM 摘要行可长,缩进行超长会撑破版式)。
 DEFAULT_DETAIL_LINE_CHARS = 120
-
-#: 条目句尾附注(链接)的展示文案——「不是链接列表」纪律:链接是附注,
-#: 不是条目本体。
-LINK_LABEL = "原文"
 
 #: 尾戳声明行(主人截图产线原文;时间占位在渲染时填)。
 FOOTER_TEMPLATE = "{time} 实时爬取生成 · 全条目指纹去重 · 无新内容自动静默"
@@ -156,7 +157,6 @@ __all__ = [
     "FIRST_RUN_MODES",
     "FOOTER_TEMPLATE",
     "LAYER",
-    "LINK_LABEL",
     "SECTION_STYLES",
     "SCORE_KEY",
     "SKIP_WINDOW_EMPTY",
@@ -255,11 +255,14 @@ def _fmt_score(value: float | None) -> str:
 
 @dataclass
 class DigestEntry:
-    """分区内的一个条目(渲染输入的一手形状)."""
+    """分区内的一个条目(渲染输入的一手形状).
+
+    ``label`` 来源前缀已删(2026-10-24 D6):渲染只出「N. [标题](url)」
+    一行富文本,方括号前缀与「原文」尾注一并退役。
+    """
 
     head: str
     url: str | None = None
-    label: str | None = None
     suffix: str | None = None
     details: list[str] = field(default_factory=list)
 
@@ -287,10 +290,13 @@ def render_report(
 ) -> str:
     """Hermes 版式渲染(纯函数,快照测试锚).
 
-    布局契约(主人截图 OCR):首行 = ``总标题 · 日期 · AM|PM``;分区标题行
-    + 编号条目;分区之间 ``--`` 分隔线(只落在**已渲染**分区之间,空分区
-    整段跳过——但 ``low_value``/``first_run`` 在场的分区不算空,折叠行即
-    内容);末行尾戳 = ``HH:MM 实时爬取生成 · 全条目指纹去重 · 无新内容
+    布局契约(2026-10-24 主人令「要一行富文本」,D6):首行 =
+    ``总标题 · 日期 · AM|PM``;分区标题行 + 编号条目;条目 =
+    ``N. [标题](url)``——链接挂标题本身,渲染后只见「N. 标题」,无
+    ``[原文](url)`` 尾注、无来源前缀(``suffix`` 句尾附注缀在链接之后);
+    分区之间 ``--`` 分隔线(只落在**已渲染**分区之间,空分区整段跳过
+    ——但 ``low_value``/``first_run`` 在场的分区不算空,折叠行即内容);
+    末行尾戳 = ``HH:MM 实时爬取生成 · 全条目指纹去重 · 无新内容
     自动静默``。全部分区空 → 空串(调用方静默不发)。
     """
     lines: list[str] = [f"{title} · {date} · {slot.upper()}"]
@@ -303,17 +309,13 @@ def render_report(
         lines.append(section.title)
         for index, entry in enumerate(section.entries, start=1):
             head = entry.head
-            if entry.label:
-                head = f"[{entry.label}] {head}"
+            if entry.url:
+                head = f"[{head}]({entry.url})"
             if entry.suffix:
                 head = f"{head} · {entry.suffix}"
+            lines.append(f"{index}. {head}")
             if entry.details:
-                lines.append(f"{index}. {head}")
                 lines.extend(f"   · {detail}" for detail in entry.details)
-            else:
-                if entry.url:
-                    head = f"{head} [{LINK_LABEL}]({entry.url})"
-                lines.append(f"{index}. {head}")
         if section.omitted:
             lines.append(f"   ……(另有 {section.omitted} 条省略)")
         if section.low_value:
@@ -392,7 +394,7 @@ class StoreReportEngine(BaseEngine):
                     error_type="invalid_engine_options",
                 )
             unknown = set(raw) - {
-                "title", "sources", "labels", "style", "suffix_fields",
+                "title", "sources", "style", "suffix_fields",
                 "max_entries", "max_lines", "min_score", "first_run",
             }
             if unknown:
@@ -413,14 +415,6 @@ class StoreReportEngine(BaseEngine):
                 raise FetchError(
                     f"engine_options.store_report.{path}.sources 应为非空源名清单"
                     "(store items.source 的匹配键)",
-                    error_type="invalid_engine_options",
-                )
-            labels = raw.get("labels", {})
-            if not isinstance(labels, dict) or not all(
-                isinstance(key, str) and isinstance(value, str) for key, value in labels.items()
-            ):
-                raise FetchError(
-                    f"engine_options.store_report.{path}.labels 应为 源名→前缀 字符串映射",
                     error_type="invalid_engine_options",
                 )
             style = raw.get("style", "list")
@@ -486,7 +480,6 @@ class StoreReportEngine(BaseEngine):
                 {
                     "title": title.strip(),
                     "sources": [item.strip() for item in sources],
-                    "labels": labels,
                     "style": style,
                     "suffix_fields": suffix_fields,
                     "max_entries": max_entries,
@@ -658,7 +651,6 @@ class StoreReportEngine(BaseEngine):
         low_value = 0
         first_run = 0
         for source_name in section["sources"]:
-            labels = section["labels"]
             for record in by_source.get(source_name, ()):
                 if fold_first_run and record_is_first_fetch(record):
                     first_run += 1
@@ -669,7 +661,7 @@ class StoreReportEngine(BaseEngine):
                         low_value += 1
                         continue
                 entries.append(
-                    self._entry_from_record(record, source_name, labels, section, max_chars)
+                    self._entry_from_record(record, section, max_chars)
                 )
         max_entries = section["max_entries"]
         omitted = max(len(entries) - max_entries, 0)
@@ -686,8 +678,6 @@ class StoreReportEngine(BaseEngine):
     def _entry_from_record(
         self,
         record: Mapping[str, Any],
-        source_name: str,
-        labels: Mapping[str, str],
         section: Mapping[str, Any],
         max_chars: int,
     ) -> DigestEntry:
@@ -698,7 +688,6 @@ class StoreReportEngine(BaseEngine):
         entry = DigestEntry(
             head=clip_title(title, max_chars),
             url=url,
-            label=labels.get(source_name),
         )
         raw = getattr(record, "raw", None)
         raw_map = raw if isinstance(raw, Mapping) else {}

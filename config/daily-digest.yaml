@@ -40,9 +40,12 @@ sources:
         title: 情报日报
         timezone: Asia/Shanghai    # 槽位边界时区(引擎读不到品类 timezone)
         sections:
-          # ── 分区一:AI 资讯(编号一句话;链接附句尾,labels 带来源前缀)──
+          # ── 分区一:AI 资讯(编号一句话;N. [标题](url) 链接挂标题)──
           # cocoloop 已删(2026-10-24 主人裁决 Q2):ai-news.yaml 讨论流源
-          # 退役,分区一 sources/labels 清单同步删(场景件注释铁律)。
+          # 退役,分区一 sources 清单同步删(场景件注释铁律)。
+          # labels 来源前缀映射已删(2026-10-24 D6,10-24-huawei-ai-news-absorb
+          # Step 4.5):主人令「要一行富文本,不加 [] 原文等额外内容」——
+          # [来源] 方括号前缀与「原文」尾注一并退役,引擎选项同步下线。
           - title: AI 资讯
             sources:
               - aihot
@@ -60,22 +63,6 @@ sources:
               - moonshot-home-watch
               - minimax-home-watch
               - seed-home-watch
-            labels:                # 来源前缀(标题精炼,可带来源前缀)
-              aihot: 热点聚合
-              openai-news: OpenAI
-              deepmind-blog: DeepMind
-              google-research: Google
-              microsoft-research: 微软研究院
-              hf-blog: HuggingFace
-              mistral-news: Mistral
-              qwen-blog: Qwen
-              anthropic-news-watch: Anthropic
-              meta-ai-blog-watch: MetaAI
-              cohere-blog-watch: Cohere
-              zhipu-news-watch: 智谱
-              moonshot-home-watch: 月之暗面
-              minimax-home-watch: MiniMax
-              seed-home-watch: 字节Seed
             max_entries: 15        # 分区条目帽(超出「另有 N 条省略」留痕)
             min_score: 3           # 价值门槛(enrich value 0-10 制):低于线不进
                                   # 正文,分区尾「另有 N 条低价值条目(价值分<3)」
@@ -105,8 +92,8 @@ sources:
             max_entries: 10
 
           # ── 分区四:AI 白嫖与模型优惠(prompt 精筛+导航站+聚合工具发版,编号一句话;2026-10-18
-          #    扩容:分区按源名匹配,新源名须同步进本清单(store items.source 锚;labels 键
-          #    含 token 触发凭据红线误伤,条目 title 自描述故不用前缀)。2026-10-24 增挂
+          #    扩容:分区按源名匹配,新源名须同步进本清单(store items.source 锚;条目
+          #    title 自描述,前缀本就未用)。2026-10-24 增挂
           #    watch-deals 三源(runninghub/hailuo/tapnow,10-24-huawei-ai-news-absorb
           #    D3 定向优惠监控:变更条目经量化门槛后入库,标题「… 官网有更新」
           #    自描述,不带前缀同规)──

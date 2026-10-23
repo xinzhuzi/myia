@@ -4,20 +4,25 @@
 出仓;全分区无新内容 = 零条目静默(skip 哨兵留痕)。测试全 mock(内存
 SQLiteStore 种子数据 + now_fn 控时 + MockTransport 飞书通道),零真网。
 
+版式契约(2026-10-24 主人令「要一行富文本,不加 [] 原文等额外内容」,
+10-24-huawei-ai-news-absorb Step 4.5/D6 重生成):条目 = ``N. [标题](url)``
+链接挂标题本身;「原文」尾注(LINK_LABEL)与 labels 来源前缀机制退役,
+labels 引擎选项从校验键表删除(配了即未知字段拒)。
+
 用例面:
 
 1. registry/链外语义与 schema 词表(store_report 在册、AUTO_CHAIN 不在、
    auto_degrade 单级链、EngineName 词表收词);
-2. options 校验:sections 形状/未知字段/style 词表/labels/suffix_fields/
-   数值区间/timezone;
+2. options 校验:sections 形状/未知字段/style 词表/labels 已退役(未知
+   字段)/suffix_fields/数值区间/timezone;
 3. slot_window:AM/PM 边界(本地 12:00 界,dedup 同界);
-4. 版式渲染快照:头行/分区/编号/--分隔线/缩进明细/省略留痕/尾戳原文;
-   空分区跳过、全空返回空串;
+4. 版式渲染快照:头行/分区/编号/--分隔线/链接挂标题/缩进明细/省略
+   留痕/尾戳原文;空分区跳过、全空返回空串;
 5. normalize_detail_line:markdown 结构符剥除(防飞书 md 把缩进行渲染成
    标题/列表);
 6. 引擎 fetch:store 缺席结构化拒;空窗静默(skip 哨兵);正常路径单条目
-   (锚点 #report-<日期>-<槽位>、content=report_markdown、标签/句尾链接/
-   suffix 价格);截断帽;detail 分区行帽;
+   (锚点 #report-<日期>-<槽位>、content=report_markdown、链接挂标题/
+   suffix 价格缀后);截断帽;detail 分区行帽;
 7. pagination/extract 配置结构化拒(单报表语义);
 8. 超长报表过 feishu msg_form text:行边界续段头尾 (i/N)(通道层护栏,
    组合铁律不在引擎层重做);
@@ -79,7 +84,6 @@ SECTIONS: list[dict[str, Any]] = [
     {
         "title": "AI 资讯",
         "sources": ["aihot", "openai-news"],
-        "labels": {"openai-news": "OpenAI"},
         "max_entries": 5,
     },
     {
@@ -191,7 +195,11 @@ def test_registered_off_chain_and_schema_vocab():
         ({"sections": [{"title": "x"}]}, "sources"),
         ({"sections": [{"sources": ["a"]}]}, "title"),
         ({"sections": [{"title": "x", "sources": ["a"], "style": "table"}]}, "style"),
-        ({"sections": [{"title": "x", "sources": ["a"], "labels": ["OpenAI"]}]}, "labels"),
+        # labels 选项已退役(2026-10-24 D6):配了即未知字段拒。
+        (
+            {"sections": [{"title": "x", "sources": ["a"], "labels": ["OpenAI"]}]},
+            "未知字段",
+        ),
         (
             {"sections": [{"title": "x", "sources": ["a"], "suffix_fields": [1]}]},
             "suffix_fields",
@@ -248,7 +256,7 @@ def test_slot_window_am_pm_boundary():
 
 
 def test_render_report_layout_snapshot():
-    """版式快照:头行/分区/编号/--/缩进明细/尾戳;空分区整段跳过."""
+    """版式快照(D6 新契约):链接挂标题、零原文尾注、零前缀;空分区整段跳过."""
     sections = [
         DigestSection(
             title="AI 资讯",
@@ -256,7 +264,6 @@ def test_render_report_layout_snapshot():
                 DigestEntry(
                     head="OpenAI 发布 GPT-5.5",
                     url="https://openai.com/blog/x",
-                    label="OpenAI",
                 ),
                 DigestEntry(head="智谱开源 CogAgent"),
             ],
@@ -267,6 +274,7 @@ def test_render_report_layout_snapshot():
             entries=[
                 DigestEntry(
                     head="AI 厂商官网日报",
+                    url="https://vendor/x",
                     details=["OpenAI 发布新模型", "Anthropic 无明显动态"],
                 )
             ],
@@ -284,16 +292,18 @@ def test_render_report_layout_snapshot():
         [
             "情报日报 · 2026-10-06 · PM",
             "AI 资讯",
-            "1. [OpenAI] OpenAI 发布 GPT-5.5 [原文](https://openai.com/blog/x)",
+            "1. [OpenAI 发布 GPT-5.5](https://openai.com/blog/x)",
             "2. 智谱开源 CogAgent",
             "--",
             "AI 厂商官网",
-            "1. AI 厂商官网日报",
+            "1. [AI 厂商官网日报](https://vendor/x)",
             "   · OpenAI 发布新模型",
             "   · Anthropic 无明显动态",
             "20:30 实时爬取生成 · 全条目指纹去重 · 无新内容自动静默",
         ]
     )
+    # AC9 回归钉:整份报表零「原文」字样(尾注机制已删)。
+    assert "原文" not in rendered
 
 
 def test_render_report_suffix_and_omitted():
@@ -307,7 +317,8 @@ def test_render_report_suffix_and_omitted():
     rendered = render_report(
         sections, title="情报日报", date="2026-10-06", slot="am", generated_at=NOW_AM
     )
-    assert "1. Control · ¥0.00 [原文](https://epic/x)" in rendered
+    # suffix 句尾附注(游戏价格)缀在链接之后——是信息,不是链接装饰。
+    assert "1. [Control](https://epic/x) · ¥0.00" in rendered
     assert "   ……(另有 7 条省略)" in rendered
     assert FOOTER_TEMPLATE.format(time="08:05") in rendered
 
@@ -335,7 +346,7 @@ def test_render_report_low_value_fold_line():
     rendered = render_report(
         sections, title="情报日报", date="2026-10-06", slot="pm", generated_at=NOW_PM
     )
-    assert "1. 高分要闻" in rendered
+    assert "1. [高分要闻](https://x/1)" in rendered
     assert "   ……(另有 2 条省略)" in rendered
     assert "   ……(另有 4 条低价值条目,价值分<3)" in rendered
     # 省略行在前,低价值折叠行在后(都缀分区尾)。
@@ -445,18 +456,21 @@ def test_fetch_renders_one_item_with_hermes_layout(store):
     assert item["report_entries"] == 4
     lines = item["report_markdown"].splitlines()
     assert lines[0] == "情报日报 · 2026-10-06 · PM"
-    # aihot 在测试 SECTIONS 里没配 label → 无前缀;openai-news 配了 OpenAI 前缀。
-    assert "热点:多模态新模型刷屏 [原文](https://aihot/x)" in item["report_markdown"]
-    assert "[OpenAI] OpenAI announces GPT-5.5 [原文](https://openai/x)" in item["report_markdown"]
+    # D6 新契约:链接挂标题本身,渲染后只见「N. 标题」——无 label 前缀
+    # (labels 机制已删)、无 [原文] 尾注;两源同形(aihot/openai-news)。
+    assert "1. [热点:多模态新模型刷屏](https://aihot/x)" in item["report_markdown"]
+    assert "2. [OpenAI announces GPT-5.5](https://openai/x)" in item["report_markdown"]
     assert "旧闻" not in item["report_markdown"]
     assert "羊毛闲聊" not in item["report_markdown"]
-    # detail 分区:markdown 结构符剥除 + 三空格缩进 + · 前缀。
-    assert "1. AI 厂商官网日报" in item["report_markdown"]
+    # detail 分区:子标题同样链接挂标题;markdown 结构符剥除 + 三空格缩进。
+    assert "1. [AI 厂商官网日报](https://vendor/x)" in item["report_markdown"]
     assert "   · 厂商要闻" in item["report_markdown"]
     assert "   · OpenAI:发布新模型" in item["report_markdown"]
     assert "   · Anthropic:无明显动态" in item["report_markdown"]
-    # suffix 分区:price_text 首个非空值作句尾附注。
-    assert "Control 终极版 · ¥0.00 [原文](https://epic/control)" in item["report_markdown"]
+    # suffix 分区:price_text 首个非空值作句尾附注,缀在链接之后。
+    assert "[Control 终极版](https://epic/control) · ¥0.00" in item["report_markdown"]
+    # AC9 回归钉:整份报表零「原文」字样(尾注机制已删)。
+    assert "原文" not in item["report_markdown"]
     # 分区之间 -- 分隔线。
     assert "--" in item["report_markdown"]
     # 尾戳原文(生成时间来自注入墙钟)。
@@ -554,17 +568,18 @@ def test_fetch_min_score_filters_and_folds(store):
     assert "高分要闻" in markdown
     assert "边界分条目" in markdown
     assert "无分数老条目" in markdown
-    # 排序既有判例:store newest-first 原样,不做值排序。
+    # 排序既有判例:store newest-first 原样,不做值排序(标题带链接壳
+    # 「[标题](url)」,断言按「[标题」前缀起算)。
     numbered = [
         line
         for line in markdown.splitlines()
         if line[:3] in {f"{index}. " for index in range(1, 10)}
     ]
     heads = [line.split(". ", 1)[1] for line in numbered]
-    assert heads[0].startswith("bool分不算分")
-    assert heads[1].startswith("高分要闻")
-    assert heads[2].startswith("边界分条目")
-    assert heads[3].startswith("无分数老条目")
+    assert heads[0].startswith("[bool分不算分")
+    assert heads[1].startswith("[高分要闻")
+    assert heads[2].startswith("[边界分条目")
+    assert heads[3].startswith("[无分数老条目")
 
 
 def test_fetch_min_score_default_keeps_all(store):

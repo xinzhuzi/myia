@@ -378,10 +378,14 @@ push:
         mode: digest            # paid/ad-like categories -> daily digest
                                 # channel 分支已删(10-24 Q1 渠道砍):付费/拉客
                                 # 帖在 classify 层即丢弃,None 永不进路由层
+    # 速报版式(2026-10-24 对齐生产羊毛区块定稿 N. [类别emoji] [标题](链接),
+    # 10-24-huawei-ai-news-absorb Step 4.5.5;immediate 同轮合并一条/digest
+    # 合并卡同走本模板,两档同形):类别前缀取词表展示名(🎁羊毛/🔑token…,
+    # category_label 由渲染层注入,渠道砍后类别集合已收敛)。
     template: |
       **羊毛速报 · {{ date }}**
       {% for item in items %}
-      - [{{ item.title }}]({{ item.url }})
+      {{ loop.index }}. {{ category_label(item.category) }} [{{ item.title }}]({{ item.url }})
       {% endfor %}
 
 storage:

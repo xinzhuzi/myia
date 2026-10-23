@@ -18,7 +18,11 @@ list, so a template can ask for comparisons without touching the store:
 - ``vs_msrp(item)`` → 「低于 MSRP 8.0%」style, from the ``baseline.msrp``
   对照表 keyed by case-insensitive title substring;
 - ``keyword_trends`` → list of :class:`KeywordTrend` (关键词提及量周环比,
-  品类维度), rendered as a digest-card section.
+  品类维度), rendered as a digest-card section;
+- ``category_label(id)`` → 分类 category id 的词表展示标签(如
+  ``🎁羊毛``;未知 id / 词表不可用返回空串)——2026-10-24 注入
+  (10-24-huawei-ai-news-absorb Step 4.5.5):wool 速报模板对齐生产
+  ``N. [类别emoji] [标题](链接)`` 定稿形态的类别前缀取数口。
 
 The comparison data is assembled *before* rendering from the store
 (:func:`build_trend_table` / :func:`build_keyword_trends`), so the sandboxed
@@ -45,6 +49,7 @@ from typing import Any, Iterable, Mapping, Sequence
 from jinja2 import StrictUndefined, TemplateError
 from jinja2.sandbox import SandboxedEnvironment
 
+from myssia.classify import ClassifyDataError, category_label as _category_label_of
 from myssia.push.base import SendContext, item_view
 from myssia.store import (
     METRIC_WINDOW_DAY,
@@ -486,6 +491,25 @@ def _msrp_function(msrp: Mapping[str, float] | None) -> Any:
     return vs_msrp
 
 
+def _category_label(category_id: Any) -> str:
+    """Sandbox ``category_label`` callable:分类 category id → 表内展示标签.
+
+    2026-10-24(10-24-huawei-ai-news-absorb Step 4.5.5):wool 速报模板对齐
+    生产羊毛区块定稿 ``N. [类别emoji] [标题](链接)`` 形态,模板上下文原有
+    字段(``item.category`` 是 freebie/token 这类**原始 id**)给不出
+    「🎁羊毛」展示名——本函数是 :func:`myssia.classify.category_label`
+    (词表 ``label_of``,内置 lru_cache)的沙箱化包装。fail-quiet:未知
+    id / None / 词表数据损坏(``ClassifyDataError``,渲染层对脏数据不炸,
+    参 ``also_seen_list`` 判例)一律返回空串,不渲染 ``None`` 字样。
+    """
+    if not isinstance(category_id, str) or not category_id:
+        return ""
+    try:
+        return _category_label_of(category_id) or ""
+    except ClassifyDataError:
+        return ""
+
+
 class TemplateRenderer:
     """Renders user templates against a shared, hardened Jinja2 environment.
 
@@ -552,6 +576,7 @@ class TemplateRenderer:
                 slot=context.slot,
                 category=context.category,
                 count=len(items),
+                category_label=_category_label,
                 vs_yesterday=_vs_function(METRIC_WINDOW_DAY, trends),
                 vs_last_week=_vs_function(METRIC_WINDOW_WEEK, trends),
                 vs_msrp=_msrp_function(msrp),
