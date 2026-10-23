@@ -1,5 +1,5 @@
 {
-  "description": "金测集:公开论坛标题 + 生产系统实测标签(脱敏,只留标题与期望分类)",
+  "description": "金测集 v2(keywords.json version 2,10-24-huawei-ai-news-absorb):公开论坛标题 + 生产 wf_crawl.py v3.1(华为云,2026-10-20 词表版)实测标签为主,四处 MYIA 设计§2 裁决序分歧(付费/拉客砍先于 AI信息兜底)按设计判并在用例 description 留档。10-24 存量逐条裁决记录见各改判用例 description。样本取生产案发标题(research.md §2)。",
   "items": [
     {
       "title": "羊毛速薅，注册送5000额度，签到1000到2000",
@@ -27,11 +27,13 @@
     },
     {
       "title": "爽蹬公益站(拯救没有Token的孩子)",
-      "expected": "token"
+      "expected": "freebie",
+      "description": "10-24 裁决:token→freebie(10-20 公益豁免:命中「公益」免付费直归羊毛,生产实测同判)"
     },
     {
       "title": "Aether API 公益站",
-      "expected": "token"
+      "expected": "freebie",
+      "description": "10-24 裁决:token→freebie(10-20 公益豁免,生产实测同判)"
     },
     {
       "title": "白嫖王者荣耀灵宝token，这是在工作写代码，不是摸鱼！！！",
@@ -39,11 +41,13 @@
     },
     {
       "title": "🎉🎉B2Proxy福利！新用户免费试用 / 动态 $0.7/GB / 静态 $0.12/IP/天 / 不限量 $10/小时",
-      "expected": "freebie"
+      "expected": "proxy-node",
+      "description": "10-24 裁决:freebie→proxy-node(免费+付费撞车且无公益/云服务器/token 豁免→落主循环,Proxy 命中节点;生产实测同判)"
     },
     {
       "title": "Plus 用一周价格薅一个月 Pro",
-      "expected": "freebie"
+      "expected": null,
+      "description": "10-24 裁决:freebie→None(WOOL_HARD 命中「薅一」但付费「价格」拦下,豁免全落空→付费砍;生产实测同判)"
     },
     {
       "title": "优麦云MCP内测最高30天免费试用？这羊毛我先薅为敬！",
@@ -55,7 +59,8 @@
     },
     {
       "title": "【中秋福利】RoxyBrowser 月满人团圆·中秋狂欢季：抽大奖 + 充值加赠 + 官网寻宝免费领会员",
-      "expected": "freebie"
+      "expected": null,
+      "description": "10-24 裁决:freebie→None(免费领命中硬门槛但付费「充值」拦下,豁免全落空→付费砍;生产实测同判)"
     },
     {
       "title": "Fox AI！中秋福利来了喵！233刀",
@@ -63,7 +68,8 @@
     },
     {
       "title": "庆祝linux.sb开业大吉送100个 1000G不限时订阅",
-      "expected": "freebie"
+      "expected": null,
+      "description": "10-24 裁决:freebie→None(10-03 五刀 noise 论坛活动族「开业」否决;生产实测同判)"
     },
     {
       "title": "签到获得 12 个月 gemini Plus，还行 胜在白嫖",
@@ -71,51 +77,63 @@
     },
     {
       "title": "匿名大模型 Space Bunny Alpha 免费上线",
-      "expected": "freebie"
+      "expected": "ai-news",
+      "description": "10-24 裁决:freebie→ai-news(10-20 硬门槛:光「免费」不构成羊毛信号,无量化/动作词;生产实测同判)"
     },
     {
       "title": "别被低价中转骗了",
-      "expected": "channel"
+      "expected": null,
+      "description": "10-24 裁决:channel→None(10-24 Q1 渠道砍:付费「低价」+拉客「中转」→丢弃;生产实测同判)"
     },
     {
       "title": "求推荐claude低价中转",
-      "expected": "channel"
+      "expected": null,
+      "description": "10-24 裁决:channel→None(Q1 付费「低价」+拉客「中转」砍;生产 v3.1 实测=ai-news(其循环 AI信息 先于付费砍),MYIA 设计§2 裁决序=付费砍先于兜底,有意收紧,留档此分歧)"
     },
     {
       "title": "【顺风Token】GPT低至0.075x，CCMAX仅0.9x，中秋限时国模0.04x",
-      "expected": "channel"
+      "expected": "token",
+      "description": "10-24 裁决:channel→token(v2 token 进主循环:「Token」免免费信号直达 token;生产实测同判——五刀只砍主循环零命中的标题)"
     },
     {
       "title": "宝藏超低价、性价比超高的AI漫剧平台限时发放额度啦！！！",
-      "expected": "channel"
+      "expected": "token",
+      "description": "10-24 裁决:channel→token(主循环「额度」直达;生产实测同判)"
     },
     {
       "title": "有什么比较好用的中转站吗·",
-      "expected": "channel"
+      "expected": null,
+      "description": "10-24 裁决:channel→None(Q1 拉客「中转」砍;生产实测同判)"
     },
     {
       "title": "【开源项目】企业级大模型SaaS平台：team-api， 专为企业打造的AI中转平台",
-      "expected": "channel"
+      "expected": null,
+      "description": "10-24 裁决:channel→None(Q1 拉客「中转」砍;生产 v3.1 实测=ai-news(大模型先命中),MYIA 裁决序付费/拉客砍先于兜底,有意收紧,留档分歧)"
     },
     {
       "title": "bestbuy和giftly礼品卡充值",
-      "expected": "channel"
+      "expected": null,
+      "description": "10-24 裁决:channel→None(Q1 付费「充值」砍;信用卡词表无「礼品卡」裸词;生产实测同判)"
     },
     {
       "title": "codex中转无法控制浏览器,提示”Codex auth token is unavailable”,有什么解决方案",
-      "expected": "channel"
+      "expected": "token",
+      "description": "10-24 裁决:channel→token(v2 token 进主循环:「token」直达;生产实测同判)"
     },
     {
       "title": "【webcodex】 v0.4.2 发布，功能上也许近乎完善了。",
-      "expected": "channel"
+      "expected": null,
+      "description": "10-24 裁决:channel→None(Q1 付费「0.4.2」砍;生产 v3.1 实测=ai-news(「发布」先命中),MYIA 裁决序付费砍先于兜底,有意收紧,留档分歧)"
     },
     {
       "title": "typesafe.ai account generator, unlimited jev, one account every 0.2 seconds",
-      "expected": "channel"
+      "expected": null,
+      "description": "10-24 裁决:channel→None(Q1 付费「0.2」砍;生产实测同判)"
     },
     {
       "title": "测试了一下 GPT-6 Sol，顺便分享一个低成本 API 接入方式，官方的 0.07x",
-      "expected": "channel"
+      "expected": null,
+      "description": "10-24 裁决:channel→None(Q1 付费「0.07」砍;生产 v3.1 实测=ai-news(「GPT」先命中),MYIA 裁决序付费砍先于兜底,有意收紧,留档分歧)"
     },
     {
       "title": "bybit普通用户的100% AI订阅返现将在10.5取消",
@@ -123,11 +141,13 @@
     },
     {
       "title": "【方法合集】获取境外银行卡（非虚拟卡），实现百分百成功 AI 订阅 ChatGPT、Claude 的方法，有门槛，多种方法可选择",
-      "expected": "credit-card"
+      "expected": null,
+      "description": "10-24 裁决:credit-card→None(10-20 fake 否决:「合集」是假信号;生产实测同判)"
     },
     {
       "title": "在微软云的vps上运行Claude code会封号吗",
-      "expected": "server"
+      "expected": null,
+      "description": "10-24 裁决:server→None(10-03 五刀 noise 求助尾缀「吗$」;生产实测同判)"
     },
     {
       "title": "有没有头铁只用vps用claude没被封的",
@@ -139,7 +159,8 @@
     },
     {
       "title": "AI国模订阅推荐求助",
-      "expected": "proxy-node"
+      "expected": null,
+      "description": "10-24 裁决:proxy-node→None(10-03 五刀 noise「求助」;生产实测同判)"
     },
     {
       "title": "cline 订阅不需要国外的卡，银联就成功了",
@@ -147,7 +168,8 @@
     },
     {
       "title": "想问问还有什么低价订阅YouTube Premium的方式吗",
-      "expected": "proxy-node"
+      "expected": null,
+      "description": "10-24 裁决:proxy-node→None(10-03 五刀 noise「吗$」;生产实测同判)"
     },
     {
       "title": "【开源推广】基于Rust打造的低风控、高颜值透明代理网关 Codex-Proxy-RS",
@@ -163,7 +185,8 @@
     },
     {
       "title": "claude 的cloud session 100刀 能用吗，用了他会不会封我号呢",
-      "expected": "proxy-node"
+      "expected": null,
+      "description": "10-24 裁决:proxy-node→None(10-03 五刀 noise「呢$」;生产实测同判)"
     },
     {
       "title": "【纯干货】我宣布gemini 3.8 flash已经王朝了，生成的ASS字幕远超我的预期",
@@ -187,7 +210,8 @@
     },
     {
       "title": "【EnsoCode】又一个开源 Agent，EnsoAI 的弟弟 EnsoCode 来了～",
-      "expected": "ai-news"
+      "expected": "token",
+      "description": "10-24 裁决:ai-news→token(v2 token 进主循环:「EnsoAI」宽匹配 oai 直达(生产同款宽匹配,实测同判);「ss」「oai」宽匹配语义金测钉住)"
     },
     {
       "title": "智谱和openai的比较",
@@ -240,6 +264,96 @@
     {
       "title": "Opus5.5 100刀，仅限开发，CC客户端调用（增加Astra）已耗尽",
       "expected": null
+    },
+    {
+      "title": "视频会员0元领取活动速抢",
+      "expected": "freebie",
+      "description": "新语义(10-20 硬门槛放行):「0元」带前后无数字环视+「领取」动作词;生产实测同判"
+    },
+    {
+      "title": "饿了么薅7天会员攻略",
+      "expected": "freebie",
+      "description": "新语义(10-20 硬门槛放行):数量形态族「薅+数字」;生产实测同判"
+    },
+    {
+      "title": "免费AI聊天工具上新了",
+      "expected": null,
+      "description": "新语义(10-20 硬门槛拦截):光「免费」无量化/动作/品类词,WOOL_HARD 不放行,又无任何类目命中→丢弃;生产实测同判"
+    },
+    {
+      "title": "免费数据集上线了真不错",
+      "expected": "ai-news",
+      "description": "新语义(10-20 硬门槛拦截):无硬门槛信号不入羊毛,「上线」走 ai-news 兜底;生产实测同判"
+    },
+    {
+      "title": "听说OpenAI要放大招送福利了",
+      "expected": null,
+      "description": "新语义(10-20 fake 否决):「听说」传闻帖,带「送/福利」也不放行;生产实测同判"
+    },
+    {
+      "title": "年终羊毛盘点:这些活动别错过",
+      "expected": null,
+      "description": "新语义(10-20 fake 否决):「盘点」合集帖;生产实测同判"
+    },
+    {
+      "title": "这个API还能免费用吗",
+      "expected": null,
+      "description": "新语义(10-03 五刀求助尾缀):「吗$」提问帖;生产实测同判"
+    },
+    {
+      "title": "免费节点还有人用呢",
+      "expected": null,
+      "description": "新语义(10-03 五刀求助尾缀):「呢$」提问帖,带「免费/节点」也被 noise 先杀;生产实测同判"
+    },
+    {
+      "title": "公益站所有模型倍率0良心推荐",
+      "expected": "freebie",
+      "description": "新语义(10-20 公益豁免付费):「公益/倍率0」豁免付费信号直归羊毛;生产实测同判"
+    },
+    {
+      "title": "教育公益版GPT镜像站倍率0",
+      "expected": "freebie",
+      "description": "新语义(10-20 公益豁免付费):「教育公益版/倍率0」;生产实测同判"
+    },
+    {
+      "title": "免费云服务器白嫖教程搭GPT中转正好",
+      "expected": "freebie",
+      "description": "新语义(10-17 云服务器优先于 token):免费+云服务器族+非付费→羊毛,先于 token 语境判定;生产实测同判"
+    },
+    {
+      "title": "ECS免费试用3个月跑API网关",
+      "expected": "freebie",
+      "description": "新语义(10-17 云服务器优先):「ECS/免费试用」;生产实测同判"
+    },
+    {
+      "title": "分享一个apikey轮换脚本",
+      "expected": "token",
+      "description": "新语义(v2 token 免免费可达):主循环纳入 token,apikey 标题无免费信号直达;生产实测同判"
+    },
+    {
+      "title": "API token 泄漏检测方法总结",
+      "expected": "token",
+      "description": "新语义(v2 token 免免费可达):「API token」主循环直达;生产实测同判"
+    },
+    {
+      "title": "视频会员低价促销车队纳新",
+      "expected": null,
+      "description": "新语义(10-24 Q1 付费/拉客砍):「低价/促销」付费+「车队/纳新」拉客→丢弃,渠道不再作归宿;生产实测同判"
+    },
+    {
+      "title": "中转号池聚合平台年付优惠",
+      "expected": null,
+      "description": "新语义(10-24 Q1 付费/拉客砍):「中转/号池/聚合/年付/优惠」;生产实测同判"
+    },
+    {
+      "title": "开源大模型排行榜更新",
+      "expected": "ai-news",
+      "description": "新语义(fallback AI信息兜底保留):无免费/付费/主循环命中,「大模型/更新」兜底;生产实测同判"
+    },
+    {
+      "title": "通义千问发布新版推理引擎",
+      "expected": "ai-news",
+      "description": "新语义(fallback AI信息兜底保留):「通义/发布」;生产实测同判"
     }
   ]
 }

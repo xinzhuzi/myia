@@ -2,9 +2,10 @@
 
 Zero-dependency classification engine extracted from MYIA's classification
 layer. Public entry point is :func:`classify_item`: it runs the built-in
-dual-signal adjudication (seven categories + channel) over the item title
-and applies optional custom rules (safe ``when`` expressions) on top,
-returning ``category`` + ``tags`` + the hit trace for debugging.
+dual-signal adjudication (seven categories; the retired ``channel`` label
+is never assigned — paid/lure titles discard, owner ruling 2026-10-24)
+over the item title and applies optional custom rules (safe ``when``
+expressions) on top, returning ``category`` + ``tags`` + the hit trace.
 
 The keyword tables live in the packaged ``data/keywords.json`` so the owner
 or an AI can tune them without code changes.
@@ -64,7 +65,7 @@ __all__ = [
     "rules_from_config",
 ]
 
-__version__ = "0.0.6"
+__version__ = "0.0.7"
 
 logger = logging.getLogger(__name__)
 

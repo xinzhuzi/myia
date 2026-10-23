@@ -2,7 +2,7 @@
 
 myssia 七大类关键词分类引擎,独立 pip 包:零运行时依赖、免费/付费双信号裁决、数据与代码分离、命中可追溯。
 
-从 myssia 核心的分类层(`myssia.classify`)拆出,忠实移植生产爬虫关键词分类器(2026-09-28 纠错版,金测集钉住语义)。可脱离 myssia 单独引用,myssia 核心也以固定版本范围依赖本包。
+从 myssia 核心的分类层(`myssia.classify`)拆出,忠实移植生产爬虫关键词分类器(华为云 v3.1,词表 2026-10-20 版——真羊毛硬门槛/假信号否决/五刀求助族/公益豁免/云服务器优先/付费拉客砍,金测集钉住语义)。可脱离 myssia 单独引用,myssia 核心也以固定版本范围依赖本包。
 
 ## 特性
 
@@ -29,7 +29,7 @@ for evidence in result.matched:
     print(evidence.describe())  # 命中追溯: 表:类型=值
 ```
 
-七大类:`credit-card` / `proxy-node` / `buying-agent` / `server` / `token` / `ai-news` / `freebie`;另有第八个生产标签 `channel`(付费信号且无免费信号的导购/渠道帖)。被过滤标题的 `category` 为 `None`。
+七大类:`credit-card` / `proxy-node` / `buying-agent` / `server` / `token` / `ai-news` / `freebie`;第八个生产标签 `channel` 已退役(2026-10-24 裁决:付费/拉客帖直接丢弃,`channel` 不再被赋值,仅作历史标签保留)。被过滤标题的 `category` 为 `None`。
 
 ## 自定义规则
 

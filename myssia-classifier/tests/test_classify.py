@@ -39,9 +39,11 @@ def _gold_items() -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-def test_gold_set_size_within_40_to_60_titles():
+def test_gold_set_size_within_40_to_90_titles():
+    # v2(10-24-huawei-ai-news-absorb):存量 60 条全留(24 条改判留档)+ 18 条
+    # 新语义用例 = 78;窗口上限放宽到 90,下限不动(语料不能缩水)。
     items = _gold_items()
-    assert 40 <= len(items) <= 60
+    assert 40 <= len(items) <= 90
 
 
 def test_gold_set_accuracy_at_least_90_percent():
@@ -58,8 +60,10 @@ def test_gold_set_accuracy_at_least_90_percent():
 
 
 def test_gold_set_covers_every_category_including_discards():
+    # v2(10-24 Q1 裁决):渠道不再是可判达的归宿(付费/拉客→None),金测集
+    # 不再要求 channel 覆盖;CATEGORY_CHANNEL 仍作为历史标签留在表内。
     expected_ids = {row["expected"] for row in _gold_items()}
-    assert expected_ids >= set(SEVEN_CATEGORIES) | {CATEGORY_CHANNEL, None}
+    assert expected_ids >= set(SEVEN_CATEGORIES) | {None}
 
 
 # ---------------------------------------------------------------------------
@@ -74,33 +78,66 @@ def test_classify_title_free_signal_beats_paid_signal_to_token():
 
 
 def test_classify_title_paid_signal_without_free_signal_never_reaches_freebie():
-    # 生产 2026-09-28 纠错回归用例: 付费中转广告绝不进羊毛/token
+    # v2(10-24 词表对齐生产 10-20):付费中转广告绝不进羊毛;但「Token」语汇
+    # 经主循环直达 token(五刀只砍主循环零命中的标题,生产 v3.1 实测同判)。
     title = "【顺风Token】GPT低至0.075x，CCMAX仅0.9x，中秋限时国模0.04x"
-    assert classify_title(title).category == "channel"
+    result = classify_title(title)
+    assert result.category == "token"
+    tables = {e.table for e in result.matched}
+    assert "category:token" in tables and "signals.paid" in tables
 
 
-def test_classify_title_paid_signal_without_free_signal_never_reaches_token():
-    # 标题带 claude/中转 等 token 语汇, 但只有付费信号 → 渠道而非 token
-    assert classify_title("求推荐claude低价中转").category == "channel"
+def test_classify_title_paid_signal_without_free_signal_is_cut():
+    # v2(10-24 Q1 渠道砍):付费信号且主循环零命中 → 丢弃(None),渠道不再是归宿
+    assert classify_title("求推荐claude低价中转").category is None
+    assert classify_title("bestbuy和giftly礼品卡充值").category is None
 
 
-def test_classify_title_free_signal_beats_primary_category_scan():
-    # 免费+付费撞车且标题明显是节点代理 → 仍归羊毛(免费信号绝对优先)
+def test_classify_title_lure_words_cut_without_paid_signal():
+    # v2(10-24 Q1):拉客词(中转/号池/聚合/车队/纳新…)无需付费信号即砍
+    assert classify_title("中转号池聚合平台车队纳新").category is None
+
+
+def test_classify_title_free_signal_with_paid_and_no_exemption_falls_to_primary_scan():
+    # v2(10-20 硬门槛语义):免费+付费撞车且无公益/云服务器/token 豁免 →
+    # 免费分支四级落空,落入主循环,Proxy 命中节点(生产实测同判)。
     title = "🎉🎉B2Proxy福利！新用户免费试用 / 动态 $0.7/GB / 静态 $0.12/IP/天 / 不限量 $10/小时"
     result = classify_title(title)
-    assert result.category == "freebie"
+    assert result.category == "proxy-node"
     tables = {e.table for e in result.matched}
-    assert "category:freebie" in tables and "signals.paid" in tables
+    assert "category:proxy-node" in tables and "signals.paid" in tables
 
 
-def test_classify_title_fallback_scan_routes_token_pattern_to_ai_news():
-    # 生产语义钉子: 无免费信号时 token 关键词只触发 AI信息 兜底, 不产生 token
-    assert classify_title("token额度没用完有点焦虑，哈哈").category == "ai-news"
+def test_classify_title_token_pattern_reaches_token_without_free_signal():
+    # v2(10-24 对齐生产 v3.1):token 进主循环,免免费信号可达 token;
+    # 09-28 旧设「token 只能免费分支到达」随 F3 翻案。
+    assert classify_title("token额度没用完有点焦虑，哈哈").category == "token"
 
 
-def test_classify_title_paid_signal_with_release_word_routes_to_channel():
-    # 0\.\d 数字价 + 发布 类词: 付费检查先于 AI信息 兜底(生产语义)
-    assert classify_title("【webcodex】 v0.4.2 发布，功能上也许近乎完善了。").category == "channel"
+def test_classify_title_paid_signal_with_release_word_is_cut():
+    # v2(10-24 Q1):0\.\d 数字价 + 发布 类词 → 付费砍先于 AI信息 兜底
+    # (生产 v3.1 循环里 AI信息 先命中判 ai-news,MYIA 设计§2 有意收紧,金测留档)
+    assert classify_title("【webcodex】 v0.4.2 发布，功能上也许近乎完善了。").category is None
+
+
+def test_classify_title_charity_exempt_beats_paid_signal():
+    # v2(10-20 公益豁免):公益站/倍率0 免付费信号直归羊毛(先于云服务器/token)
+    assert classify_title("公益站所有模型倍率0良心推荐").category == "freebie"
+    assert classify_title("教育公益版GPT镜像站倍率0").category == "freebie"
+
+
+def test_classify_title_cloud_server_precedes_token_context():
+    # v2(10-17 云服务器优先):免费+云服务器族+非付费 → 羊毛,先于 token 语境
+    assert classify_title("免费云服务器白嫖教程搭GPT中转正好").category == "freebie"
+    assert classify_title("ECS免费试用3个月跑API网关").category == "freebie"
+
+
+def test_classify_title_fake_signal_discards_title():
+    # v2(10-20 fake 否决):听说/盘点/合集等假信号无条件丢,标题带「送」也不放行
+    result = classify_title("听说OpenAI要放大招送福利了")
+    assert result.category is None
+    assert any(e.table == "filters.fake" for e in result.matched)
+    assert classify_title("年终羊毛盘点:这些活动别错过").category is None
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +168,14 @@ def test_classify_title_registration_with_direct_give_classifies():
     assert classify_title("羊毛速薅，注册送5000额度，签到1000到2000").category == "token"
 
 
+def test_classify_title_question_suffix_discards_title():
+    # v2(10-03 五刀 noise):求助尾缀 吗$/呢$ —— 提问帖不是情报
+    result = classify_title("这个API还能免费用吗")
+    assert result.category is None
+    assert any(e.value == "吗$|呢$" for e in result.matched)
+    assert classify_title("免费节点还有人用呢").category is None
+
+
 # ---------------------------------------------------------------------------
 # category coverage (one representative per category)
 # ---------------------------------------------------------------------------
@@ -146,7 +191,7 @@ def test_classify_title_registration_with_direct_give_classifies():
         ("Claude 免费领100$", "token"),
         ("米哈游千亿进军大模型，力争进入第一梯队(附录音)", "ai-news"),
         ("青龙面板 夸克签到领取永久空间", "freebie"),
-        ("bestbuy和giftly礼品卡充值", "channel"),
+        ("bestbuy和giftly礼品卡充值", None),
     ],
 )
 def test_classify_title_covers_every_category(title, expected):
@@ -178,7 +223,7 @@ def test_classify_title_records_pattern_hits_for_paid_signal():
     result = classify_title("【顺风Token】GPT低至0.075x，CCMAX仅0.9x，中秋限时国模0.04x")
     pattern_hits = [e for e in result.matched if e.kind == "pattern" and e.table == "signals.paid"]
     assert pattern_hits, "付费正则(0\\.\\d)命中应有追溯"
-    assert result.category == "channel"
+    assert result.category == "token"
 
 
 # ---------------------------------------------------------------------------
@@ -428,6 +473,8 @@ def test_classify_item_missing_title_raises_type_error():
 
 
 def test_seven_categories_constant_shape():
+    # v2(10-24 Q1):channel 不再是可判达归宿,但仍作为历史标签留在类目宇宙
+    # (CATEGORY_CHANNEL/label 查询/主包 route 映射兼容),故 ALL_CATEGORIES 仍 8。
     assert len(SEVEN_CATEGORIES) == 7
     assert CATEGORY_CHANNEL not in SEVEN_CATEGORIES
     assert len(ALL_CATEGORIES) == 8
@@ -503,7 +550,8 @@ def test_classify_item_drop_and_tag_rules_coexist():
         ]
     )
     kept = classify_item(
-        {"title": "免费端点", "url": "https://g4f.dev/x"}, rules=rules
+        # v2(10-20 硬门槛):光「免费」不再是羊毛信号,标题须带硬门槛词(免费送)
+        {"title": "免费送端点", "url": "https://g4f.dev/x"}, rules=rules
     )
     assert kept.category == "freebie"
     assert "freebie" in kept.tags

@@ -1,30 +1,41 @@
 """Built-in seven-category classifier: the zero-token first funnel.
 
-Faithful port of the production crawler's keyword classifier with the
-free/paid dual-signal adjudication (2026-09-28 revision), semantics verified
-by running the production ``cat_of`` over the real corpus. Keyword tables
-live in ``data/keywords.json`` so the owner or an AI can tune them without
-code changes; this module only loads the tables and runs the adjudication.
+Faithful port of the production crawler's keyword classifier (Huawei-cloud
+``wf_crawl.py`` v3.1, keyword tables at their 2026-10-20 revision), semantics
+verified by running the production ``cat_of`` over the real corpus (gold set
+re-measured 2026-10-24). Keyword tables live in ``data/keywords.json`` so the
+owner or an AI can tune them without code changes; this module loads the
+tables and runs the adjudication. The adjudication *order* itself is code
+(production semantics), with the charity/cloud/lure inline regexes ported
+verbatim from ``wf_crawl.py``:
 
-Adjudication order (production semantics, pinned by the gold set):
-
-1. dead/noise filters -> discard (category ``None``)
+1. dead -> noise -> fake filters -> discard (category ``None``)
+   (fake = 2026-10-20 假信号: 听说/盘点/合集… even when the title says 免费)
 2. registration lure: title contains 注册 without any direct-give signal
    -> discard (blocks "register xxx" bait posts)
-3. free signal (freebie table union direct-give) beats paid signal:
-   token-context hit -> ``token``, otherwise ``freebie``
-4. no free signal: primary categories scanned in priority order
-   (credit-card -> proxy-node -> buying-agent -> server)
-5. paid signal or paid-target (channel) hit -> ``channel``
-6. fallback scan -> the configured ``fallback_target`` (ai-news). Note the
-   token pattern only gates this step: ``token`` is reachable exclusively
-   through the free branch (production behavior, pinned by the gold set)
+3. free signal (freebie hard-threshold table union direct-give) branch:
+   a. 公益/倍率0 hit -> ``freebie`` (charity exempts the paid signal)
+   b. cloud-server family hit and not paid -> ``freebie`` (2026-10-17
+      cloud-first ruling, takes precedence over the token context)
+   c. token-context hit -> ``token``
+   d. not paid -> ``freebie``; otherwise the branch yields nothing and the
+      title falls through to the primary scan below
+4. no free signal (or free branch fell through): primary categories scanned
+   in priority order (credit-card -> proxy-node -> buying-agent -> server ->
+   token — 2026-10-24: token joins the loop, apikey/额度 titles reach
+   ``token`` without any free signal, matching production v3.1)
+5. paid/lure cut (2026-10-03 五刀, owner ruling 2026-10-24 Q1): paid hit or
+   lure words (中转/relay/逆向/号池/接入了/api站/聚合/车队/纳新/低价/优惠)
+   -> discard; ``channel`` is no longer a destination (the category row
+   stays in the table as a retired legacy label only)
+6. fallback scan -> the configured ``fallback_target`` (ai-news)
 7. otherwise ``None`` -- the caller decides whether to drop the item
 
-Known divergence in the production source: its docstring claims the four
-primary categories also accept free titles, but the code gives the free
-signal absolute priority (checked first). The code behavior is implemented
-here; flagged for owner confirmation in the task's open issues.
+Known divergence from production v3.1 (deliberate, design §2 ruling):
+production's no-free loop checks 🤖AI信息 *before* the paid/lure cut, so
+titles like 「v0.4.2 发布」 land in ai-news; MYIA cuts paid/lure first —
+the five-knife intent (付费广告整体砍) wins over the loop-order artifact.
+The four affected gold cases record the divergence in their descriptions.
 """
 
 from __future__ import annotations
@@ -64,9 +75,10 @@ SEVEN_CATEGORIES: list[str] = [
     "freebie",
 ]
 
-#: Eighth production label: destination of paid-signal-without-free-signal
-#: titles (要掏钱的,绝不进羊毛). Not part of SEVEN_CATEGORIES pending owner
-#: confirmation -- see task open issues.
+#: Eighth production label — RETIRED as a destination (owner ruling
+#: 2026-10-24 Q1: paid/lure titles are discarded, ``channel`` is never
+#: assigned). The id stays in the category universe for legacy-label
+#: compatibility (label lookup, main-package route mapping).
 CATEGORY_CHANNEL = "channel"
 
 ALL_CATEGORIES: list[str] = [*SEVEN_CATEGORIES, CATEGORY_CHANNEL]
@@ -83,6 +95,23 @@ _KNOWN_STAGES = frozenset(
 
 _TABLE_TOP_KEYS = frozenset({"version", "description", "categories", "signals", "filters", "adjudication"})
 _SECTION_KEYS = frozenset({"keywords", "patterns", "case_insensitive", "target_category", "description"})
+
+#: keywords.json table version this loader accepts (v2 ships with the
+#: 2026-10-20 production keyword revision; older tables live in git history).
+_TABLE_VERSION = 2
+
+# ── 裁决序内联正则(逐字移植自生产 wf_crawl.py,裁决序属代码不属数据)──
+#: 2026-10-20 公益豁免:公益站/倍率0 标题免付费信号直归羊毛(wf_crawl.py cat_of)。
+_CHARITY_EXEMPT_RE = re.compile(r"公益|倍率\s?0|0\s?倍率", re.UNICODE)
+#: 2026-10-17 云服务器优先:免费+云服务器族且非付费 → 羊毛(先于 token 判定)。
+_CLOUD_SERVER_RE = re.compile(r"云服务器|云虚拟机|云主机|ECS|轻量服务器|VPS", re.UNICODE | re.I)
+#: 2026-10-03 五刀+2026-10-24 Q1:付费/拉客帖整体砍,渠道不再作归宿。
+_PAID_LURE_RE = re.compile(r"中转|relay|逆向|号池|接入了|api站|聚合|车队|纳新|低价|优惠", re.UNICODE | re.I)
+
+#: Evidence table names for the inline adjudication regexes (hit trace).
+_CHARITY_TABLE = "adjudication.charity_exempt"
+_CLOUD_TABLE = "adjudication.cloud_server_first"
+_LURE_TABLE = "adjudication.paid_lure"
 
 
 class ClassifyDataError(ValueError):
@@ -161,6 +190,7 @@ class ClassifyTable:
     token_context: Section
     dead_filter: Section
     noise_filter: Section
+    fake_filter: Section
     registration_lure: Section
     fallback_target: str
 
@@ -277,8 +307,8 @@ def load_table(path: str | Path = DEFAULT_TABLE_PATH) -> ClassifyTable:
     if unknown:
         raise ClassifyDataError(f"分类关键词表字段错误: 顶层未知字段 {sorted(unknown)}")
     version = data.get("version")
-    if version != 1 or isinstance(version, bool):
-        raise ClassifyDataError(f"分类关键词表字段错误: version: 仅支持 1, got {version!r}")
+    if version != _TABLE_VERSION or isinstance(version, bool):
+        raise ClassifyDataError(f"分类关键词表字段错误: version: 仅支持 {_TABLE_VERSION}, got {version!r}")
 
     raw_categories = data.get("categories")
     if not isinstance(raw_categories, list) or not raw_categories:
@@ -295,10 +325,11 @@ def load_table(path: str | Path = DEFAULT_TABLE_PATH) -> ClassifyTable:
     token_context = _build_section("signals.token_context", raw_signals["token_context"], "signals.token_context")
 
     raw_filters = data.get("filters")
-    if not isinstance(raw_filters, Mapping) or set(raw_filters) != {"dead", "noise", "registration_lure"}:
-        raise ClassifyDataError("分类关键词表字段错误: filters: 必须包含且仅包含 dead/noise/registration_lure")
+    if not isinstance(raw_filters, Mapping) or set(raw_filters) != {"dead", "noise", "fake", "registration_lure"}:
+        raise ClassifyDataError("分类关键词表字段错误: filters: 必须包含且仅包含 dead/noise/fake/registration_lure")
     dead_filter = _build_section("filters.dead", raw_filters["dead"], "filters.dead")
     noise_filter = _build_section("filters.noise", raw_filters["noise"], "filters.noise")
+    fake_filter = _build_section("filters.fake", raw_filters["fake"], "filters.fake")
     registration_lure = _build_section(
         "filters.registration_lure", raw_filters["registration_lure"], "filters.registration_lure"
     )
@@ -315,7 +346,7 @@ def load_table(path: str | Path = DEFAULT_TABLE_PATH) -> ClassifyTable:
 
     ordered = tuple(sorted(categories, key=lambda category: category.priority))
     return ClassifyTable(
-        version=1,
+        version=_TABLE_VERSION,
         source=str(table_path),
         categories=ordered,
         free_target=next(c for c in ordered if c.stage == _STAGE_FREE_TARGET),
@@ -327,6 +358,7 @@ def load_table(path: str | Path = DEFAULT_TABLE_PATH) -> ClassifyTable:
         token_context=token_context,
         dead_filter=dead_filter,
         noise_filter=noise_filter,
+        fake_filter=fake_filter,
         registration_lure=registration_lure,
         fallback_target=fallback_target,
     )
@@ -354,6 +386,30 @@ def _scan(section: Section, title: str, evidence: list[MatchEvidence]) -> bool:
                 )
             )
     return hit
+
+
+def _scan_inline(
+    table: str, regex: re.Pattern[str], title: str, evidence: list[MatchEvidence]
+) -> bool:
+    """Record a hit of one adjudication-order inline regex (production port).
+
+    The charity/cloud/lure regexes live in code (production ``cat_of``
+    semantics), not in the data table; hits still land in the evidence trace
+    so rule tuning stays observable.
+    """
+    match = regex.search(title)
+    if match is None:
+        return False
+    evidence.append(
+        MatchEvidence(
+            table=table,
+            kind="pattern",
+            value=regex.pattern,
+            start=match.start(),
+            end=match.end(),
+        )
+    )
+    return True
 
 
 def classify_title(title: str, table: ClassifyTable | None = None) -> BuiltinResult:
@@ -386,6 +442,9 @@ def classify_title(title: str, table: ClassifyTable | None = None) -> BuiltinRes
     if _scan(table.noise_filter, normalized, evidence):
         logger.debug("分类丢弃: reason=noise title=%r evidence=%s", normalized, [e.describe() for e in evidence])
         return BuiltinResult(category=None, matched=tuple(evidence), normalized_title=normalized)
+    if _scan(table.fake_filter, normalized, evidence):
+        logger.debug("分类丢弃: reason=fake title=%r evidence=%s", normalized, [e.describe() for e in evidence])
+        return BuiltinResult(category=None, matched=tuple(evidence), normalized_title=normalized)
 
     reg_hit = _scan(table.registration_lure, normalized, evidence)
     give_hit = _scan(table.direct_give, normalized, evidence)
@@ -399,19 +458,35 @@ def classify_title(title: str, table: ClassifyTable | None = None) -> BuiltinRes
 
     category: str | None = None
     if free_hit:
-        # 免费信号优先(2026-09-28 主人纠错): 撞付费信号也进白嫖类
-        if _scan(table.token_context, normalized, evidence):
-            category = table.token_context.target_category
-        else:
+        # 免费分支(生产 v3.1 cat_of 裁决序,正则逐字移植):
+        if _scan_inline(_CHARITY_TABLE, _CHARITY_EXEMPT_RE, normalized, evidence):
+            # 2026-10-20 公益豁免: 公益站/倍率0 免付费直归羊毛
             category = table.free_target.id
-    else:
+        elif _scan_inline(_CLOUD_TABLE, _CLOUD_SERVER_RE, normalized, evidence) and not paid_hit:
+            # 2026-10-17 云服务器优先: 云服务器族且非付费 → 羊毛(先于 token 判定)
+            category = table.free_target.id
+        elif _scan(table.token_context, normalized, evidence):
+            category = table.token_context.target_category
+        elif not paid_hit:
+            category = table.free_target.id
+        # 四级全落空(免费+付费且无豁免) → 落入下方主循环(生产同构)
+
+    if category is None:
+        # 无免费信号(或免费分支落空): 主循环 v2 起含 token(免免费可达,生产 v3.1 同款)
         for candidate in table.primary_categories:
             if _scan(candidate.section, normalized, evidence):
                 category = candidate.id
                 break
-        if category is None and (paid_hit or _scan(table.paid_target.section, normalized, evidence)):
-            category = table.paid_target.id
-        if category is None:
+
+    if category is None:
+        if paid_hit or _scan_inline(_LURE_TABLE, _PAID_LURE_RE, normalized, evidence):
+            # 2026-10-03 五刀 + 2026-10-24 主人 Q1: 付费/拉客帖整体砍,
+            # 渠道(paid_target)不再作归宿 —— 直接丢弃,不进兜底扫描。
+            logger.debug(
+                "分类丢弃: reason=paid_lure title=%r evidence=%s",
+                normalized, [e.describe() for e in evidence],
+            )
+        else:
             for candidate in table.fallback_categories:
                 if _scan(candidate.section, normalized, evidence):
                     category = table.fallback_target

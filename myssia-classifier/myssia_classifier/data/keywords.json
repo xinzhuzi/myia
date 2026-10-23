@@ -1,23 +1,27 @@
 {
-  "version": 1,
-  "description": "七大类关键词表与免费/付费双信号裁决表。忠实移植自生产爬虫 wf_crawl.py(2026-09-28 主人纠错版),由金测集钉住语义。AI/用户可直接增改本文件:keywords 里加普通关键词,patterns 里加正则(需熟悉正则),不用改代码。case_insensitive 默认 false(生产正则原样语义)。",
+  "version": 2,
+  "description": "七大类关键词表与免费/付费双信号裁决表。v2(10-24-huawei-ai-news-absorb)对齐生产 wf_crawl.py v3.1(华为云,2026-10-20 词表版):freebie 换 WOOL_HARD 硬门槛、filters 增 fake 假信号、noise 增 10-03 五刀求助族+论坛活动族、token 免免费可达、付费/拉客帖整体砍(10-24 主人 Q1 裁决,渠道不再作归宿)。词面由金测集钉住语义;AI/用户可直接增改本文件:keywords 里加普通关键词,patterns 里加正则(需熟悉正则),不用改代码。case_insensitive 默认 false(生产正则原样语义)。裁决序(公益豁免/云服务器优先/拉客否决)属代码,见 builtin.py。",
   "categories": [
     {
       "id": "freebie",
       "label": "🎁羊毛",
       "stage": "free_target",
       "priority": 5,
-      "case_insensitive": false,
-      "description": "白嫖类。不参与常规扫描:免费信号(FREE_KW)命中即归此类,除非再命中 signals.token_context 归 token。关键词表即生产 FREE_KW。",
+      "case_insensitive": true,
+      "description": "白嫖类(生产 WOOL_HARD_KW,2026-10-20 主人令「真羊毛硬门槛——标题『像』羊毛不算,必须有可领/量化/动作信号」,逐字移植)。不参与常规扫描:命中即视为免费信号,进入免费分支裁决(公益豁免→云服务器优先→token 细分→非付费归本类)。原 09-28 宽松 FREE_KW 词表退役。",
       "keywords": [
-        "白嫖", "免费", "免单", "无门槛", "注册送", "签到", "兑换码", "激活码",
-        "邀请码", "放送", "赠送", "白送", "试用", "抽奖", "公益", "0元", "零元",
-        "鸡蛋", "白给", "薅", "福利", "羊毛", "优惠券", "盲盒"
+        "兑换码", "激活码", "卡密", "CDK", "鸡蛋", "盲盒",
+        "先到先得", "免单", "白嫖", "随心蹬", "零元", "领取"
       ],
       "patterns": [
-        "送\\$|送\\d|领\\$|领\\d",
-        "送会员|送VIP|送券|送网易云",
-        "限时.{0,4}(?:送|领)"
+        "(?<!\\d)0元(?!\\d)",
+        "(?:送|领|薅|拿|得|抽|赠|补)[\\s]?[#$＄€¥]? ?[0-9一二两三四五六七八九十百千万]|送\\s?\\$",
+        "\\d+\\s?(?:天|次|张|个|枚|GB|G|条|年|月|倍)[^，。；]{0,6}(?:免费|送|领|骑|卡)",
+        "\\d+\\s?(?:元|块|刀|万?tokens?|额度|积分|美[金元])(?!起)",
+        "首年免费|免费领|免费送|免费体验|免费试用|免费骑|免费开|免费用|免费订阅|免费会员|免费放送|福利放送",
+        "教育公益版|公益版|公益站|公益|倍率\\s?0|0\\s?倍率",
+        "免费.{0,12}(?:GPT|Claude|Grok|Glm|GLM|deepseek|DeepSeek|kimi|Kimi|模型|国模|api|API|额度|资源|主机|IP|生图|大模型)",
+        "后台.{0,6}兑换"
       ]
     },
     {
@@ -38,7 +42,7 @@
       "stage": "primary",
       "priority": 20,
       "case_insensitive": true,
-      "description": "生产 CAT_RULES[1]。注意 ssr?/订阅 是宽匹配,生产就如此(金测集钉住)。",
+      "description": "生产 CAT_RULES[1]。注意 ssr?/订阅 是宽匹配,生产就如此(金测集钉住:「ASS字幕」「session」经 ss 宽匹配归本类)。",
       "keywords": ["节点", "机场", "订阅", "科学上网", "翻墙", "梯子", "魔法"],
       "patterns": [
         "v2ray|clash|vless|trojan|ssr?|hysteria",
@@ -84,9 +88,9 @@
       "id": "channel",
       "label": "💰渠道",
       "stage": "paid_target",
-      "priority": 50,
+      "priority": 55,
       "case_insensitive": true,
-      "description": "付费信号且无免费信号的归宿(付费中转广告绝不进羊毛/token)。不在七大类清单里,是生产系统第 8 个输出标签,待主人确认去留。",
+      "description": "已退役(2026-10-24 主人 Q1 裁决):付费/拉客帖整体砍(分类 None),渠道不再作归宿。本行保留仅为历史标签兼容(CATEGORY_CHANNEL 常量/label 查询/主包 route 映射),关键词不再参与裁决;拉客否决词(中转/relay/逆向/号池/接入了/api站/聚合/车队/纳新/低价/优惠)以代码内联正则逐字移植自生产 10-03 五刀,见 builtin.py。",
       "keywords": ["中转", "逆向", "号池", "接入了", "聚合", "车队"],
       "patterns": [
         "relay",
@@ -96,10 +100,10 @@
     {
       "id": "token",
       "label": "🔑token",
-      "stage": "fallback",
-      "priority": 60,
+      "stage": "primary",
+      "priority": 50,
       "case_insensitive": true,
-      "description": "生产 CAT_RULES[5]。注意:免付费都无信号时本类关键词只作为 AI信息 兜底的触发条件之一;token 类仅能经免费分支(signals.token_context)到达——生产语义,金测集钉住。",
+      "description": "生产 CAT_RULES[5]。v2(10-24 对齐生产 v3.1)stage 由 fallback 改 primary:token 免免费信号可达(apikey/额度 标题在无免费主循环即归 token);免费分支细分仍经 signals.token_context(公益豁免/云服务器优先在其前)。注意 oai 是宽匹配(「EnsoAI」命中,金测钉住)。",
       "keywords": ["额度"],
       "patterns": [
         "apikey|API ?[Kk]ey|api ?token|接入.?url|base.?url|oai|token"
@@ -111,7 +115,7 @@
       "stage": "fallback",
       "priority": 70,
       "case_insensitive": true,
-      "description": "生产 CAT_RULES[6]。无免费且无付费信号时的兜底类。",
+      "description": "生产 CAT_RULES[6]。无免费且无付费信号且主循环零命中时的兜底类。",
       "keywords": ["大模型", "通义", "智谱", "发布", "上线", "更新"],
       "patterns": [
         "gpt|claude|gemini|grok|deepseek|llm|openai|anthropic|kimi|qwen|glm|midjourney|sora"
@@ -127,12 +131,12 @@
         "送.{0,8}(?:刀|额度|美[金元]|算力|会员|VIP)",
         "(?:得|拿|领|抽|送)\\s?\\d{2,}\\s?(?:刀|美[金元]|块|元)",
         "\\d{2,}\\s?刀.{0,8}(?:额度|福利|盲盒)",
-        "抽.{0,10}(?:奖|plan|go\\b)"
+        "抽.{0,10}(?:奖|go\\b)"
       ]
     },
     "paid": {
       "case_insensitive": false,
-      "description": "付费信号(生产 PAID_KW):有它且无免费信号 → 渠道。",
+      "description": "付费信号(生产 PAID_KW):v2 起「有它且无免费信号」不再归渠道,而是主循环零命中时丢弃(10-24 Q1);免费分支内则压制羊毛(公益/云服务器豁免除外)。",
       "keywords": [
         "低至", "元起", "刀起", "充值", "首充", "返赠", "返利", "促销", "大促",
         "秒杀", "特价", "低价", "比价", "价格", "倍率", "优惠", "特惠", "年付",
@@ -148,7 +152,7 @@
     "token_context": {
       "case_insensitive": true,
       "target_category": "token",
-      "description": "免费分支细分(生产 cat_of 内联正则):免费信号命中后,标题再命中本表 → 归 target_category 指定的类,否则归羊毛。",
+      "description": "免费分支细分(生产 cat_of 内联正则):免费信号命中后,先过公益豁免与云服务器优先(代码裁决序),再命中本表 → 归 target_category 指定的类,否则非付费归羊毛。",
       "patterns": [
         "apikey|API ?[Kk]ey|api ?token|额度|token|中转|号池|鸡蛋|opus|claude|gpt|glm|deepseek|kimi|api"
       ]
@@ -162,10 +166,29 @@
     },
     "noise": {
       "case_insensitive": false,
-      "description": "论坛公告/站务(生产 NOISE_KW):标题命中即剔除(分类结果为 null)。",
-      "keywords": ["版规", "封号规则", "公告", "功能上线", "屏蔽用户", "隐私设置", "新人引导", "导读", "积分规则"],
+      "description": "论坛公告/站务+求助帖+论坛自家活动(生产 NOISE_KW,含 2026-10-03 五刀增补):标题命中即剔除(分类结果为 null)。五刀=求助帖族(报错/怎么办/为什么/…)+`吗$|呢$` 尾缀+论坛活动族(广告位/开业/庆典/签到/抽奖×论坛)。",
+      "keywords": [
+        "版规", "封号规则", "公告", "功能上线", "屏蔽用户", "隐私设置", "新人引导", "导读", "积分规则",
+        "报错了", "报错", "是什么", "怎么办", "怎么弄", "求助", "请教", "有没有人", "为什么",
+        "如何解决", "怎么做", "怎么样", "需不需要", "要不要", "可不可以", "能不能", "有没有必要",
+        "是什么情况", "啥情况", "需要做些什么", "需要做什么", "怎么做呢", "可以吗",
+        "广告位", "开业", "庆典", "自动签到", "签到报", "本论坛", "本站"
+      ],
       "patterns": [
-        "论坛.{0,4}(?:开通|规则)"
+        "论坛.{0,4}(?:开通|规则)",
+        "吗$|呢$",
+        "抽奖.{0,8}(?:论坛|本站|广告位)"
+      ]
+    },
+    "fake": {
+      "case_insensitive": false,
+      "description": "假信号否决(生产 WOOL_FAKE_KW,2026-10-20 主人令:传闻/付费推广/促销帖命中直接丢,哪怕带「免费」):听说/据说/关于抽奖红包/经验分享/踩坑记录/合集/盘点/资源大全/【推广/直降后叠加/N一个出/精品域名。勿杀判例(生产注释):TG助力机器人/申请成功/自部署教程不在本表,语义天然保留。",
+      "keywords": ["听说", "据说", "经验分享", "踩坑记录", "合集", "盘点", "资源大全", "【推广"],
+      "patterns": [
+        "关于.{0,12}(?:抽奖|红包)",
+        "直降后叠加|直降.{0,8}券",
+        "\\d+\\s?一个出",
+        "精品.{0,4}(?:域名|COM)"
       ]
     },
     "registration_lure": {
@@ -176,6 +199,6 @@
   },
   "adjudication": {
     "fallback_target": "ai-news",
-    "description": "无免费且无付费信号时的兜底类目 id:扫描 stage=fallback 的类目关键词,任一命中即归 fallback_target(生产语义:token/AI信息 的模式命中都归 AI信息,token 只能经免费分支到达)。"
+    "description": "裁决序(builtin.py classify_title,词面纯数据/裁决序属代码):dead→noise→fake→注册引流否决 → 免费分支(WOOL_HARD∪direct_give:公益/倍率0 豁免付费→羊毛;云服务器族且非付费→羊毛[10-17 优先于 token];token_context→token;非付费→羊毛)→ 无免费:主循环(信用卡→节点→代买→服务器→token,v2 起 token 免免费可达)→ 付费/拉客否决(10-24 Q1:paid_hit 或拉客词→None,渠道不再作归宿)→ fallback 兜底(ai-news)。公益豁免/云服务器优先/拉客否决正则逐字移植自生产 wf_crawl.py。"
   }
 }
