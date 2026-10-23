@@ -500,6 +500,83 @@ def test_changed_event_maps_to_item_with_fingerprint_anchor(patched_adapter):
     assert item["published"] == "2026-10-05T08:00:00+00:00"
 
 
+def test_changed_event_carries_watch_diff_head_added_lines_only(patched_adapter):
+    """changed 条目附带 watch_diff_head:added 行去 + 前缀、折叠空白、空格
+    连接;删除行与 +++ 头不进摘要(量化门槛规则经 metadata 读它,grill F4)。
+    """
+    diff = (
+        "--- old\n"
+        "+++ new\n"
+        "@@ -1,2 +1,3 @@\n"
+        "-旧价目表\n"
+        "+新用户送 30 元额度\n"
+        "+限时 8 折\n"
+    )
+    patched_adapter(fake_adapter(events=[changed_event(diff=diff)]))
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    items = run(engine.fetch())
+    assert len(items) == 1
+    assert items[0]["watch_diff_head"] == "新用户送 30 元额度 限时 8 折"
+
+
+def test_watch_diff_head_truncated_with_ellipsis_marker(patched_adapter):
+    """超长摘要截断到 DEFAULT_DIFF_HEAD_CHARS 并以 … 留痕(截断可见)."""
+    long_line = "+" + "量化" * 300  # 600 字符 added 行
+    patched_adapter(fake_adapter(events=[changed_event(diff=long_line)]))
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    items = run(engine.fetch())
+    head = items[0]["watch_diff_head"]
+    assert len(head) == urlwatch_engine_module.DEFAULT_DIFF_HEAD_CHARS + 1
+    assert head.endswith(urlwatch_engine_module.DIFF_HEAD_ELLIPSIS)
+
+
+def test_watch_diff_head_empty_for_removal_only_diff(patched_adapter):
+    """纯删行变更摘要为空串(量化信号只看新增了什么;空摘要经 drop 规则
+    判零产出,生产快照 diff 同语义)。"""
+    diff = "--- old\n+++ new\n@@ -1 +0,0 @@\n-已下架的旧套餐\n"
+    patched_adapter(fake_adapter(events=[changed_event(diff=diff)]))
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    items = run(engine.fetch())
+    assert len(items) == 1  # diff 非空,条目照出
+    assert items[0]["watch_diff_head"] == ""
+
+
+def test_watch_diff_head_lands_in_metadata_via_from_extracted(patched_adapter):
+    """引擎条目键经 Item.from_extracted 落 metadata,view() 求值面可达
+    (classify when 规则读 watch_diff_head 的链路实证)。"""
+    from myssia.pipeline import Item
+
+    patched_adapter(
+        fake_adapter(events=[changed_event(diff="+ 首单额外 20% off")])
+    )
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    raw = run(engine.fetch())[0]
+    item = Item.from_extracted(raw, "demo")
+    view = item.view()
+    assert view["watch_diff_head"] == "首单额外 20% off"
+
+
+def test_new_event_item_has_no_watch_diff_head(patched_adapter):
+    """new 事件(announce_new 开)无 diff,不携带 watch_diff_head 字段。"""
+    patched_adapter(
+        fake_adapter(
+            events=[
+                {
+                    "event": "new",
+                    "name": "demo",
+                    "location": PAGE_URL,
+                    "timestamp": "t1",
+                }
+            ],
+            counts={"new": 1, "changed": 0, "unchanged": 0, "error": 0, "deferred": 0},
+        )
+    )
+    engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
+    items = run(engine.fetch())
+    assert len(items) == 1
+    assert "watch_diff_head" not in items[0]
+
+
 def test_fingerprint_anchor_stable_per_diff_and_distinct_across_diffs(patched_adapter):
     engine = UrlwatchEngine(urlwatch_source(), urlwatch_context())
     first = engine._events_to_items(

@@ -73,7 +73,9 @@ entry point): `plugin:` (scenario plugin dual mode, v0.3), `baseline:`
 - Containers: `[a, b]` lists; operators `+ - * / // % **`, comparisons
   `== != < <= > >= in not in` (chainable), `and` / `or` / `not`.
 - Function whitelist (positional args only): `abs` `min` `max` `round` `len`
-  `int` `float` `str`.
+  `int` `float` `str`, plus `match(pattern, text)` — a whitelisted
+  `re.search` (case-insensitivity via an inline `(?i)` flag carried by the
+  pattern itself; quantified-signal gate precedent, 10-24-huawei-ai-news-absorb).
 - Forbidden: attribute access, subscripts, lambda, f-strings, comprehensions,
   any call outside the whitelist.
 - Parsed by an AST whitelist at load time — arbitrary code is **never eval'd**.

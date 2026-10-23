@@ -63,7 +63,9 @@
 - 字面量:字符串/数字/布尔/null;名字 = 条目字段(缺字段按 null 读)。
 - 容器:`[a, b]` 列表;运算符:`+ - * / // % **`、比较 `== != < <= > >= in
   not in`(可链式)、`and` / `or` / `not`。
-- 函数白名单(仅位置参数):`abs` `min` `max` `round` `len` `int` `float` `str`。
+- 函数白名单(仅位置参数):`abs` `min` `max` `round` `len` `int` `float` `str`
+  `match(pattern, text)`(`re.search` 白名单形态,大小写由模式自带 `(?i)`
+  内联旗标控制;量化门槛规则判例,10-24-huawei-ai-news-absorb)。
 - 禁止:属性访问、下标、lambda、f-string、推导式、白名单外的任何调用。
 - 加载期 AST 解析,**永不 eval** 任意代码。
 - 例:`"abs(change_pct) >= 3"`、`"5090 in title"`、`"category in ['freebie', 'proxy-node']"`。

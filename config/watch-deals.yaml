@@ -1,0 +1,146 @@
+# config/watch-deals.yaml — 定向优惠监控(10-24-huawei-ai-news-absorb D3):
+# 华为云 ai-news-bot watch_deals.py(TapNow/RunningHub/MiniMax海螺 快照 diff)
+# 的 MYIA 承载——三源全走 urlwatch 引擎(链外,变更监控同构):
+#
+#   生产语义(watch_deals.py)          → urlwatch 承载
+#   ─────────────────────────────────────────────────────────────
+#   首跑建基线不推                      → announce_new: false(零条目静默)
+#   变动才产条目                        → changed 事件 → 条目,diff 进 content
+#   抓取失败不动基线                    → error 事件=源级结构化失败,cache 不更新
+#   DEAL_SPECIFIC_KW 量化门槛(10-20)   → 品类 classify drop 规则(逐字移植,
+#                                        挂 metadata.watch_diff_head 经
+#                                        Item.view() 求值——content 不在 when
+#                                        求值面,引擎已把 added 行摘要铸进
+#                                        metadata,grill 修正 F4)
+#   TapNow 已知降级(0条合法静默)       → render: crawl4ai 渲染通道(实测
+#                                        记录见源注释;壳页/浮层=合法静默)
+#
+# 推送分工:push 路由 archive 仅入库,发送由 config/daily-digest.yaml 分区四
+# 「AI 白嫖与优惠」合并承担(源名锚;三源名已同步进分区清单)。
+# cron 挂点归 Step 4.6 调度对齐批(本步不挂;届时生产数据根
+#   myssia cron create --category config/watch-deals.yaml \
+#     --schedule "30 6,10 * * *" --db <数据根>/myssia.db)。
+
+id: watch-deals
+name: 定向优惠监控
+
+schedule: "30 6,18 * * *"           # 声明面(生产 watch_deals 同刻;cron 未挂,归 Step 4.6)
+timezone: Asia/Shanghai
+
+sources:
+  # RunningHub 首页横幅(生产 _runninghub_from_html 同页):锚点区实测
+  # (2026-10-24 直连 curl 304KB):section.new-home-npc3-banner = 12 张
+  # 活动横幅卡(npc3-title/npc3-subtitle 带全部营销文案,如「邀新争霸赛 ·
+  # 邀请好友赢千元现金大奖」「会员免费生成即将收官」「百亿 Token 补贴已到账」)
+  # + section.new-home-community-banner = 创作者激励计划位。selector 收窄到
+  # 两横幅区(生产对全页锚点扫描的定向化),首页其余区块(案例流/教程/页脚)
+  # 的日常轮换不再进 diff;过滤后快照 10KB(2026-10-24 实测,304KB 全页 →
+  # 选择器快照 10181B),横幅文案全量在内。robots: User-agent: * Allow /。
+  - name: runninghub
+    engine: urlwatch
+    url: "https://www.runninghub.cn/"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "RunningHub 横幅"     # label 避开词表 paid 词(优惠/低价等),
+                                    # 免 builtin 误杀;「官网有更新」尾缀经
+                                    # 词表「更新」键落 ai-news 存活(实测)
+        announce_new: false          # 首跑建基线不推(生产语义)
+        timeout: 90
+        selector: "section.new-home-npc3-banner, section.new-home-community-banner"
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct                    # urlwatch 引擎只支持 direct(子进程直连;
+                                    # runninghub.cn 大陆/本机直连实测 200)
+
+  # MiniMax 海螺定价页(生产 fetch_hailuo 同页)。整页监控不带 selector:
+  # 定价/首单折扣/试用文案都在 Next.js flight 数据里(__next_f.push 的
+  # <script> 内嵌文本,实测 Price: $14.99~199.99/month、N% off first order
+  # 全在 script 段)——css 过滤会剔 script 导致快照空心,生产同款对原始
+  # HTML 做正则,故整页快照(682KB;构建漂移变更由量化门槛 drop 规则吸收,
+  # 话术/噪声变更零产出)。SSR 直连实测 200;robots: * Allow /。
+  - name: hailuo
+    engine: urlwatch
+    url: "https://hailuoai.video/pricing"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "MiniMax 海螺定价"
+        announce_new: false
+        timeout: 90
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+  # TapNow 定价页(JS 壳,生产华为云版已知降级 0 条):直抓实测(本机
+  # 2026-10-24)www.tapnow.ai/pricing 307 → app.tapnow.ai/pricing,200 但
+  # 55KB 纯 CSR 壳零 Tapies 文案(生产判例同型:FC rawHtml 37KB CSR 空壳,
+  # markdown 只有 cookie 浮层)→ 走 render: crawl4ai 渲染通道(引擎 §12,
+  # 无头渲染取归一化纯文本)。
+  # 渲染通道实测(2026-10-24 沙箱+真跑三轮):机械链路活着(无头渲染
+  # ~9.7s 出快照),但快照=284B 稳定 cookie 层文本(跨跑 unchanged)——
+  # 与生产云 FC 的 383B cookie 浮层同型。**维持已知降级态如实留档**:
+  # 0 条=合法静默,不误报(生产 10-17 定性注释同款);站点放开免登录
+  # 渲染或换登录态出口时,本源自动恢复报变更(基线已在,首变更即出条)。
+  # robots: * Allow /(仅禁 /admin、/api/、/model-test)。
+  - name: tapnow
+    engine: urlwatch
+    url: "https://www.tapnow.ai/pricing"
+    method: GET
+    engine_options:
+      urlwatch:
+        label: "TapNow 定价"
+        announce_new: false
+        render: crawl4ai
+        timeout: 120
+    rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
+    proxy: direct
+
+# 量化门槛(生产 watch_deals.py DEAL_SPECIFIC_KW,2026-10-20 主人令:
+# 优惠条目必须带具体信息[数额/折扣率/天数/额度],纯话术[赢现金大奖/
+# 邀新争霸赛]不发)——逐字移植为 drop 规则:watch_diff_head(引擎铸的
+# added 行摘要)无量化信号 → drop,话术变更零产出。
+#
+# builtin 开着的取舍:①drop 否决只在 builtin 路生效(pipeline._stage_classify
+# 分支实证:builtin:false 时规则仅打标);②条目标题「<label> 官网有更新」
+# 经词表「更新」键落 ai-news 存活(三 label 实测;label 须避开 paid 词)。
+classify:
+  builtin: true
+  rules:
+    # DEAL_SPECIFIC_KW 正则原文(watch_deals.py:23-27)逐字移植;唯一适配=
+    # 生产的 re.I 旗标写成 (?i) 内联(求值器 match() 不默认旗标);
+    # re.UNICODE 为 py3 str 模式默认。判例样本:话术「邀新争霸赛 赢现金
+    # 大奖」/「百亿 Token 补贴已到账」drop,量化「新用户送 30 元」「首单
+    # 额外 20% off」「限时 8 折」「$7.99」「兑换码」放行。
+    - name: 优惠话术无量化信号
+      when: 'not match(r''(?i)[¥$＄]\s?\d|\d+\s?(?:元|块|刀|credits?|积分|额度|天|次|张|个月|分钟)|\d+(?:\.\d+)?\s?(?:折|%)|送\s?\d|领\s?\d|首\s?\d|\d+\s?送|\d+(?:\.\d+)?x|倍率|兑换码|CDK|激活码|coupon|promo'', watch_diff_head or '''')'
+      drop: true
+
+watchlist:
+  keywords: [优惠, 折扣, 免费, 兑换码]
+  mute: [广告]
+
+dedup:
+  key: "{url}"                      # 引擎已铸 #watch-<diff指纹> 锚:不同变更
+                                    # =不同 url=不同去重键,同变更重跑幂等
+
+enrich:
+  enabled: false                    # 变更条目自带 diff 事实,零 token 路线
+
+value_gate:
+  first_run_quiet: true             # 新源首跑只入库不扰(daily-digest 分区四
+                                    # first_run: fold 配套)
+
+push:
+  - channel: feishu_card
+    target: keychain:myia/push/FEISHU_ANALYST_OPEN_ID   # 主人 open_id(ou_→open_id 投递;2026-10-19 主人令「全部推送用 AI信息分析师」)
+    bot: analyst                    # 出站 bot=「AI信息分析师」(FEISHU2_* 凭据位)
+    route:
+      - when: "url != ''"           # 日报层降噪(wool/games 判例):优惠条目仅
+        mode: archive               # 入库,由 daily-digest 分区四合并发送
+    template: |
+      {% if items %}**定向优惠 · {{ date }}**{% endif %}
+      {% for item in items %}
+      - [{{ item.title }}]({{ item.url }})
+      {% endfor %}
+
+storage:
+  retention: 90d

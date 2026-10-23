@@ -14,7 +14,11 @@ Allowed grammar (whitelist AST):
 - operators: ``+ - * / // % **``, unary ``- + not``, comparisons
   (``== != < <= > >= in not in is is not``, chainable), ``and`` / ``or``
 - calls: positional args only, function name in the whitelist
-  (abs / min / max / round / len / int / float / str)
+  (abs / min / max / round / len / int / float / str / match)——
+  ``match(pattern, text)`` 是 ``re.search`` 的白名单形态(无副作用,模式
+  长度与编译缓存有界;大小写不敏感由模式自带 ``(?i)`` 内联旗标声明),
+  量化门槛类规则(watch-deals 的 DEAL_SPECIFIC_KW 判例,
+  10-24-huawei-ai-news-absorb Step 3)经它把生产正则逐字移植进品类配置
 
 Everything else (attribute access, subscripts, lambdas, f-strings,
 comprehensions, keyword/star args, any other call target) raises
@@ -40,6 +44,7 @@ from __future__ import annotations
 import ast
 import logging
 import operator as op
+import re
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping
 
@@ -56,6 +61,41 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
+#: ``match(pattern, text)`` 的正则长度上限与编译缓存上限(资源轨:when
+#: 表达式面向 AI/用户可编辑,超长模式按结构化错误拒;缓存有界防无界增长;
+#: 10-24-huawei-ai-news-absorb Step 3——watch-deals 的 DEAL_SPECIFIC_KW
+#: 量化门槛逐字移植进品类规则的前提,词表 `in` 算子表达不了数字锚定形态)。
+_MATCH_PATTERN_MAX_CHARS = 500
+_MATCH_CACHE_MAX_ENTRIES = 64
+_MATCH_CACHE: dict[str, "re.Pattern[str]"] = {}
+
+
+def _regex_match(pattern: Any, text: Any) -> bool:
+    """``re.search`` 的白名单形态(无副作用;大小写不敏感由模式自带
+    ``(?i)`` 内联旗标声明,函数本体不默认任何旗标)。
+
+    Raises:
+        RuleEvalError: 参数非字符串、模式超长(> ``_MATCH_PATTERN_MAX_CHARS``)
+            或正则编译失败(结构性错误,Rule.evaluate 按「本条不命中」跳过)。
+    """
+    if not isinstance(pattern, str) or not isinstance(text, str):
+        raise RuleEvalError("match(pattern, text) 两个参数都必须是字符串")
+    if len(pattern) > _MATCH_PATTERN_MAX_CHARS:
+        raise RuleEvalError(
+            f"match() 正则超长(>{_MATCH_PATTERN_MAX_CHARS} 字符),已拒绝"
+        )
+    compiled = _MATCH_CACHE.get(pattern)
+    if compiled is None:
+        try:
+            compiled = re.compile(pattern)
+        except re.error as exc:
+            raise RuleEvalError(f"match() 正则编译失败: {exc}") from exc
+        if len(_MATCH_CACHE) >= _MATCH_CACHE_MAX_ENTRIES:
+            _MATCH_CACHE.clear()
+        _MATCH_CACHE[pattern] = compiled
+    return compiled.search(text) is not None
+
+
 #: Functions callable inside ``when`` expressions (all side-effect free).
 ALLOWED_FUNCTIONS: dict[str, Any] = {
     "abs": abs,
@@ -66,6 +106,7 @@ ALLOWED_FUNCTIONS: dict[str, Any] = {
     "int": int,
     "float": float,
     "str": str,
+    "match": _regex_match,
 }
 
 _MAX_EXPR_LENGTH = 1000

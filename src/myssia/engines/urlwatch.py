@@ -10,7 +10,13 @@
   快照对比由场景件 adapter 完成(子进程 ``uv run --with urlwatch``,缓存落
   ``~/.myia/urlwatch/cache.db`` 跨 run 持久);引擎只消费结构化事件。
 - 事件四态 → 管线映射:
-  - ``changed`` → 条目(官网有更新;diff 进 content 供 enrich 精评);
+  - ``changed`` → 条目(官网有更新;diff 进 content 供 enrich 精评;
+    另铸 ``metadata.watch_diff_head`` = added 行摘要前
+    ``DEFAULT_DIFF_HEAD_CHARS`` 字符——分类 ``when`` 规则的求值面是
+    ``Item.view()`` = metadata+管线键,**content 不在求值面**(grill 修正
+    F4,10-24-huawei-ai-news-absorb):量化门槛类规则(watch-deals 的
+    DEAL_SPECIFIC_KW 判例)须经此字段读 diff,纯话术变更在 classify
+    层 drop 零产出);
   - ``new`` → 上游语义=该目标首次入快照(冷启动基线);``announce_new``
     开(缺省)时产一条「已纳入监控」条目,关时纯建基线零条目
     (ai-news 示范源取关:首跑零打扰,后续只报变更);
@@ -94,20 +100,57 @@ RENDER_BACKENDS = ("crawl4ai",)
 #: 渲染 helper 件名(场景件目录内,与 adapter.py 同分发面)。
 RENDER_HELPER_FILENAME = "render_crawl4ai.py"
 
+#: ``metadata.watch_diff_head`` 的截断上限(changed 条目 added 行摘要前 N
+#: 字符,超出以 ``…`` 留痕)。分类 ``when`` 规则的求值面 = ``Item.view()`` =
+#: metadata+管线键,content 不可达(grill F4)——量化门槛规则经此字段读
+#: diff 摘要(10-24-huawei-ai-news-absorb D3)。
+DEFAULT_DIFF_HEAD_CHARS = 200
+
+#: watch_diff_head 截断留痕标记(单字符省略号,长度断言按 +1 记)。
+DIFF_HEAD_ELLIPSIS = "…"
+
 __all__ = [
     "DEFAULT_CONTENT_MAX_CHARS",
+    "DEFAULT_DIFF_HEAD_CHARS",
     "DEFAULT_PLUGINS_DIR",
     "DEFAULT_TIMEOUT_SECONDS",
+    "DIFF_HEAD_ELLIPSIS",
     "LAYER",
     "RENDER_BACKENDS",
     "RENDER_HELPER_FILENAME",
     "TINY_SNAPSHOT_BYTES",
     "UrlwatchEngine",
+    "added_lines_head",
     "build_render_command",
     "import_urlwatch_adapter",
     "render_backend_available",
     "render_helper_path",
 ]
+
+
+def added_lines_head(
+    diff_text: str, max_chars: int = DEFAULT_DIFF_HEAD_CHARS
+) -> str:
+    """changed 事件的 added 行摘要:新增行(``+`` 起且非 ``+++`` 头)去前缀、
+    折叠行内空白后以空格连接,截断到 ``max_chars``(超出补 ``…`` 留痕)。
+
+    去重行(``-``)不进摘要——量化信号判据只看**新增了什么**(生产
+    watch_deals.py 快照 diff 同语义:新增行入队,删除行不推);纯删行
+    变更摘要为空串,量化门槛规则(watch-deals 的 DEAL_SPECIFIC_KW 判例)
+    判 drop,话术/删减变更零产出。
+    """
+    added: list[str] = []
+    for line in diff_text.splitlines():
+        if line.startswith("+++"):
+            continue
+        if line.startswith("+"):
+            text = " ".join(line[1:].split())
+            if text:
+                added.append(text)
+    head = " ".join(added)
+    if len(head) > max_chars:
+        return head[:max_chars] + DIFF_HEAD_ELLIPSIS
+    return head
 
 
 def import_urlwatch_adapter(
@@ -474,6 +517,8 @@ class UrlwatchEngine(BaseEngine):
 
         counts.checked==0 且 deferred>0 = 上游重试未到报错阈值,本轮不判定
         (显式空态);events 里只认本源 URL 的事件(防御性过滤,同名跨源不串)。
+        changed 条目附带 ``watch_diff_head``(added 行摘要,进 metadata 供
+        classify ``when`` 规则求值,见 :func:`added_lines_head`)。
         """
         events = [
             event
@@ -550,6 +595,10 @@ class UrlwatchEngine(BaseEngine):
         }
         if diff_text:
             item["content"] = diff_text[: options["content_max_chars"]]
+            # added 行摘要进 metadata(经 Item.from_extracted 落 metadata.
+            # watch_diff_head,view() 求值面可达):量化门槛类 classify 规则
+            # 的判据载体,content 不在 when 求值面(grill F4)。
+            item["watch_diff_head"] = added_lines_head(diff_text)
         timestamp = event.get("timestamp")
         if isinstance(timestamp, str) and timestamp:
             item["published"] = timestamp

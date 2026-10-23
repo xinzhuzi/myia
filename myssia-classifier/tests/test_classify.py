@@ -326,6 +326,48 @@ def test_rule_when_list_literal_and_whitelisted_functions():
     assert rule.evaluate({"tags": ["a"], "scores": [30, 5]}) is False
 
 
+# match():re.search 的白名单形态(10-24-huawei-ai-news-absorb Step 3,
+# watch-deals 的 DEAL_SPECIFIC_KW 逐字移植进品类规则的前提)
+
+
+def test_rule_when_match_regex_fires_and_respects_inline_flags():
+    rule = Rule(name="deal", when="match(r'(?i)\\d+\\s?折|coupon|promo', watch_diff_head)", tag="deal")
+    assert rule.evaluate({"watch_diff_head": "限时 8 折"}) is True
+    assert rule.evaluate({"watch_diff_head": "Grab your PROMO code"}) is True, "大小写由 (?i) 内联旗标承担"
+    assert rule.evaluate({"watch_diff_head": "邀新争霸赛 赢现金大奖"}) is False
+
+
+def test_rule_when_match_with_missing_or_nonstring_field_skips_rule():
+    """缺字段(None)/非字符串入参 = 规则不命中(求值失败按跳过,per-item 隔离)。"""
+    rule = Rule(name="deal", when="match(r'\\d+折', watch_diff_head)", tag="deal")
+    assert rule.evaluate({"title": "无 diff 字段"}) is False
+    assert rule.evaluate({"watch_diff_head": 12345}) is False
+
+
+def test_match_bad_pattern_is_rule_eval_error_not_crash():
+    """坏模式(编译失败)与超长模式=结构性 RuleEvalError;Rule.evaluate 按
+    本条不命中处理,异常不逃出隔离契约。"""
+    from myssia_classifier.custom import RuleEvalError, evaluate_expression
+
+    rule = Rule(name="bad", when="match(r'[unclosed', title)", tag="x")
+    assert rule.evaluate({"title": "任意"}) is False
+    with pytest.raises(RuleEvalError, match="编译失败"):
+        evaluate_expression("match(r'[unclosed', 'x')", {})
+    with pytest.raises(RuleEvalError, match="超长"):
+        evaluate_expression(f"match('{'a' * 501}', 'x')", {})
+
+
+def test_match_pattern_size_and_cache_bounds():
+    from myssia_classifier import custom as custom_module
+
+    assert custom_module._MATCH_PATTERN_MAX_CHARS == 500
+    assert custom_module._MATCH_CACHE_MAX_ENTRIES == 64
+    # 命中过一次的模式进编译缓存(重复求值零重编译)
+    rule = Rule(name="cached", when="match(r'abc', title)", tag="x")
+    assert rule.evaluate({"title": "xxabcxx"}) is True
+    assert "abc" in custom_module._MATCH_CACHE
+
+
 def test_rule_when_guarded_missing_field_evaluates_false_without_raising():
     rule = Rule(name="guarded", when="change_pct and change_pct > 3", tag="x")
     assert rule.evaluate({"title": "没有涨跌幅字段"}) is False
