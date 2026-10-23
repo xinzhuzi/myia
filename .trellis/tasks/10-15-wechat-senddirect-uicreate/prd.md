@@ -151,3 +151,9 @@
 
 ### 资产
 research/community-adapt/fix-round2/(DumpFixTargets.java+三函数伪代码/汇编+v5 四轮日志)+script-4115-v5.js;/tmp/wxsend3 仍存活。
+
+### 终验三轮尝试实录(2026-10-24 06:55-06:59,主人令「活档继续做完」后叫停)
+
+- 环境重建全成:onebot 二进制从 GitHub release v0.0.18 重取(/tmp 第三次被吞)、script-4115-v5.js+json 从档恢复、预热 10 秒过(4.7 天老进程 73671 干净)、onebot 06:58:41 秒连全 hook 就绪、**开局即有真流量**(StartTask 捕获+req2buf 门看见未命中——优于 10-19 二轮的零流量卡点)。
+- **06:59:22 微信崩溃(崩溃报告 WeChat-2026-10-24-065922.ips 在案),早于我方 trigger(06:59:37)15 秒——trigger 从未发出**;onebot 随会话退场;成因未查(最后一行日志=buf2resp 垃圾指针警告;v5 脚本 INJECT_MODE=false 下仍有未保护写入系 10-16 审计已知项)。
+- 主人令「先别管微信的问题了」——本线就此停手,微信由主人自行处置;needle 存 needle-1024.txt;运行目录可随时重建(资产三件全在档+release 渠道在案)。
