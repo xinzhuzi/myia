@@ -22,7 +22,8 @@ schedule: "0 8 * * *"          # 每天 08:00(与羊毛件同槽,合并日报 08
 timezone: Asia/Shanghai
 
 timeouts:
-  fetch: 360                     # 魔搭云端(6s 实测)+三页抓取余量
+  fetch: 720                     # 本地 27b LLM 单轮 600s + 三页抓取余量(ai-vendor-watch
+                                 # 同款;缺省 120s 会在 LLM 出摘要前杀掉采集)
 
 sources:
   - name: ai-token-deals
@@ -45,11 +46,15 @@ sources:
           - "https://linux.sb/"                 # 社区最新帖(羊毛件已验证通路)
           - "https://bbs.bt.sb/latest"
           - "https://www.nodeloc.com/latest"
-        model: deepseek-ai/DeepSeek-V4-Pro   # 魔搭免费推理(2026-10-18 主人令「用魔搭的」;Bake-off 实测 6s 4/4 全中最强)
-        base_url: keychain:myia/llm/modelscope-base-url   # api-inference.modelscope.cn
-        api_key: keychain:myia/llm/modelscope-api-key   # ZCode 同源钥匙(ms-*)
-        max_chars_per_url: 6000  # 云端满血恢复
-        timeout: 300   # 云端 6s 实测,宽预算防慢日
+        model: qwen3.8-27b-coder390   # 本地 LM Studio(10-24 R2b 前置修复:魔搭免费推理
+                                # 整线下线,DeepSeek-V4-Pro 全拒 has no provider supported——
+                                # ai-news enrich 同日切轨同款;ai-vendor-watch 判例)
+        base_url: keychain:myia/llm/local-base-url   # LM Studio 1234(ai-vendor-watch/ai-news enrich 同链)
+        api_key: keychain:myia/llm/local-api-key   # LM Studio 本地无鉴权,占位键(同款判例)
+        max_chars_per_url: 3500  # 27b 本地减负(原 6000 云端满血;ai-vendor-watch 同款)
+        timeout: 600   # 27b 本地推理宽预算(原 300 系魔搭 6s 快路)
+        disable_thinking: true   # qwen3.8 思考吞输出帽(实测空正文;LM Studio 模板开关未全生效,双保险——ai-vendor-watch 判例)
+        max_output: 16384            # 单位 token;三站清单输出帽(思考 5k+正文 2k 都装得下,双保险)
     rate_limit: {qps: 0.5, jitter: "2s", backoff: exponential, respect_robots: true}
     proxy: direct
     retry: 3
