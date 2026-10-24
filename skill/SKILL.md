@@ -194,7 +194,7 @@ stderr(整份 stdout 恒可 `json.load`)。退出码:`0` 成功 / `1` 配置或�
 | `max_output_tokens` | `8192` | 单次补全输出 token 帽(旧 2048 会截断评分批 JSON);256-32768 |
 | `disable_thinking` | `false` | 本地思考型模型(qwen3.8/LM Studio)参数级关思考:截断+超时双防;云端端点不配即零发送 |
 | `budget_per_run` | `50000` | 单次 run 的 token 预算护栏;耗尽自动降级纯关键词粗筛并有 WARNING |
-| `base_url` | `null` | OpenAI 兼容端点,**只能是 `env:`/`keychain:` 引用**(myssia 无内置端点),如 `env:MYIA_LLM_BASE_URL` |
+| `base_url` | `null` | LLM 端点,**只能是 `env:`/`keychain:` 引用**(无内置端点)。OpenAI 兼容(`…/v4`)或 Anthropic 兼容(URL 含 `anthropic` 自动切原生 messages 协议,10-25 glm-5.3 判例),如 `env:MYIA_LLM_BASE_URL` |
 | `api_key` | `null` | API key,同上,如 `env:MYIA_LLM_KEY`(myssia 无默认 key) |
 
 ### 2.13 push[](PushConfig)

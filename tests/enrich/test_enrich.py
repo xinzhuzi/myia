@@ -1122,3 +1122,56 @@ class TestTranslateTitle:
         outcome2 = asyncio.run(enricher2.enrich(second, watchlist={}, store=store))
         assert outcome2.cached == 1
         assert second[0].metadata["title_zh"] == "Airbnb 向更多用户开放 GPT-6"
+
+
+class TestAnthropicProtocol:
+    """10-25 主人裁定 glm-5.3 走 /api/anthropic:client 含 "anthropic" 的
+    base_url 自动切原生 messages 协议(httpx 直调零 openai SDK);既有
+    disable_thinking 接线映射 thinking.type=disabled。"""
+
+    def test_anthropic_branch_detected_and_disable_thinking_mapped(self, monkeypatch):
+        import httpx as _httpx
+        from myssia.enrich.client import OpenAICompatClient
+
+        captured: dict[str, Any] = {}
+
+        async def fake_post(self, url, *, json=None, headers=None):  # noqa: ANN001
+            captured["url"] = url
+            captured["json"] = json
+            captured["headers"] = headers
+            req = _httpx.Request("POST", url)
+            return _httpx.Response(
+                200,
+                request=req,
+                json={
+                    "content": [
+                        {"type": "thinking", "thinking": "..."},
+                        {"type": "text", "text": '[{"url":"https://a","value":8}]'},
+                    ],
+                    "usage": {"input_tokens": 10, "output_tokens": 5},
+                },
+            )
+
+        monkeypatch.setattr(_httpx.AsyncClient, "post", fake_post)
+        client = OpenAICompatClient(
+            "https://open.bigmodel.cn/api/anthropic",
+            "k",
+            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+        )
+        import asyncio
+
+        r = asyncio.run(client.complete(model="glm-5.3", system="s", user="u"))
+        assert "v1/messages" in captured["url"]
+        body = captured["json"]
+        assert body["model"] == "glm-5.3"
+        assert body["messages"] == [{"role": "user", "content": "u"}]
+        assert body["thinking"] == {"type": "disabled"}
+        assert captured["headers"]["x-api-key"] == "k"
+        assert r.text == '[{"url":"https://a","value":8}]'
+        assert r.total_tokens == 15
+
+    def test_openai_branch_not_triggered_without_anthropic_in_url(self):
+        from myssia.enrich.client import OpenAICompatClient
+
+        c = OpenAICompatClient("https://open.bigmodel.cn/api/paas/v4", "k")
+        assert c._anthropic is False

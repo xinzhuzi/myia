@@ -20,6 +20,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
+import httpx
+
 from myssia.enrich.errors import EnrichConfigError
 
 __all__ = ["INSTALL_COMMAND", "CompletionResult", "OpenAICompatClient"]
@@ -73,6 +75,10 @@ class OpenAICompatClient:
         self._max_output_tokens = max_output_tokens
         self._extra_body = dict(extra_body) if extra_body else None
         self._async_client: Any | None = None
+        # Anthropic 兼容通道(10-25 主人裁定 glm-5.3 走 /api/anthropic):
+        # base_url 含 "anthropic" 时走原生 messages 协议(httpx 直调,
+        # 零 openai SDK 依赖);否则走既有 OpenAI chat.completions 路径。
+        self._anthropic = "anthropic" in base_url
 
     def _ensure_async_client(self) -> Any:
         """Build (once) the lazily-imported ``openai.AsyncOpenAI``."""
@@ -97,14 +103,58 @@ class OpenAICompatClient:
                 details={"package": "openai", "install": INSTALL_COMMAND},
             ) from exc
 
+    async def _complete_anthropic(
+        self, *, model: str, system: str, user: str
+    ) -> CompletionResult:
+        """Anthropic messages 协议适配(智谱 /api/anthropic 官方通道).
+
+        glm-5.3 等思考型主力模型仅在此通道畅付(PAAS v4 撞 1113 计费墙,
+        且该通道支持 thinking disabled);httpx 为核心依赖,零 openai SDK。
+        extra_body.chat_template_kwargs.enable_thinking(既有 disable_thinking
+        接线)在此映射为 Anthropic ``thinking.type``。
+        """
+        payload: dict[str, Any] = {
+            "model": model,
+            "max_tokens": self._max_output_tokens,
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+        }
+        extra = self._extra_body or {}
+        ctw = extra.get("chat_template_kwargs")
+        if isinstance(ctw, dict) and ctw.get("enable_thinking") is False:
+            payload["thinking"] = {"type": "disabled"}
+        url = self._base_url.rstrip("/") + "/v1/messages"
+        headers = {
+            "x-api-key": self._api_key,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+        async with httpx.AsyncClient(timeout=self._timeout_seconds) as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+        text = "".join(
+            block.get("text", "")
+            for block in data.get("content", [])
+            if isinstance(block, dict) and block.get("type") == "text"
+        )
+        usage = data.get("usage", {})
+        total = int(usage.get("input_tokens", 0)) + int(usage.get("output_tokens", 0))
+        return CompletionResult(text=text, total_tokens=total)
+
     async def complete(self, *, model: str, system: str, user: str) -> CompletionResult:
         """One scored-batch completion (system+user messages, temperature 0).
+
+        Anthropic 兼容 base_url(含 "anthropic")走 :meth:`_complete_anthropic`
+        原生协议;其余走 OpenAI ``chat.completions``。
 
         Raises:
             TimeoutError: the completion exceeded ``timeout_seconds``.
             Exception: endpoint/API errors propagate to the enricher, which
                 isolates them per batch (调用方按单批失败处理).
         """
+        if self._anthropic:
+            return await self._complete_anthropic(model=model, system=system, user=user)
         client = self._ensure_async_client()
         create_kwargs: dict[str, Any] = {
             "model": model,
