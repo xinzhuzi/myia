@@ -106,8 +106,8 @@ account=规范名全名(`security find-generic-password -s myia -a <规范名> -
 
 ```bash
 # Mac 侧(择品类 run 空窗,间隔分钟级即可,SQLite 无长事务):
-sqlite3 ~/.myia/myssia.db ".backup /tmp/myssia-seed.db"
-sqlite3 ~/.myia/urlwatch/cache.db ".backup /tmp/urlwatch-cache-seed.db"
+sqlite3 "$HOME/Library/Application Support/MYIA/myssia.db" ".backup /tmp/myssia-seed.db"
+sqlite3 ~/.myia/urlwatch/cache.db ".backup /tmp/urlwatch-cache-seed.db"  # urlwatch 缓存确在 ~/.myia(urlwatch adapter 判例)
 scp -o BatchMode=yes /tmp/myssia-seed.db /tmp/urlwatch-cache-seed.db <user>@<server>:/tmp/
 md5 /tmp/myssia-seed.db   # 两端核对一致再落位
 
@@ -152,7 +152,7 @@ sudo -u deploy env MYIA_HOME=/opt/myssia-data /opt/myssia/.venv/bin/myssia cron 
 
 ```bash
 # ① Mac:备份 + 移除 10 件情报线(消息平台线 weixin/tg/telegram/feishu-groups 不动)
-cp ~/.myia/cron/jobs.json ~/.myia/cron/jobs.json.bak-$(date +%F)
+cp "$HOME/Library/Application Support/MYIA/cron/jobs.json" "$HOME/Library/Application Support/MYIA/cron/jobs.json.bak-$(date +%F)"
 myssia cron remove <job-id…×10>   # 以 cron list 实况为准,逐件核对
 myssia cron list                   # 核对只剩消息平台线
 
@@ -181,7 +181,7 @@ journalctl -u myssia-cron -n 20                 # 升级后首跳核验
 
 | 方向 | 操作 | 时长 |
 |---|---|---|
-| 云 → Mac(切回 Mac 发报) | ① 云端 `sudo systemctl stop myssia-cron`(停采集+发报);② Mac `cp ~/.myia/cron/jobs.json.bak-<日期> ~/.myia/cron/jobs.json` 恢复 + `myssia cron list` 核对;③ 老线若需复活:恢复 crontab 备份(附录 A ① 的文件) | 分钟级 |
+| 云 → Mac(切回 Mac 发报) | ① 云端 `sudo systemctl stop myssia-cron`(停采集+发报);② Mac `cp "$HOME/Library/Application Support/MYIA/cron/jobs.json.bak-<日期>" "$HOME/Library/Application Support/MYIA/cron/jobs.json"` 恢复 + `myssia cron list` 核对;③ 老线若需复活:恢复 crontab 备份(附录 A ① 的文件) | 分钟级 |
 | Mac → 云(再切回) | Mac 再移除 + 云端 `sudo systemctl start myssia-cron` + digest job 核对 | 分钟级 |
 
 回滚演练(AC7)在切割后非发报窗走一轮全程计时,记录入档。
@@ -229,3 +229,8 @@ docker ps > ~/docker-ps-before-$(date +%F).txt
 
 - ai-news:local 镜像与 /opt/ai-news 目录:S1-S4 全程不动(容器本就 `run --rm` 无常驻);
   S4 退役确认后资源回收(镜像/目录清理)=主人裁决项,只出建议清单。
+
+
+### 手动跑铁律(10-24 杂库事故判例)
+
+手动 `myssia run` 必须**锚定数据根**:`MYIA_HOME=<生产数据根> myssia run <品类> --db <生产库> --config <pools>`(或干脆 `--dry-run`)——漏锚定时 run 的 `--db` 缺省是 **cwd 相对** `./myssia.db`,会跑进任意当前目录的杂库(空去重态→历史库存全按新条目真推,10-24 云侧 5 卡事故实证)。

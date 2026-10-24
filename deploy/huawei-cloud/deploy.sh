@@ -22,6 +22,11 @@
 #   MYSSIA_ENV_FILE / MIHOMO_PROXY / MYSSIA_SERVICE_USER / UV_PYTHON
 set -euo pipefail
 
+# PyPI 镜像旋钮(10-24 实弹判例:mihomo 代理下 uv sync 129s×5 超时死,tuna 直连 0.5s):
+# 缺省空=官方源走代理;大陆机建议 UV_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple 直连
+: "${UV_INDEX_URL:=}"
+export UV_INDEX_URL
+
 # ------------------------------------------------------------- 可调参数
 REPO_URL="${MYSSIA_REPO_URL:-https://github.com/xinzhuzi/shishi.git}"
 APP_DIR="${MYSSIA_APP_DIR:-/opt/myssia}"
