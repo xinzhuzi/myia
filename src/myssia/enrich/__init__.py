@@ -198,6 +198,12 @@ class LLMEnricher:
                 self.base_url,
                 self.api_key,
                 timeout_seconds=self.settings.timeout_seconds,
+                max_output_tokens=self.settings.max_output_tokens,
+                extra_body=(
+                    {"chat_template_kwargs": {"enable_thinking": False}}
+                    if self.settings.disable_thinking
+                    else None
+                ),
             )
         logger.info(
             "enrich 已构建 model=%s scores=%s batch=%s cache=%s budget_per_run=%s "
@@ -393,6 +399,10 @@ class LLMEnricher:
             watchlist=keywords,
             items_json=json.dumps(payload, ensure_ascii=False),
         )
+        # 本地思考型模型(qwen3.8)双坑自防(10-24 实测:思考吞输出帽致 JSON 截断
+        # 未闭合+拖满 240s 超时;ai-vendor-watch 判例同源):提示级 /no_think 软开关
+        # (Qwen3 官方形态;非思考模型把这两行当普通输出要求,无扰)。
+        rendered += "\n/no_think\n(直接输出最终结果,不要输出思考过程)"
         if self.config.translate:
             # 10-24-ai-news-push-quality R3:英文标题中文译名随评分批附带请求
             # (同一调用零额外轮次;译名进 metadata.title_zh,出口模板优先渲染)。

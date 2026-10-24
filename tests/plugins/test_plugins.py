@@ -173,14 +173,14 @@ def test_ai_news_carries_firecrawl_semantics_and_discourse_list():
     # env,env: 引用会在桌面 run 构造期 fail-fast),api_key 是既有 GLM key
     # (vision.yaml cloud 同链)。
     assert config.enrich.enabled is True, "A2 落地:精评开通,image_ocr/image_caption 进精评 payload"
-    assert config.enrich.base_url == "keychain:myia/llm/modelscope-base-url", (
+    assert config.enrich.base_url == "keychain:myia/llm/local-base-url", (
         "端点 base_url 必须是 keychain: 引用(桌面零 env;grill Q6 引用铁律不变;"
         "键名随 10-18 主人令魔搭切换同步)"
     )
-    assert config.enrich.api_key == "keychain:myia/llm/modelscope-api-key", (
+    assert config.enrich.api_key == "keychain:myia/llm/local-api-key", (
         "key 走钥匙链(键名随 10-18 魔搭切换同步)"
     )
-    assert config.enrich.batch == 10, "实测批宽:glm-5.3-flash 单批 20 条超 60s completion 上限,10 条留余量"
+    assert config.enrich.batch == 5, "实测批宽(10-24 本地轨):27b 思考态 10 条批截断/超时,5 条+关思考后稳"
     # cocoloop 源已删(2026-10-24 主人裁决 Q2):讨论帖混进 AI 资讯的根治=
     # 删源(生产 AI 资讯无 cocoloop);情报价值由 wool 侧福利专区承接。
     assert "cocoloop" not in by_name, "ai-news 的 cocoloop 讨论流源应已删除(Q2)"
@@ -1100,6 +1100,14 @@ def test_plugin_builds_a_pipeline(name):
     )
     backend.set_password(
         secrets_store.SECRET_SERVICE, "myia/llm/modelscope-api-key", "placeholder"
+    )
+    # 10-24 本地切轨(ai-news.yaml 换 LM Studio 键对,魔搭免费推理整线下线):
+    # 同步补种 local 键对(旧键保留——历史引用与回滚面)。
+    backend.set_password(
+        secrets_store.SECRET_SERVICE, "myia/llm/local-base-url", "http://127.0.0.1:1234/v1"
+    )
+    backend.set_password(
+        secrets_store.SECRET_SERVICE, "myia/llm/local-api-key", "placeholder"
     )
     secrets_store.set_backend(backend)
     try:

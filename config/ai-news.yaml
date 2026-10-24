@@ -695,19 +695,20 @@ enrich:
                                 # 6s/4/4 全中);原 glm-5.3-flash 云钥余额尽退役。
                                 # 双引用(schema 铁律:base_url/api_key 只收
                                 # env:/keychain: 引用,明文拒载 — grill Q6)
-  model: deepseek-ai/DeepSeek-V4-Pro   # 魔搭免费推理(同 ai-token-deals)
+  model: qwen3.8-27b-coder390   # 本地 LM Studio :1234(10-24 实测魔搭免费推理整线下线:DeepSeek-V4-Pro/V3.1/Qwen3-235B 全拒 has no provider supported;按 10-17 本机优先判例切轨,ai-vendor-watch 同款)
   scores: [value, relevance, credibility]
-  batch: 10                   # 10-03-vision-daily 实测:glm-5.3-flash 单批 20 条
+  batch: 5                    # 10-24 本地 27b 实测:10 条批思考态输出截断/超时;5 条+/no_think 后稳(原 glm 云轨 10)
                               # 评分 completion >60s 超时上限(enrich 层批级降级);
                               # 10 条留足余量,mini-batch(≤2 条)~6s 实证
   cache: true
+  disable_thinking: true       # qwen3.8 思考态实测截断+拖满 240s;参数级关闭(10-17 判例:LM Studio 模板开关不全生效,提示级 /no_think 也不足,须 chat_template_kwargs)
   budget_per_run: 50000
-  base_url: keychain:myia/llm/modelscope-base-url   # 魔搭免费推理(10-18 主人令;智谱钥余额耗尽切换)
+  base_url: keychain:myia/llm/local-base-url   # LM Studio 1234(魔搭线 10-24 死亡切轨)
                                 # (值非密钥;10-03 桌面零 env 化:自 env:MYIA_LLM_BASE_URL
                                 # 迁入钥匙链——桌面 sidecar 无 shell env,env: 引用会在
                                 # 桌面 run 构造期 fail-fast;CLI/桌面同链录入:
                                 # myssia secret set myia/llm/base_url,或桌面端凭据页)
-  api_key: keychain:myia/llm/modelscope-api-key   # 既有 GLM key(与 vision.yaml cloud 同链;
+  api_key: keychain:myia/llm/local-api-key   # LM Studio 本地无鉴权占位键(ai-vendor-watch 同款);(原 GLM key:
                                 # myssia secret set myia/image/api_key 录入)
 
 # 价值裁决开关(2026-10-18 价值判断脚手架)。两个开关的人话与取舍:

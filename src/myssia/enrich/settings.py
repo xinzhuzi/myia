@@ -34,8 +34,9 @@ __all__ = [
 
 #: Per-completion timeout (seconds); one slow LLM call must not eat the whole
 #: analyze stage budget (the stage-level cap in the pipeline stays the outer
-#: guard).
-DEFAULT_COMPLETION_TIMEOUT_SECONDS = 60.0
+#: guard).240 = 本机优先时代缺省(10-24-ai-news-push-quality 实测:本地 27b
+#: 单批 10 条评分+译名 60s 必超时整轮降级;云端时代 60s 旧值随魔搭线下线退役)。
+DEFAULT_COMPLETION_TIMEOUT_SECONDS = 240.0
 
 
 @dataclass(frozen=True)
@@ -50,6 +51,10 @@ class EnrichSettings:
             MYIA 无默认 key (grill Q6); a keyless local endpoint still sets a
             placeholder via its env var.
         timeout_seconds: per-completion timeout in seconds.
+        max_output_tokens: 单次补全输出 token 帽(10-24 实测:2048 旧值截断
+            评分批 JSON 致「载荷未闭合」;8192 给 reason+title_zh 留足余量)。
+        disable_thinking: 本地思考型模型关思考(LM Studio chat_template_kwargs.
+            enable_thinking=False,10-17 实测生效形态;云端兼容端点不配即零发送)。
         prompt_path: override for the bundled scoring prompt data file
             (反馈闭环 v0.3 调优入口); ``None`` uses the packaged default.
         prompt_version: cache-fingerprint input for the scoring prompt;
@@ -71,6 +76,8 @@ class EnrichSettings:
     base_url_ref: str | None = None
     api_key_ref: str | None = None
     timeout_seconds: float = DEFAULT_COMPLETION_TIMEOUT_SECONDS
+    max_output_tokens: int = 8192
+    disable_thinking: bool = False
     prompt_path: str | Path | None = None
     prompt_version: int | None = None
     dedupe_prompt_path: str | Path | None = None

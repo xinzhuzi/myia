@@ -1094,6 +1094,8 @@ class EnrichConfig(_StrictModel):
     batch: int = Field(default=DEFAULT_BATCH_SIZE, ge=1, le=1000)
     cache: bool = True
     translate: bool = False
+    max_output_tokens: int = Field(default=8192, ge=256, le=32768)
+    disable_thinking: bool = False
     budget_per_run: int = Field(default=DEFAULT_BUDGET_PER_RUN, ge=1)
     base_url: str | None = None
     api_key: str | None = None

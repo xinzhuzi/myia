@@ -1269,7 +1269,12 @@ class Pipeline:
         enrich = self.config.enrich
         if enrich.base_url is None and enrich.api_key is None:
             return EnrichSettings()
-        return EnrichSettings(base_url_ref=enrich.base_url, api_key_ref=enrich.api_key)
+        return EnrichSettings(
+            base_url_ref=enrich.base_url,
+            api_key_ref=enrich.api_key,
+            max_output_tokens=enrich.max_output_tokens,
+            disable_thinking=enrich.disable_thinking,
+        )
 
     # -------------------------------------------------------------- lifecycle
 
