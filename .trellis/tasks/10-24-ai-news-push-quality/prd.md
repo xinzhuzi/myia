@@ -22,3 +22,13 @@
 - [x] AC3 翻译:enrich translate 开启后英文标题条目 metadata.title_zh 非空且中文(mock LLM 单测+真跑冒烟一条);中文标题零调用。
 - [x] AC4 模板优先级:有 title_zh 渲染译名,无则原题;daily-digest 分区一同生效。
 - [x] AC5 全量门禁:pytest 全量零新红 + ruff。
+
+
+## 真跑验收实录(2026-10-24 07:40-09:10,主人问「测试了吗」后补)
+
+- 单测 6668 绿先行;真跑(stdout 通道沙箱变体,零飞书打扰)挖出并修掉三连:
+  1. **魔搭免费推理整线下线**(DeepSeek-V4-Pro/V3.1/Qwen3-235B 三候选全拒)→ 按 10-17 本机优先判例切 LM Studio qwen3.8-27b;
+  2. **60s 超时缺省**是云轨旧值 → 240s;
+  3. **思考态双病症**(JSON 截断未闭合+拖满超时)→ max_output_tokens 8192 + disable_thinking 参数级接线(schema 两字段全链);提示级 /no_think 对 LM Studio 无效判例重演。
+- **终验实证**:真 LLM 中文译名落库 9 条(「Uber与OpenAI为全员引入ChatGPT Work」「AT&T如何用OpenAI重塑内部法律工作」…);34 条构造经真 renderer 卡面=20 条正文+「另有 14 条省略」尾行+原生中文(aihot)正常混排——三修全链真实生效。本地 27b 实测约 2 分钟/5 条批(全量 862 条靠预算 50k 封顶+缓存跨 run 增量,首轮慢后续秒)。
+- 插件测试内存钥匙链补种 local 键对+批宽断言同步(5)。
