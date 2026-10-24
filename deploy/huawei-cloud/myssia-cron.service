@@ -1,0 +1,31 @@
+# deploy/huawei-cloud/myssia-cron.service — MYIA 功能核·情报线常驻单元(design §2)
+#
+# 安装:deploy.sh 自动拷贝到 /etc/systemd/system/ 并把 __MYSSIA_USER__ 替换为
+# 部署用户(非 root);手动安装见 README §2。日志走 journald:
+#   journalctl -u myssia-cron -f          # 跟随
+#   journalctl -u myssia-cron -n 50       # 尾部 50 行
+#
+# 语义要点:
+# - MYIA_HOME=/opt/myssia-data 显式注入(与桌面 entry.py 的 env 注入同语义;
+#   数据根与代码根分离,升级=git pull+uv sync 不碰数据)。
+# - cron serve 是 at-most-once 底座(tick 文件锁先推进再派发,单机单实例,
+#   切勿多机同库同跑)。
+# - EnvironmentFile 七键契约见 README §3;缺键启动即失败(fail-fast)。
+
+[Unit]
+Description=myssia cron serve (MYIA 功能核·情报线常驻)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=__MYSSIA_USER__
+WorkingDirectory=/opt/myssia
+EnvironmentFile=/etc/myssia/env
+Environment=MYIA_HOME=/opt/myssia-data
+ExecStart=/opt/myssia/.venv/bin/myssia cron serve --db /opt/myssia-data/myssia.db
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
