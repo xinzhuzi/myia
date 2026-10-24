@@ -557,3 +557,18 @@ def test_build_channel_wires_msg_form_and_bot(tmp_path):
         assert channel._bot == "analyst"
     finally:
         pipeline.close()
+
+
+def test_build_markdown_card_paragraph_breaks_for_lark_md():
+    """lark_md 单 div 换行适配(10-24 主人判例「需要有换行」):digest 卡片
+    路径的模板输出行间必须升双换行——单换行在飞书卡片内被 HTML 式折叠,
+    news.yaml 11:00 槽实发把全部条目挤成一段(实证);空行剔除防空段。"""
+    from myssia.push.feishu_card import build_markdown_card
+
+    md = "**游戏资讯 · 2026-10-24**\n- [第一条](https://a) Sat\n\n- [第二条](https://b)\n\n"
+    card = build_markdown_card(md, title="⏱ 游戏资讯日报 10-24·上午摘要")
+    content = card["elements"][0]["text"]["content"]
+    assert content == (
+        "**游戏资讯 · 2026-10-24**\n\n- [第一条](https://a) Sat\n\n- [第二条](https://b)"
+    )
+    assert "\n" in content and "- [第一条" not in content.split("- [第二条")[0].split("Sat")[-1]

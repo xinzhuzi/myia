@@ -406,6 +406,17 @@ def build_card(
     return _card_shell(title, elements, header_color)
 
 
+def _lark_md_paragraphs(markdown: str) -> str:
+    """lark_md 单 div 换行适配(10-24 主人判例「需要有换行」)。
+
+    飞书交互卡片 lark_md 元素内**单换行不换行**(HTML 式折叠,与 text
+    消息路径相反——同文本在 ``msg_form: text`` 下逐行正常,digest 卡片
+    路径全部挤成一段,news.yaml 11:00 槽实发实证);空行剔除、行间统一
+    升双换行(段落语义)——每行独立成段,任何 lark_md 客户端必换行。
+    """
+    return "\n\n".join(line for line in markdown.splitlines() if line.strip())
+
+
 def build_markdown_card(
     markdown: str,
     *,
@@ -415,7 +426,7 @@ def build_markdown_card(
 ) -> dict[str, Any]:
     """Build an interactive card wrapping one rendered-markdown div."""
     elements: list[dict[str, Any]] = [
-        {"tag": "div", "text": {"tag": "lark_md", "content": markdown}}
+        {"tag": "div", "text": {"tag": "lark_md", "content": _lark_md_paragraphs(markdown)}}
     ]
     if footer:
         elements.append(

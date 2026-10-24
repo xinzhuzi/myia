@@ -592,4 +592,6 @@ def test_push_template_renders_prompt_summary(monkeypatch):
     assert "AI 厂商官网日报 · 2026-10-06" in rendered
     assert MARKDOWN in rendered  # LLM markdown 全文进推送载荷
     cards = _split_markdown_cards(rendered, title="AI 厂商官网日报", threshold=28000)
-    assert cards and MARKDOWN[:40] in cards[0]["elements"][0]["text"]["content"]
+    # 10-24 lark_md 换行适配:卡片 content 是段落化(行间双换行)后的全文
+    paragraphs = "\n\n".join(l for l in MARKDOWN.splitlines() if l.strip())
+    assert cards and paragraphs in cards[0]["elements"][0]["text"]["content"]
