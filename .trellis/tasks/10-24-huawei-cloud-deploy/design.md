@@ -24,7 +24,7 @@ Mac(现状不动):世事 App=管理台+消息平台线宿主;切割后情报线 
    **大陆网络路由(默认,grill 定)**:git/uv 全程走本机 mihomo——`git -c http.proxy=http://127.0.0.1:7890`、`export HTTPS_PROXY=http://127.0.0.1:7890`(uv 拉 PyPI 与 agent-reach 的 GitHub 直连依赖同路;老线容器 -e HTTP_PROXY=7890 同款判例);**降级备选**:Mac 侧 `git bundle`+`uv cache` 打包 scp(零外网依赖)+ 服务器 `uv sync --no-extra agent-reach`(情报线不用 agent-reach,毙掉 GitHub 直连依赖);
 2. `git clone https://github.com/xinzhuzi/myia /opt/myssia`(已存在则 fetch+checkout 钉 commit);
 3. `cd /opt/myssia && uv venv && uv sync --all-extras`(extras 全量,firecrawl/llm 客户端等);
-4. 数据根种子:`/opt/myssia-data/config/` ← 仓 config/*.yaml 拷贝(已有不覆盖,同补种幂等语义)+ **keychain:→env: 引用改写**(sed 表驱动,清单=prd R3 四组+实施时盘出的 FEISHU2_*;改写仅服务器副本);
+4. 数据根种子:`/opt/myssia-data/config/` ← 仓 config/*.yaml 拷贝(已有不覆盖,同补种幂等语义)+ **keychain:→env: 引用改写**(sed 表驱动,清单=prd R3 定稿五组(含 FEISHU2_APP_ID/SECRET 字面名与 env:FEISHU_ANALYST_OPEN_ID);改写仅服务器副本);
 5. proxy-pools 服务器化:服务器副本 clash 上游 7897→7890(表驱动同上);
 6. EnvironmentFile 存在性与 600 校验(值由主人/实施者手填,脚本不落密钥);
 7. systemd unit 安装 + enable + start;`cron list` 冒烟。
