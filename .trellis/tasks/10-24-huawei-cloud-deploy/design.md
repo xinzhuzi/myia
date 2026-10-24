@@ -75,6 +75,48 @@ Mac(现状不动):世事 App=管理台+消息平台线宿主;切割后情报线 
 - cron jobs.json 路径:MYIA_HOME 锚定(10-24-db-default 判例后 run/cron 同语义);
 - 已知唯一真风险:未在 Linux 实跑过的边角(如 locale UTF-8、文件锁 flock 语义)——deploy.sh 前置自检含 `locale | grep UTF-8`。
 
+
+
+## §8 转换映射总表(华为云现有 → 世事承载,AC10 逐行核对口径)
+
+| # | 华为云现役件 | 世事承载件 | 转换动作 | 状态 |
+|---|---|---|---|---|
+| 1 | wf_crawl.py 十源论坛采集(linuxsb/btsb/nodeloc/cocoloop/dalao/sb.sb/74站/V2EX×3) | config/wool.yaml(同源面;bt.sb WAF 判死如实弃用,双域复测在案) | 无需动作(收编已毕);服务器大陆直连面更优(被墙源走 firecrawl 云) | 已承载 |
+| 2 | wf_crawl 词表四层否决/双信号/硬门槛(10-20 版) | myssia-classifier 0.0.7 词表 v2+裁决序 | 无需动作(金测 78 条钉住) | 已承载 |
+| 3 | watch_deals.py(TapNow/RunningHub/海螺 快照diff+量化门槛) | config/watch-deals.yaml(urlwatch 引擎+DEAL_SPECIFIC_KW) | 无需动作;TapNow 降级态双方一致 | 已承载 |
+| 4 | ai_daily_report.py 四区块合一卡(AI日报/厂商/羊毛+尾戳) | daily-digest(store_report;版式 10-24 已对齐「AI信息 {date}-{AM/PM}」) | 无需动作 | 已承载 |
+| 5 | companies.json(20司)/influencers.json(22V) 标签库 | ai-news custom rules 42 条固化 YAML | 无需动作 | 已承载 |
+| 6 | 腾讯股价+GPU 美价国行比价+B站显卡视频 | ai-vendor-daily(vendor_market 引擎) | 无需动作 | 已承载 |
+| 7 | aihot 三路(/daily/首页/hot)+X 直链 | ai-news aihot-daily/aihot-hot 源 | 无需动作 | 已承载 |
+| 8 | fc_cloud.json(云 FC 兜底凭据) | MYIA firecrawl 云钥 | **凭据转换**:钥匙串值→env:MYIA_FIRECRAWL_URL/KEY(§3 表) | 转换 |
+| 9 | llm.json(glm-4-flash 免费已死) | enrich(默认 Mac LM Studio 局域网;翻案=云钥) | **凭据转换**+端点裁决 R5 | 转换 |
+| 10 | push_target.json(AI福利群 chat_id+主人 open_id 双投) | push target(FEISHU_ANALYST_OPEN_ID env) | **凭据转换**;群投递=开放裁决⑤默认不加 | 转换 |
+| 11 | mihomo 容器(7890,06:00 刷节点) | **原样保留**——世事 clash 池上游指它 | 零动作(保留声明) | 保留 |
+| 12 | 老线状态文件(wooly_sent/daily_sent_items/deals_snapshot/wooly_state) | 不迁移(世事自洽 dedup;搬种用 Mac 库) | 三重归档已在案,零动作 | 如实弃用 |
+| 13 | crontab 三条(8:00 采集/8:30 日报/12:00 午轮) | 世事 cron jobs(9 采集+digest) | **S1 注释暂停→S3 世事接管**(§9) | 转换 |
+| 14 | 服务器 24/7 常驻 | systemd myssia-cron.service | 本任务交付 | 交付 |
+
+## §9 替换状态机与暂停操作契约(R6 展开)
+
+### 状态机(prd R6 表的实现面)
+
+- 每阶段转换都有**单向门+回退门**:S0→S1(暂停老线)/S1→S0(crontab 恢复);S2→S3(切割)/S3→S2 前态(Mac 恢复 bak+云 digest 移除);回退操作全部分钟级(AC7 演练)。
+- 发报方唯一性不变式:任一时点**至多一个发报方**——S0 违反(现状双发,任务首个动作即消除),S1-S4 恒成立。
+
+### S1 老线暂停操作契约(SSH 实操,写进 README)
+
+```bash
+# ① 备份(在案即 AC9 证据)
+crontab -l > ~/crontab.bak-<日期>
+# ② 注释恰好三条(ai-news 链:wf_crawl/watch_deals/ai_daily_report 或 run_daily 封装),
+#    sed 匹配串以服务器 crontab -l 实况为准(预演:grep -n 确认命中行数=3±1)
+# ③ 核验:crontab -l | grep -v '^#' 不再含 ai-news;next 槽后主收件箱仅一条 Mac 日报
+# ④ 保留声明:mihomo/new-api/宝塔零触碰(docker ps 前后快照对照入档)
+```
+
+- 注释而非删除:可逆性优先;S4 退役确认后才建议清理(资源回收=主人裁决)。
+- ai-news:local 镜像与 /opt/ai-news 目录:S1-S4 全程不动(暂停即止,容器本就 run --rm 无常驻)。
+
 ## §7 兼容性总表
 
 - 仓库代码:零改动预期;若 Linux 兼容修,量级最小+AC8 门禁兜底;
