@@ -1,0 +1,30 @@
+{
+  "id": "paid-sub2api-tencent-migration",
+  "name": "paid-sub2api-tencent-migration",
+  "title": "付费站 sub2api 迁移腾讯轻量——全量复制→双跑一周→终迁数据",
+  "description": "把阿里云付费站(121.43.125.157,sub2api 0.2.18 + mihomo 43 节点桥,库 1.26GB)整体迁到腾讯轻量新机(110.40.210.242,4C/7.5G/177G,1 年期)。阶段 0-3:全量复制(文件+docker 导数)+起服验证后整栈转冷备;阶段 4 双跑一周(旧机为主,新机 sub2api+mihomo 停、8080 关);约 10-31 凌晨终迁:停机窗口≤15 分钟(旧机停服→干净 dump→新机重建导入→起服),域名优先切换,旧机只读保留 2 周后释放。主档:~/Project/Server/AI站点/腾讯云服务器-付费.md",
+  "status": "completed",
+  "dev_type": "ops",
+  "scope": "server-migration",
+  "package": null,
+  "priority": "P1",
+  "creator": "xinzhuzi",
+  "assignee": "xinzhuzi",
+  "createdAt": "2026-10-24",
+  "completedAt": "2026-10-24",
+  "branch": null,
+  "base_branch": null,
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": null,
+  "relatedFiles": [
+    "~/Project/Server/AI站点/腾讯云服务器-付费.md",
+    "~/Project/Server/AI站点/阿里云服务器-付费.md",
+    "~/Project/Server/AI站点/阿里云服务器-付费-出口节点桥接.md"
+  ],
+  "notes": "终迁提前至 10-24 上午完成(用户拍板弃观察期):停机 8 分 54 秒,四表数据一致零 ERROR,域名 zhuzibaijia.online:8080 即刻上线(IPv4+IPv6 双栈)。旧机 sub2api+mihomo 已停,postgres/redis 留作回滚,保留至约 11-07 释放。坑:docker 单条 [::] 端口映射是 v6-only,双栈须 0.0.0.0 与 [::] 两条并列。",
+  "meta": {}
+}
