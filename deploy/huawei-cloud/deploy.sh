@@ -125,6 +125,7 @@ apply_rewrites() {
   out="$(mktemp)" || return 2
   if ! sed "${SED_EXPRS[@]}" "$f" > "$out" 2>/dev/null; then rm -f "$out"; return 2; fi
   if cmp -s "$f" "$out"; then rm -f "$out"; return 1; fi
+  chmod 644 "$out"   # mktemp 0600+root 属主坑(10-24 实跑踩中):serve 用户不可读
   mv "$out" "$f"; return 0
 }
 
