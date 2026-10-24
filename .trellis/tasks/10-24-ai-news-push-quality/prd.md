@@ -39,3 +39,10 @@
 - 版式对齐主人拍板格式:头行「AI信息 {date}-{AM/PM}」(替「情报日报 · date · AM」),分区名 AI 日报/AI 厂商日报;快照+断言面 8 处同步(9e3de5fd)。
 - **补发实证**:09:51:59 真发一条「AI信息 2026-10-24-AM」(AI 日报/AI 厂商日报/AI 白嫖与优惠 三分区+15 条+尾戳;日志 run 10904 immediate=1 唯一一次,二次诊断跑被 dedup 拦截零重发)。
 - 遗留:羊毛并进单卡第四区块(现独立速报卡)=可翻案开放点;华为云关停待主人执行。
+
+## 装机面收口(2026-10-24 10:00,主人问「做完了?」后补)
+
+- 诚实欠账承认:四轮代码落地后装机包未刷——旧包 schema 不识 translate/disable_thinking,明早 08:00 ai-news cron 会被新配置打红(主会话自查抓出)。
+- **并行会话活跃中**(10-24-paid-sub2api-tencent-migration 10-24 09:5x 在途建档+desktop/ui-src 有未提交改动)→ 全树 tauri build 会打包他人半成品,按判例改走**外科**:git archive HEAD 干净源(内容=已推提交,完整性等价)→ /Applications/世事.app Resources/myssia-src/{myssia,myssia_classifier,entry.py}+config 19 件 rsync 刷新(旧 schema 备份 /tmp/schema-before.bak)→ codesign 重签 satisfies DR。
+- **装机态五验全过**:①EnrichConfig translate/disable_thinking/max_output_tokens 8192 可载;②ai-news/baily-digest/wool/watch-deals/ai-vendor-daily 五品类新配置装载;③urlwatch MYIA_HOME 锚定;④模板帽 20/折叠线 3.0;⑤cron 执行体可导入——明早 08:00 采集→08:05「AI信息 2026-10-24-AM」全链由新代码跑。
+- 完整重打包(tauri build)留待并行会话落定后补做(外科源=HEAD 已推内容,风险窗口为零,记档)。
