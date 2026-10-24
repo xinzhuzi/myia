@@ -157,7 +157,7 @@ def test_daily_digest_section_one_carries_aihot_sources():
     sections = config.sources[0].extra_params["engine_options"]["store_report"][
         "sections"
     ]
-    section_one = next(s for s in sections if s["title"] == "AI 资讯")
+    section_one = next(s for s in sections if s["title"] == "AI 日报")
     for name in ("aihot-daily", "aihot-hot"):
         assert name in section_one["sources"], (
             f"aihot 新源 {name} 未同步进 daily-digest 分区一"

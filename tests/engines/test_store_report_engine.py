@@ -82,7 +82,7 @@ NOW_AM = datetime(2026, 10, 6, 8, 5, tzinfo=TZ_SHANGHAI)  # AM 槽,窗口起 00:
 
 SECTIONS: list[dict[str, Any]] = [
     {
-        "title": "AI 资讯",
+        "title": "AI 日报",
         "sources": ["aihot", "openai-news"],
         "max_entries": 5,
     },
@@ -259,7 +259,7 @@ def test_render_report_layout_snapshot():
     """版式快照(D6 新契约):链接挂标题、零原文尾注、零前缀;空分区整段跳过."""
     sections = [
         DigestSection(
-            title="AI 资讯",
+            title="AI 日报",
             entries=[
                 DigestEntry(
                     head="OpenAI 发布 GPT-5.5",
@@ -290,8 +290,8 @@ def test_render_report_layout_snapshot():
     )
     assert rendered == "\n".join(
         [
-            "情报日报 · 2026-10-06 · PM",
-            "AI 资讯",
+            "情报日报 2026-10-06-PM",
+            "AI 日报",
             "1. [OpenAI 发布 GPT-5.5](https://openai.com/blog/x)",
             "2. 智谱开源 CogAgent",
             "--",
@@ -334,7 +334,7 @@ def test_render_report_low_value_fold_line():
     """折叠行:门槛公示(整数不带小数点);低价值-only 分区不算空,折叠行即内容."""
     sections = [
         DigestSection(
-            title="AI 资讯",
+            title="AI 日报",
             entries=[DigestEntry(head="高分要闻", url="https://x/1")],
             omitted=2,
             low_value=4,
@@ -455,7 +455,7 @@ def test_fetch_renders_one_item_with_hermes_layout(store):
     assert item["report_slot"] == "pm"
     assert item["report_entries"] == 4
     lines = item["report_markdown"].splitlines()
-    assert lines[0] == "情报日报 · 2026-10-06 · PM"
+    assert lines[0] == "情报日报 2026-10-06-PM"
     # D6 新契约:链接挂标题本身,渲染后只见「N. 标题」——无 label 前缀
     # (labels 机制已删)、无 [原文] 尾注;两源同形(aihot/openai-news)。
     assert "1. [热点:多模态新模型刷屏](https://aihot/x)" in item["report_markdown"]
@@ -552,7 +552,7 @@ def test_fetch_min_score_filters_and_folds(store):
     engine = make_engine(
         store,
         options=report_options(
-            sections=[{"title": "AI 资讯", "sources": ["aihot"], "min_score": 3}]
+            sections=[{"title": "AI 日报", "sources": ["aihot"], "min_score": 3}]
         ),
     )
     items = run(engine.fetch())
@@ -598,7 +598,7 @@ def test_fetch_min_score_default_keeps_all(store):
     assert "低价值旧闻" in markdown
     assert "低价值条目" not in markdown
     assert items[0]["report_entries"] == 1
-    assert items[0]["report_sections"] == [{"title": "AI 资讯", "entries": 1, "low_value": 0}]
+    assert items[0]["report_sections"] == [{"title": "AI 日报", "entries": 1, "low_value": 0}]
 
 
 def test_fetch_min_score_filters_before_cap(store):
@@ -626,7 +626,7 @@ def test_fetch_min_score_filters_before_cap(store):
         options=report_options(
             sections=[
                 {
-                    "title": "AI 资讯",
+                    "title": "AI 日报",
                     "sources": ["aihot"],
                     "max_entries": 5,
                     "min_score": 3,
@@ -670,7 +670,7 @@ def test_fetch_min_score_all_low_value_traces_not_silent(store):
     engine = make_engine(
         store,
         options=report_options(
-            sections=[{"title": "AI 资讯", "sources": ["aihot"], "min_score": 3}]
+            sections=[{"title": "AI 日报", "sources": ["aihot"], "min_score": 3}]
         ),
     )
     items = run(engine.fetch())
@@ -679,10 +679,10 @@ def test_fetch_min_score_all_low_value_traces_not_silent(store):
     markdown = item["report_markdown"]
     assert "低分甲" not in markdown
     assert "低分乙" not in markdown
-    assert "AI 资讯" in markdown  # 分区不算空:标题 + 折叠行即内容
+    assert "AI 日报" in markdown  # 分区不算空:标题 + 折叠行即内容
     assert "   ……(另有 2 条低价值条目,价值分<3)" in markdown
     assert item["report_entries"] == 0
-    assert item["report_sections"] == [{"title": "AI 资讯", "entries": 0, "low_value": 2}]
+    assert item["report_sections"] == [{"title": "AI 日报", "entries": 0, "low_value": 2}]
     assert engine.last_skip_reason is None
     assert FOOTER_TEMPLATE.format(time="20:30") in markdown
 
@@ -724,7 +724,7 @@ def test_long_report_splits_into_marker_segments(store, monkeypatch):
     long_options = report_options(
         sections=[
             {
-                "title": "AI 资讯",
+                "title": "AI 日报",
                 "sources": ["aihot"],
                 "max_entries": 100,
             }
@@ -775,7 +775,7 @@ def test_long_report_splits_into_marker_segments(store, monkeypatch):
     # 首段含头行,末段含尾戳(报表自身 footer 行)。
     first_text = json.loads(posts[0]["body"]["content"])["zh_cn"]["content"][0][0]["text"]
     last_text = json.loads(posts[-1]["body"]["content"])["zh_cn"]["content"][0][0]["text"]
-    assert "情报日报 · 2026-10-06 · PM" in first_text
+    assert "情报日报 2026-10-06-PM" in first_text
     assert "实时爬取生成" in last_text
 
 
@@ -849,8 +849,8 @@ def test_daily_digest_plugin_loads_with_store_report():
     assert config.push[0].msg_form == "text"
     options = config.sources[0].extra_params["engine_options"]["store_report"]
     assert {section["title"] for section in options["sections"]} >= {
-        "AI 资讯",
-        "AI 厂商行情",
+        "AI 日报",
+        "AI 厂商日报",
         "游戏喜加一与折扣",
     }
 
@@ -861,9 +861,9 @@ def test_daily_digest_yaml_min_score_on_ai_section(store):
     config = load_category_file(CONFIG_DIR / "daily-digest.yaml")
     options = config.sources[0].extra_params["engine_options"]["store_report"]
     by_title = {section["title"]: section for section in options["sections"]}
-    assert by_title["AI 资讯"]["min_score"] == 3
+    assert by_title["AI 日报"]["min_score"] == 3
     for title, section in by_title.items():
-        if title != "AI 资讯":
+        if title != "AI 日报":
             assert section.get("min_score") is None, f"{title} 分区不应配门槛"
 
     seed(

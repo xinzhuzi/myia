@@ -31,7 +31,7 @@ AI_TOKEN_DEALS = REPO_ROOT / "config" / "ai-token-deals.yaml"
 DAILY_DIGEST = REPO_ROOT / "config" / "daily-digest.yaml"
 
 #: 开了 first_run_quiet 的两个品类对应的日报分区(折叠面,不多不少)
-FOLD_SECTIONS = ("AI 资讯", "AI 白嫖与优惠")
+FOLD_SECTIONS = ("AI 日报", "AI 白嫖与优惠")
 
 
 def test_ai_news_value_gate_armed() -> None:

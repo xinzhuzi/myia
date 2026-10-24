@@ -601,8 +601,8 @@ def test_daily_digest_vendor_section_retargeted():
     config = load_category_file(CONFIG_DIR / "daily-digest.yaml")
     options = config.sources[0].extra_params["engine_options"]["store_report"]
     by_title = {section["title"]: section for section in options["sections"]}
-    assert "AI 厂商行情" in by_title, "分区二应已改造为「AI 厂商行情」"
-    section = by_title["AI 厂商行情"]
+    assert "AI 厂商日报" in by_title, "分区二应已改造为「AI 厂商行情」"
+    section = by_title["AI 厂商日报"]
     assert section["sources"] == ["ai-vendor-daily"]
     assert section["style"] == "detail"
     assert "AI 厂商官网" not in by_title, "旧 prompt 版分区名应已退役"

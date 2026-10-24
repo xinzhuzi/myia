@@ -299,7 +299,7 @@ def render_report(
     末行尾戳 = ``HH:MM 实时爬取生成 · 全条目指纹去重 · 无新内容
     自动静默``。全部分区空 → 空串(调用方静默不发)。
     """
-    lines: list[str] = [f"{title} · {date} · {slot.upper()}"]
+    lines: list[str] = [f"{title} {date}-{slot.upper()}"]
     rendered_any = False
     for section in sections:
         if not section.entries and not section.low_value and not section.first_run:
