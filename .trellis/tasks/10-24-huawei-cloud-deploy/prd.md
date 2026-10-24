@@ -22,6 +22,10 @@
 
 ai-news / wool / watch-deals / ai-vendor-daily / ai-token-deals / games / stocks / news / gpu-prices / daily-digest,共 10 件(9 采集 + 1 日报;调度对齐既有节奏);config 随仓种子;proxy-pools 的 clash 池上游在**服务器侧**改指本机 mihomo `127.0.0.1:7890`(老线判例:06:00 自动刷节点)——Mac 侧 7897 配置不动。
 
+### R2b 部署前置修复(grill 拷问抓出,Mac 侧先行)
+
+- **ai-token-deals 的 prompt 引擎端点踩死线**:engine_options.prompt.base_url 仍指魔搭(整线 10-24 已亡)——Mac 现役每天 08:00 空转失败;修法=切本地 LM Studio(ai-vendor-watch 同款判例:local-base_url/local-api-key+disable_thinking+超时预算),随 Step 1 落地并全量门禁。
+
 ### R3 凭据面(keychain→env 适配)
 
 Linux 无 keychain(secrets.py 已有 `keychain_backend_unavailable` 结构化引导;`env:` 引用是文档明载的 Linux 正道)。四组凭据从 Mac 钥匙串导出值,写入服务器 EnvironmentFile(chmod 600):
@@ -31,7 +35,8 @@ Linux 无 keychain(secrets.py 已有 `keychain_backend_unavailable` 结构化引
 | myia/firecrawl/url + api-key | MYIA_FIRECRAWL_URL / MYIA_FIRECRAWL_KEY | wool 被墙源、ai-vendor ZOL 云渲染 |
 | myia/llm/local-base-url + local-api-key | MYIA_LLM_BASE_URL / MYIA_LLM_KEY | ai-news 评分+中文译名(端点裁决 R5) |
 | myia/push/FEISHU_ANALYST_OPEN_ID | MYIA_PUSH_FEISHU_ANALYST_OPEN_ID | 日报投递目标 |
-| 飞书 analyst bot 凭据(FEISHU2_*;实施时从 push 通道凭据解析面盘出全名) | 相应 MYIA_FEISHU2_* | 出站 bot |
+| 飞书 analyst bot(已盘出:BOT_APP_CREDENTIAL_KEYS["analyst"]=(FEISHU2_APP_ID, FEISHU2_APP_SECRET),feishu_card.py:309;字面 env 名) | FEISHU2_APP_ID / FEISHU2_APP_SECRET(**字面名**) | 出站 bot |
+| (target 引用形态)keychain:myia/push/FEISHU_ANALYST_OPEN_ID → env:**FEISHU_ANALYST_OPEN_ID**(钥匙串规范名叶名=环境变量名,resolve_channel_credential 契约 base.py:278) | 同左 | 投递目标 |
 
 - 服务器侧品类配置的 keychain: 引用替换为 env: 形态——**仓库 config 保持 keychain: 不动**(Mac 继续用),部署脚本在服务器副本上做引用改写;零歧义验收 = 服务器任一品类 `--dry-run` 装载过、无 invalid_credential_ref。
 
